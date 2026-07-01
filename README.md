@@ -42,7 +42,7 @@ flowchart TD
     V --> Q{Validated quorum met?}
     Q -- No --> E[RouterError 4401<br/>fail-closed]
     Q -- Yes --> S[Consensus model<br/>example: GPT-5.5]
-    V -. failedAdapters > 0 .-> T[Co-failure telemetry<br/>best effort]
+    V -. failedAdapters > 0 .-> T[Buffered co-failure telemetry<br/>async flush / retry]
 
     S --> F[Final synthesis<br/>Zod-validated]
 ```
@@ -65,7 +65,8 @@ flowchart TD
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`
 - direct HTTP cancellation by threading `AbortSignal` into upstream `fetch`
-- **Co-failure telemetry** capture with an OTLP/HTTP log sink option
+- **Co-failure telemetry** capture with a bounded buffered sink and OTLP/HTTP
+  export option
 - Support for describing multiple auth surfaces without pretending they are all
   the same thing:
   - provider-native direct APIs that usually use API keys
@@ -140,10 +141,32 @@ quorum is missing.
 If the router cannot gather enough validated adapter outputs, it throws a
 structured `RouterError` with status `4401`.
 
-Telemetry is still **best effort** on the request path: sink failures are
-logged, but they do not block the main request. The shipped code includes an
-OTLP/HTTP log sink so correlated failures can be forwarded to
-OpenTelemetry-compatible backends.
+Telemetry is **best effort** on the request path, but no longer direct-inline:
+failed adapter telemetry is enqueued into a bounded in-memory buffer and flushed
+asynchronously. Sink failures are logged/retried without blocking consensus. The
+shipped code includes an OTLP/HTTP log sink so correlated failures can be
+forwarded to OpenTelemetry-compatible backends.
+
+Buffered telemetry defaults:
+
+| Setting              |       Default | Env override                                                                        | Hard cap | Notes                                     |
+| -------------------- | ------------: | ----------------------------------------------------------------------------------- | -------: | ----------------------------------------- |
+| Max queue size       |          1000 | `FUSION_ROUTER_TELEMETRY_MAX_QUEUE`                                                 |    10000 | queue is bounded to avoid OOM             |
+| Overflow policy      |   drop oldest | n/a                                                                                 |      n/a | newest co-failure events are preserved    |
+| Batch size           |            30 | `FUSION_ROUTER_TELEMETRY_MAX_BATCH`                                                 |      500 | flushes at most this many per pass        |
+| Flush interval       |        500 ms | `FUSION_ROUTER_TELEMETRY_FLUSH_INTERVAL_MS`                                         | 60000 ms | background timer is unref'd               |
+| Max attempts         |             5 | `FUSION_ROUTER_TELEMETRY_MAX_ATTEMPTS`                                              |       10 | exhausted events are dropped              |
+| Backoff              | 250 ms → 30 s | `FUSION_ROUTER_TELEMETRY_BASE_BACKOFF_MS`, `FUSION_ROUTER_TELEMETRY_MAX_BACKOFF_MS` | 60s/300s | exponential retry after collector failure |
+| Drain budget         |        200 ms | `FUSION_ROUTER_TELEMETRY_DRAIN_MS`                                                  |  5000 ms | used by explicit shutdown drain           |
+| OTLP request timeout |        500 ms | `FUSION_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS`                                           | 30000 ms | aborts slow collectors                    |
+| Unload hook          |       enabled | `FUSION_ROUTER_TELEMETRY_DISABLE_UNLOAD_HOOK=1`                                     |      n/a | close removes the registered listener     |
+
+`FusionRouter.flushTelemetry()` and `FusionRouter.closeTelemetry()` provide an
+explicit drain API. The default `deno task run` path calls `closeTelemetry()` in
+`finally`, and the buffered sink also registers a best-effort `unload` hook.
+Shutdown `force: true` ignores backoff eligibility for one final delivery pass;
+entries that still fail during that pass are dropped rather than immediately
+requeued, which bounds shutdown traffic and prevents retry storms.
 
 Cancellation is transport-specific:
 
@@ -233,6 +256,7 @@ Dependency update workflow:
 4. Persist budget / circuit-breaker state outside process memory.
 5. Add CI smoke jobs that exercise each installed CLI lane and each mocked
    direct HTTP lane separately.
-6. Replace best-effort telemetry with a buffered async flush / retry sink.
-7. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
+6. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
    dashboards.
+7. Persist buffered telemetry counters to a metrics surface if operators need
+   queue/drop dashboards.

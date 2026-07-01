@@ -180,6 +180,27 @@ function credentialValuesFromEnv(
     .map(([, value]) => value.trim());
 }
 
+function credentialValuesFromUrl(rawUrl: string): string[] {
+  try {
+    const url = new URL(rawUrl);
+    return [url.username, url.password]
+      .map((value) => decodeURIComponent(value).trim())
+      .filter((value) => value.length >= 4);
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeEndpointForDiagnostic(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const authRedaction = url.username || url.password ? "[REDACTED]@" : "";
+    return `${url.protocol}//${authRedaction}${url.host}${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return sanitizeDiagnosticText(rawUrl);
+  }
+}
+
 function ambientCredentialValues(): string[] {
   try {
     return credentialValuesFromEnv(Deno.env.toObject());
@@ -1902,11 +1923,85 @@ function buildCoFailureTelemetry(
   });
 }
 
+export type TelemetryFlushOptions = {
+  maxDurationMs?: number;
+  force?: boolean;
+};
+
+export type BufferedTelemetrySinkStats = {
+  queueSize: number;
+  maxQueueSize: number;
+  enqueued: number;
+  delivered: number;
+  droppedOldest: number;
+  droppedAfterRetries: number;
+  failedFlushes: number;
+  closed: boolean;
+};
+
+export type FlushableTelemetrySink = TelemetrySink & {
+  flush: (options?: TelemetryFlushOptions) => Promise<void>;
+  close: (options?: TelemetryFlushOptions) => Promise<void>;
+  stats: () => BufferedTelemetrySinkStats;
+};
+
 export type OtlpTelemetrySinkOptions = {
   endpoint: string;
   headers?: Record<string, string>;
   serviceName?: string;
+  timeoutMs?: number;
 };
+
+export type BufferedTelemetrySinkOptions = {
+  maxQueueSize?: number;
+  maxBatchSize?: number;
+  flushIntervalMs?: number;
+  maxAttempts?: number;
+  baseBackoffMs?: number;
+  maxBackoffMs?: number;
+  backoffMultiplier?: number;
+  defaultDrainMs?: number;
+  registerUnloadHook?: boolean;
+  now?: () => number;
+};
+
+type BufferedTelemetryEntry = {
+  telemetry: CoFailureTelemetry;
+  attempts: number;
+  nextAttemptAt: number;
+};
+
+const TELEMETRY_MAX_QUEUE_SIZE = 10_000;
+const TELEMETRY_MAX_BATCH_SIZE = 500;
+const TELEMETRY_MAX_FLUSH_INTERVAL_MS = 60_000;
+const TELEMETRY_MAX_ATTEMPTS = 10;
+const TELEMETRY_MAX_BASE_BACKOFF_MS = 60_000;
+const TELEMETRY_MAX_BACKOFF_MS = 300_000;
+const TELEMETRY_MAX_DRAIN_MS = 5_000;
+const TELEMETRY_MAX_HTTP_TIMEOUT_MS = 30_000;
+
+function positiveInteger(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined && value > 0
+    ? Math.floor(value)
+    : fallback;
+}
+
+function boundedInteger(
+  value: number | undefined,
+  fallback: number,
+  max: number,
+): number {
+  return Math.min(positiveInteger(value, fallback), max);
+}
+
+function boundedEnvInteger(
+  name: string,
+  fallback: number,
+  max: number,
+): number {
+  const value = Number(Deno.env.get(name));
+  return boundedInteger(value, fallback, max);
+}
 
 function toOtlpAttribute(
   key: string,
@@ -1973,33 +2068,461 @@ function toOtlpLogPayload(
 export function createOtlpHttpTelemetrySink(
   options: OtlpTelemetrySinkOptions,
 ): TelemetrySink {
+  const timeoutMs = boundedInteger(
+    options.timeoutMs,
+    500,
+    TELEMETRY_MAX_HTTP_TIMEOUT_MS,
+  );
+  const endpointRedactionValues = credentialValuesFromUrl(options.endpoint);
+  const endpointForDiagnostics = sanitizeDiagnosticText(
+    sanitizeEndpointForDiagnostic(options.endpoint),
+    endpointRedactionValues,
+  );
+
   return async (telemetry) => {
-    const response = await fetch(options.endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(options.headers ?? {}),
-      },
-      body: JSON.stringify(
-        toOtlpLogPayload(telemetry, options.serviceName ?? "fusion-router"),
-      ),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    unrefBestEffort(timeoutId);
+
+    let response: Response;
+    try {
+      response = await fetch(options.endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(options.headers ?? {}),
+        },
+        signal: controller.signal,
+        body: JSON.stringify(
+          toOtlpLogPayload(telemetry, options.serviceName ?? "fusion-router"),
+        ),
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ProcessExecutionError(
+          "timeout",
+          `Telemetry sink timed out after ${timeoutMs}ms for ${endpointForDiagnostics}.`,
+          { redactionValues: endpointRedactionValues },
+        );
+      }
+
+      const safeCause = sanitizeDiagnosticText(
+        error instanceof Error ? error.message : String(error),
+        endpointRedactionValues,
+      );
+      throw new ProcessExecutionError(
+        "telemetry_sink_failed",
+        `Telemetry sink request failed for ${endpointForDiagnostics}: ${safeCause}`,
+        { redactionValues: endpointRedactionValues },
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new ProcessExecutionError(
         "telemetry_sink_failed",
-        `Telemetry sink rejected payload with HTTP ${response.status}.`,
+        `Telemetry sink rejected payload with HTTP ${response.status} for ${endpointForDiagnostics}.`,
+        { redactionValues: endpointRedactionValues },
       );
     }
   };
 }
 
+function unrefBestEffort(timerId: ReturnType<typeof setTimeout>): void {
+  try {
+    Deno.unrefTimer(timerId as unknown as number);
+  } catch {
+    // best effort; older runtimes may not expose timer unref
+  }
+}
+
+async function awaitWithDeadline<T>(
+  operation: T | Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  if (timeoutMs <= 0) {
+    throw new ProcessExecutionError(
+      "timeout",
+      "Telemetry sink flush deadline exceeded.",
+    );
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new ProcessExecutionError(
+              "timeout",
+              "Telemetry sink flush deadline exceeded.",
+            ),
+          );
+        }, timeoutMs);
+        unrefBestEffort(timeoutId);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+function isFlushableTelemetrySink(
+  sink: TelemetrySink,
+): sink is FlushableTelemetrySink {
+  return typeof (sink as Partial<FlushableTelemetrySink>).flush ===
+      "function" &&
+    typeof (sink as Partial<FlushableTelemetrySink>).close === "function";
+}
+
+export async function flushTelemetrySink(
+  sink: TelemetrySink | undefined,
+  options: TelemetryFlushOptions = {},
+): Promise<void> {
+  if (sink && isFlushableTelemetrySink(sink)) {
+    await sink.flush(options);
+  }
+}
+
+export async function closeTelemetrySink(
+  sink: TelemetrySink | undefined,
+  options: TelemetryFlushOptions = {},
+): Promise<void> {
+  if (sink && isFlushableTelemetrySink(sink)) {
+    await sink.close(options);
+  }
+}
+
+export function createBufferedTelemetrySink(
+  downstream: TelemetrySink,
+  options: BufferedTelemetrySinkOptions = {},
+): FlushableTelemetrySink {
+  const maxQueueSize = boundedInteger(
+    options.maxQueueSize,
+    1_000,
+    TELEMETRY_MAX_QUEUE_SIZE,
+  );
+  const maxBatchSize = boundedInteger(
+    options.maxBatchSize,
+    30,
+    TELEMETRY_MAX_BATCH_SIZE,
+  );
+  const flushIntervalMs = boundedInteger(
+    options.flushIntervalMs,
+    500,
+    TELEMETRY_MAX_FLUSH_INTERVAL_MS,
+  );
+  const maxAttempts = boundedInteger(
+    options.maxAttempts,
+    5,
+    TELEMETRY_MAX_ATTEMPTS,
+  );
+  const baseBackoffMs = boundedInteger(
+    options.baseBackoffMs,
+    250,
+    TELEMETRY_MAX_BASE_BACKOFF_MS,
+  );
+  const maxBackoffMs = boundedInteger(
+    options.maxBackoffMs,
+    30_000,
+    TELEMETRY_MAX_BACKOFF_MS,
+  );
+  const backoffMultiplier = Math.max(options.backoffMultiplier ?? 2, 1);
+  const defaultDrainMs = boundedInteger(
+    options.defaultDrainMs,
+    200,
+    TELEMETRY_MAX_DRAIN_MS,
+  );
+  const now = options.now ?? (() => Date.now());
+
+  const queue: Array<BufferedTelemetryEntry | undefined> = new Array(
+    maxQueueSize,
+  );
+  let queueHead = 0;
+  let queueSizeValue = 0;
+  let timerId: ReturnType<typeof setTimeout> | undefined;
+  let closed = false;
+  let flushChain: Promise<void> = Promise.resolve();
+  let unloadHandler: (() => void) | undefined;
+  const stats = {
+    enqueued: 0,
+    delivered: 0,
+    droppedOldest: 0,
+    droppedAfterRetries: 0,
+    failedFlushes: 0,
+  };
+
+  const queueSize = () => queueSizeValue;
+
+  const queueIndex = (offset: number) => (queueHead + offset) % maxQueueSize;
+
+  const snapshot = (): BufferedTelemetrySinkStats => ({
+    queueSize: queueSize(),
+    maxQueueSize,
+    enqueued: stats.enqueued,
+    delivered: stats.delivered,
+    droppedOldest: stats.droppedOldest,
+    droppedAfterRetries: stats.droppedAfterRetries,
+    failedFlushes: stats.failedFlushes,
+    closed,
+  });
+
+  const clearFlushTimer = () => {
+    if (timerId !== undefined) {
+      clearTimeout(timerId);
+      timerId = undefined;
+    }
+  };
+
+  const removeUnloadHook = () => {
+    if (unloadHandler) {
+      globalThis.removeEventListener("unload", unloadHandler);
+      unloadHandler = undefined;
+    }
+  };
+
+  const enqueueEntry = (entry: BufferedTelemetryEntry) => {
+    if (queueSizeValue === maxQueueSize) {
+      queue[queueHead] = entry;
+      queueHead = (queueHead + 1) % maxQueueSize;
+      stats.droppedOldest += 1;
+      return;
+    }
+
+    queue[queueIndex(queueSizeValue)] = entry;
+    queueSizeValue += 1;
+  };
+
+  const resetQueueFrom = (entries: BufferedTelemetryEntry[]) => {
+    queue.fill(undefined);
+    queueHead = 0;
+    queueSizeValue = entries.length;
+    entries.forEach((entry, index) => {
+      queue[index] = entry;
+    });
+  };
+
+  const retryDelayMs = (attempts: number) =>
+    Math.min(
+      Math.ceil(baseBackoffMs * backoffMultiplier ** Math.max(0, attempts - 1)),
+      maxBackoffMs,
+    );
+
+  const entriesInOrder = (): BufferedTelemetryEntry[] => {
+    const entries: BufferedTelemetryEntry[] = [];
+    for (let offset = 0; offset < queueSizeValue; offset += 1) {
+      const entry = queue[queueIndex(offset)];
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+    return entries;
+  };
+
+  const nextDelayMs = () => {
+    if (queueSize() === 0) {
+      return flushIntervalMs;
+    }
+
+    const nextAttemptAt = Math.min(
+      ...entriesInOrder().map((entry) => entry.nextAttemptAt),
+    );
+    return Math.min(
+      flushIntervalMs,
+      Math.max(0, nextAttemptAt - now()),
+    );
+  };
+
+  const scheduleFlush = (delayMs = flushIntervalMs) => {
+    if (closed) {
+      return;
+    }
+
+    if (timerId !== undefined) {
+      if (delayMs > 0) {
+        return;
+      }
+      clearFlushTimer();
+    }
+
+    timerId = setTimeout(() => {
+      timerId = undefined;
+      void sink.flush().catch((error) => {
+        console.warn(
+          `Telemetry buffered flush failure: ${errorMessage(error)}`,
+        );
+      });
+    }, delayMs);
+    unrefBestEffort(timerId);
+  };
+
+  const selectEligibleBatch = (force: boolean): BufferedTelemetryEntry[] => {
+    const batch: BufferedTelemetryEntry[] = [];
+    const remaining: BufferedTelemetryEntry[] = [];
+    const timestamp = now();
+
+    for (const entry of entriesInOrder()) {
+      if (
+        batch.length < maxBatchSize &&
+        (force || entry.nextAttemptAt <= timestamp)
+      ) {
+        batch.push(entry);
+      } else {
+        remaining.push(entry);
+      }
+    }
+
+    resetQueueFrom(remaining);
+    return batch;
+  };
+
+  const requeueAfterFailure = (
+    entry: BufferedTelemetryEntry,
+    force: boolean,
+  ) => {
+    const attempts = entry.attempts + 1;
+    if (force || attempts >= maxAttempts) {
+      stats.droppedAfterRetries += 1;
+      return;
+    }
+
+    enqueueEntry({
+      telemetry: entry.telemetry,
+      attempts,
+      nextAttemptAt: now() + retryDelayMs(attempts),
+    });
+  };
+
+  const flushBatch = async (
+    force: boolean,
+    deadline: number,
+  ): Promise<boolean> => {
+    if (now() >= deadline) {
+      return false;
+    }
+
+    const batch = selectEligibleBatch(force);
+    if (batch.length === 0) {
+      return false;
+    }
+
+    for (const entry of batch) {
+      if (now() >= deadline) {
+        enqueueEntry(entry);
+        continue;
+      }
+
+      try {
+        await awaitWithDeadline(downstream(entry.telemetry), deadline - now());
+        stats.delivered += 1;
+      } catch {
+        stats.failedFlushes += 1;
+        requeueAfterFailure(entry, force);
+      }
+    }
+
+    return true;
+  };
+
+  const drain = async (options: TelemetryFlushOptions = {}) => {
+    const force = options.force ?? false;
+    const maxDurationMs = boundedInteger(
+      options.maxDurationMs,
+      defaultDrainMs,
+      TELEMETRY_MAX_DRAIN_MS,
+    );
+    const deadline = now() + maxDurationMs;
+
+    clearFlushTimer();
+
+    while (queueSize() > 0 && now() < deadline) {
+      const progressed = await flushBatch(force, deadline);
+      if (!progressed) {
+        break;
+      }
+
+      if (!force) {
+        break;
+      }
+    }
+
+    if (!closed && queueSize() > 0) {
+      scheduleFlush(nextDelayMs());
+    }
+  };
+
+  const sink = ((telemetry: CoFailureTelemetry) => {
+    if (closed) {
+      stats.droppedAfterRetries += 1;
+      return;
+    }
+
+    stats.enqueued += 1;
+    enqueueEntry({ telemetry, attempts: 0, nextAttemptAt: now() });
+    scheduleFlush(queueSize() >= maxBatchSize ? 0 : flushIntervalMs);
+  }) as FlushableTelemetrySink;
+
+  sink.flush = async (flushOptions: TelemetryFlushOptions = {}) => {
+    flushChain = flushChain.then(() => drain(flushOptions));
+    await flushChain;
+  };
+
+  sink.close = async (flushOptions: TelemetryFlushOptions = {}) => {
+    closed = true;
+    clearFlushTimer();
+    removeUnloadHook();
+    flushChain = flushChain.then(() =>
+      drain({
+        maxDurationMs: flushOptions.maxDurationMs ?? defaultDrainMs,
+        force: flushOptions.force ?? true,
+      })
+    );
+    await flushChain;
+  };
+
+  sink.stats = snapshot;
+
+  if (options.registerUnloadHook ?? true) {
+    unloadHandler = () => {
+      void sink.flush({ maxDurationMs: defaultDrainMs, force: true });
+    };
+    globalThis.addEventListener("unload", unloadHandler, { once: true });
+  }
+
+  return sink;
+}
+
 export function createCompositeTelemetrySink(
   ...sinks: TelemetrySink[]
-): TelemetrySink {
-  return async (telemetry) => {
+): FlushableTelemetrySink {
+  const composite = (async (telemetry: CoFailureTelemetry) => {
     await Promise.all(sinks.map((sink) => sink(telemetry)));
+  }) as FlushableTelemetrySink;
+
+  composite.flush = async (options: TelemetryFlushOptions = {}) => {
+    await Promise.all(sinks.map((sink) => flushTelemetrySink(sink, options)));
   };
+
+  composite.close = async (options: TelemetryFlushOptions = {}) => {
+    await Promise.all(sinks.map((sink) => closeTelemetrySink(sink, options)));
+  };
+
+  composite.stats = () => ({
+    queueSize: 0,
+    maxQueueSize: 0,
+    enqueued: 0,
+    delivered: 0,
+    droppedOldest: 0,
+    droppedAfterRetries: 0,
+    failedFlushes: 0,
+    closed: false,
+  });
+
+  return composite;
 }
 
 async function publishTelemetryBestEffort(
@@ -2053,6 +2576,14 @@ export class FusionRouter {
     }
 
     this.telemetrySink = options.telemetrySink;
+  }
+
+  async flushTelemetry(options: TelemetryFlushOptions = {}): Promise<void> {
+    await flushTelemetrySink(this.telemetrySink, options);
+  }
+
+  async closeTelemetry(options: TelemetryFlushOptions = {}): Promise<void> {
+    await closeTelemetrySink(this.telemetrySink, options);
   }
 
   async route(prompt: string): Promise<FinalSynthesis> {
@@ -2127,9 +2658,55 @@ function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
     return undefined;
   }
 
-  return createOtlpHttpTelemetrySink({
+  const otlpSink = createOtlpHttpTelemetrySink({
     endpoint,
     serviceName: "fusion-router",
+    timeoutMs: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS",
+      500,
+      TELEMETRY_MAX_HTTP_TIMEOUT_MS,
+    ),
+  });
+
+  return createBufferedTelemetrySink(otlpSink, {
+    maxQueueSize: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_MAX_QUEUE",
+      1_000,
+      TELEMETRY_MAX_QUEUE_SIZE,
+    ),
+    maxBatchSize: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_MAX_BATCH",
+      30,
+      TELEMETRY_MAX_BATCH_SIZE,
+    ),
+    flushIntervalMs: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_FLUSH_INTERVAL_MS",
+      500,
+      TELEMETRY_MAX_FLUSH_INTERVAL_MS,
+    ),
+    maxAttempts: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_MAX_ATTEMPTS",
+      5,
+      TELEMETRY_MAX_ATTEMPTS,
+    ),
+    baseBackoffMs: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_BASE_BACKOFF_MS",
+      250,
+      TELEMETRY_MAX_BASE_BACKOFF_MS,
+    ),
+    maxBackoffMs: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_MAX_BACKOFF_MS",
+      30_000,
+      TELEMETRY_MAX_BACKOFF_MS,
+    ),
+    defaultDrainMs: boundedEnvInteger(
+      "FUSION_ROUTER_TELEMETRY_DRAIN_MS",
+      200,
+      TELEMETRY_MAX_DRAIN_MS,
+    ),
+    registerUnloadHook: !envFlagEnabled(
+      "FUSION_ROUTER_TELEMETRY_DISABLE_UNLOAD_HOOK",
+    ),
   });
 }
 
@@ -2227,8 +2804,10 @@ function createDefaultRouter(): FusionRouter {
 }
 
 if (import.meta.main) {
+  let router: FusionRouter | undefined;
+
   try {
-    const router = createDefaultRouter();
+    router = createDefaultRouter();
     const result = await router.route(
       "Explain the impact of quantum computing on encryption.",
     );
@@ -2245,5 +2824,16 @@ if (import.meta.main) {
     } else {
       console.error("Router Error:", String(error));
     }
+  } finally {
+    await router?.closeTelemetry({
+      maxDurationMs: boundedEnvInteger(
+        "FUSION_ROUTER_TELEMETRY_DRAIN_MS",
+        200,
+        TELEMETRY_MAX_DRAIN_MS,
+      ),
+      force: true,
+    }).catch((error) => {
+      console.warn(`Telemetry shutdown drain failure: ${errorMessage(error)}`);
+    });
   }
 }

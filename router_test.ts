@@ -1,5 +1,7 @@
 import {
+  CoFailureTelemetry,
   createAnthropicDirectAdapter,
+  createBufferedTelemetrySink,
   createOpenAIDirectAdapter,
   createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
@@ -66,6 +68,22 @@ class InvalidSynthesisAdapter implements SynthesisAdapter {
       sources: [],
     }));
   }
+}
+
+function telemetryFixture(message: string): CoFailureTelemetry {
+  return {
+    totalAdapters: 2,
+    successfulAdapters: 1,
+    failedAdapters: 1,
+    failures: [
+      {
+        provider: "Fixture",
+        model: "telemetry",
+        code: "process_failed",
+        message,
+      },
+    ],
+  };
 }
 
 function buildRouter(
@@ -445,6 +463,294 @@ Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
       (attribute.value as Record<string, unknown>).intValue === 2
     ),
   );
+});
+
+Deno.test("OTLP telemetry sink times out slow collectors", async () => {
+  const abortController = new AbortController();
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, signal: abortController.signal },
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return new Response("ok", { status: 200 });
+    },
+  );
+  const port = (server.addr as Deno.NetAddr).port;
+
+  const sink = createOtlpHttpTelemetrySink({
+    endpoint: `http://127.0.0.1:${port}/v1/logs`,
+    serviceName: "fusion-router-test",
+    timeoutMs: 5,
+  });
+
+  const error = await assertRejects(
+    async () => await sink(telemetryFixture("slow collector")),
+    ProcessExecutionError,
+  );
+
+  abortController.abort();
+  await server.finished;
+
+  assertEquals(error.codeName, "timeout");
+});
+
+Deno.test("OTLP telemetry sink redacts endpoint credentials in errors", async () => {
+  const sink = createOtlpHttpTelemetrySink({
+    endpoint: "http://telemetry-user:telemetry-pass@127.0.0.1:1/v1/logs",
+    serviceName: "fusion-router-test",
+    timeoutMs: 5,
+  });
+
+  const error = await assertRejects(
+    async () => await sink(telemetryFixture("endpoint credentials")),
+    ProcessExecutionError,
+  );
+  const surface = `${error.message} ${error.stdout} ${error.stderr}`;
+
+  assert(!surface.includes("telemetry-user"));
+  assert(!surface.includes("telemetry-pass"));
+  assertStringIncludes(surface, "[REDACTED]@");
+});
+
+Deno.test("buffered telemetry sink drops oldest when bounded", async () => {
+  const delivered: string[] = [];
+  const sink = createBufferedTelemetrySink(
+    (telemetry) => {
+      delivered.push(telemetry.failures[0].message);
+    },
+    {
+      maxQueueSize: 2,
+      maxBatchSize: 10,
+      flushIntervalMs: 60_000,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("oldest"));
+  sink(telemetryFixture("middle"));
+  sink(telemetryFixture("newest"));
+
+  assertEquals(sink.stats().queueSize, 2);
+  assertEquals(sink.stats().droppedOldest, 1);
+  assertEquals(sink.stats().enqueued, 3);
+
+  await sink.close({ force: true, maxDurationMs: 100 });
+
+  assertEquals(delivered, ["middle", "newest"]);
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().closed, true);
+});
+Deno.test("buffered telemetry sink caps configured queue size", async () => {
+  const sink = createBufferedTelemetrySink(() => {}, {
+    maxQueueSize: 1_000_000,
+    flushIntervalMs: 60_000,
+    registerUnloadHook: false,
+  });
+
+  assertEquals(sink.stats().maxQueueSize, 10_000);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("buffered telemetry sink flushes immediately at batch size", async () => {
+  const delivered: string[] = [];
+  const sink = createBufferedTelemetrySink(
+    (telemetry) => {
+      delivered.push(telemetry.failures[0].message);
+    },
+    {
+      maxBatchSize: 2,
+      flushIntervalMs: 60_000,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("first"));
+  sink(telemetryFixture("second"));
+  for (let attempt = 0; attempt < 10 && delivered.length < 2; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+
+  assertEquals(delivered, ["first", "second"]);
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().delivered, 2);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("buffered telemetry sink retries after transient failure", async () => {
+  let currentTime = 1_000;
+  let calls = 0;
+  const delivered: string[] = [];
+  const sink = createBufferedTelemetrySink(
+    (telemetry) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error("collector unavailable");
+      }
+      delivered.push(telemetry.failures[0].message);
+    },
+    {
+      maxBatchSize: 1,
+      flushIntervalMs: 60_000,
+      baseBackoffMs: 100,
+      maxBackoffMs: 100,
+      maxAttempts: 3,
+      now: () => currentTime,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("retry-me"));
+  await sink.flush({ maxDurationMs: 50 });
+
+  assertEquals(calls, 1);
+  assertEquals(delivered, []);
+  assertEquals(sink.stats().failedFlushes, 1);
+  assertEquals(sink.stats().queueSize, 1);
+
+  currentTime += 100;
+  await sink.flush({ maxDurationMs: 50 });
+
+  assertEquals(calls, 2);
+  assertEquals(delivered, ["retry-me"]);
+  assertEquals(sink.stats().delivered, 1);
+  assertEquals(sink.stats().queueSize, 0);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("buffered telemetry sink close force-drains backoff queue", async () => {
+  const currentTime = 1_000;
+  let calls = 0;
+  const delivered: string[] = [];
+  const sink = createBufferedTelemetrySink(
+    (telemetry) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error("collector unavailable");
+      }
+      delivered.push(telemetry.failures[0].message);
+    },
+    {
+      maxBatchSize: 1,
+      flushIntervalMs: 60_000,
+      baseBackoffMs: 10_000,
+      maxBackoffMs: 10_000,
+      maxAttempts: 3,
+      now: () => currentTime,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("shutdown-critical"));
+  await sink.flush({ maxDurationMs: 50 });
+
+  assertEquals(sink.stats().queueSize, 1);
+  assertEquals(delivered, []);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+
+  assertEquals(calls, 2);
+  assertEquals(delivered, ["shutdown-critical"]);
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().closed, true);
+});
+
+Deno.test("buffered telemetry sink close does not retry failures in a tight loop", async () => {
+  let calls = 0;
+  const sink = createBufferedTelemetrySink(
+    () => {
+      calls += 1;
+      throw new Error("collector still down");
+    },
+    {
+      maxBatchSize: 1,
+      maxAttempts: 10,
+      defaultDrainMs: 500,
+      flushIntervalMs: 60_000,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("shutdown-fail"));
+  await sink.close({ force: true, maxDurationMs: 500 });
+
+  assertEquals(calls, 1);
+  assertEquals(sink.stats().failedFlushes, 1);
+  assertEquals(sink.stats().droppedAfterRetries, 1);
+  assertEquals(sink.stats().queueSize, 0);
+});
+
+Deno.test("buffered telemetry sink removes unload hook on close", async () => {
+  const originalAddEventListener = globalThis.addEventListener;
+  const originalRemoveEventListener = globalThis.removeEventListener;
+  let addedUnloadListener: EventListenerOrEventListenerObject | undefined;
+  let removedUnloadListener: EventListenerOrEventListenerObject | undefined;
+
+  globalThis.addEventListener = ((
+    type: Parameters<typeof globalThis.addEventListener>[0],
+    listener: Parameters<typeof globalThis.addEventListener>[1],
+    options?: Parameters<typeof globalThis.addEventListener>[2],
+  ) => {
+    if (type === "unload") {
+      addedUnloadListener = listener;
+    }
+    return originalAddEventListener.call(globalThis, type, listener, options);
+  }) as typeof globalThis.addEventListener;
+  globalThis.removeEventListener = ((
+    type: Parameters<typeof globalThis.removeEventListener>[0],
+    listener: Parameters<typeof globalThis.removeEventListener>[1],
+    options?: Parameters<typeof globalThis.removeEventListener>[2],
+  ) => {
+    if (type === "unload") {
+      removedUnloadListener = listener;
+    }
+    return originalRemoveEventListener.call(
+      globalThis,
+      type,
+      listener,
+      options,
+    );
+  }) as typeof globalThis.removeEventListener;
+
+  try {
+    const sink = createBufferedTelemetrySink(() => {}, {
+      flushIntervalMs: 60_000,
+    });
+    await sink.close({ force: true, maxDurationMs: 50 });
+
+    assert(addedUnloadListener !== undefined);
+    assertEquals(removedUnloadListener, addedUnloadListener);
+  } finally {
+    globalThis.addEventListener = originalAddEventListener;
+    globalThis.removeEventListener = originalRemoveEventListener;
+  }
+});
+
+Deno.test("buffered telemetry sink drain budget limits slow downstream", async () => {
+  const sink = createBufferedTelemetrySink(
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    },
+    {
+      maxBatchSize: 1,
+      flushIntervalMs: 60_000,
+      maxAttempts: 3,
+      registerUnloadHook: false,
+    },
+  );
+
+  sink(telemetryFixture("slow-drain"));
+  const started = Date.now();
+  await sink.flush({ force: true, maxDurationMs: 5 });
+  const elapsedMs = Date.now() - started;
+
+  assert(elapsedMs < 40);
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().failedFlushes, 1);
+  assertEquals(sink.stats().droppedAfterRetries, 1);
+
+  await sink.close({ force: true, maxDurationMs: 5 });
 });
 
 Deno.test("zcode-style stdout error is treated as failure", async () => {
