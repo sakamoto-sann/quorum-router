@@ -122,7 +122,17 @@ direct
 agent_chat
 ```
 
-The future environment setting is:
+The minimal config-file shape is now:
+
+```json
+{
+  "routing": {
+    "mode": "direct"
+  }
+}
+```
+
+The environment setting is:
 
 ```dotenv
 FUSION_ROUTER_MODE=direct
@@ -130,8 +140,9 @@ FUSION_ROUTER_MODE=agent_chat
 ```
 
 Invalid values fail closed before adapter execution. Examples of invalid values:
-`auto`, `agent`, `chat`, `default`, empty strings passed as explicit request
-metadata, and any unknown future-looking value.
+`auto`, `agent`, `chat`, `default`, empty strings passed as explicit request or
+config values, malformed JSON, a config with the wrong shape, non-string
+`routing.mode`, and any unknown future-looking value.
 
 ### Selection surfaces
 
@@ -324,13 +335,16 @@ boundary.
 
 ## Implementation status
 
-Implemented in slice 1:
+Implemented in slices 1 and 2:
 
 - routing mode parser for `direct` and `agent_chat`;
+- config loader skeleton for `fusion-router.config.json` using only
+  `routing.mode`;
 - default mode of `direct`;
 - fail-closed handling for invalid explicit values, including explicit empty
-  strings;
-- selection precedence: request metadata > router config > `FUSION_ROUTER_MODE`
+  strings, malformed config JSON, wrong config shape, non-string config values,
+  and unknown mode strings;
+- selection precedence: request metadata > config file > `FUSION_ROUTER_MODE`
   > default;
 - `direct` connected to the existing router flow;
 - `agent_chat` recognized but not implemented, with fail-closed behavior before
