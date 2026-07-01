@@ -1928,22 +1928,43 @@ export type TelemetryFlushOptions = {
   force?: boolean;
 };
 
-export type BufferedTelemetrySinkStats = {
+export type BufferedSinkOverflowPolicy = "drop_oldest" | "fail_closed";
+export type BufferedSinkDeliveryMode = "best_effort" | "must_accept";
+
+export type BufferedSinkFlushContext = {
+  deadlineMs: number;
+};
+
+export type BufferedBatchHandler<TRecord> = (
+  records: readonly TRecord[],
+  context: BufferedSinkFlushContext,
+) => void | Promise<void>;
+
+export type BufferedBatchSinkStats = {
   queueSize: number;
   maxQueueSize: number;
   enqueued: number;
   delivered: number;
+  rejected: number;
   droppedOldest: number;
   droppedAfterRetries: number;
   failedFlushes: number;
   closed: boolean;
 };
 
-export type FlushableTelemetrySink = TelemetrySink & {
-  flush: (options?: TelemetryFlushOptions) => Promise<void>;
-  close: (options?: TelemetryFlushOptions) => Promise<void>;
-  stats: () => BufferedTelemetrySinkStats;
-};
+export type BufferedBatchSink<TRecord> =
+  & ((
+    record: TRecord,
+  ) => void | Promise<void>)
+  & {
+    flush: (options?: TelemetryFlushOptions) => Promise<void>;
+    close: (options?: TelemetryFlushOptions) => Promise<void>;
+    stats: () => BufferedBatchSinkStats;
+  };
+
+export type BufferedTelemetrySinkStats = BufferedBatchSinkStats;
+
+export type FlushableTelemetrySink = BufferedBatchSink<CoFailureTelemetry>;
 
 export type OtlpTelemetrySinkOptions = {
   endpoint: string;
@@ -1952,7 +1973,8 @@ export type OtlpTelemetrySinkOptions = {
   timeoutMs?: number;
 };
 
-export type BufferedTelemetrySinkOptions = {
+export type BufferedBatchSinkOptions = {
+  name?: string;
   maxQueueSize?: number;
   maxBatchSize?: number;
   flushIntervalMs?: number;
@@ -1962,13 +1984,33 @@ export type BufferedTelemetrySinkOptions = {
   backoffMultiplier?: number;
   defaultDrainMs?: number;
   registerUnloadHook?: boolean;
+  overflowPolicy?: BufferedSinkOverflowPolicy;
+  deliveryMode?: BufferedSinkDeliveryMode;
   now?: () => number;
 };
 
-type BufferedTelemetryEntry = {
-  telemetry: CoFailureTelemetry;
+export type BufferedTelemetrySinkOptions = BufferedBatchSinkOptions;
+
+type BufferedBatchEntry<TRecord> = {
+  record: TRecord;
   attempts: number;
   nextAttemptAt: number;
+};
+
+export type SupabaseAuditRecord = {
+  eventType: string;
+  actorType: "ai_assistant" | "user" | "system";
+  actorId?: string;
+  workflowId?: string;
+  route?: string;
+  decision: "allow" | "deny" | "error";
+  reason?: string;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+};
+
+export type SupabaseAuditSinkOptions = BufferedBatchSinkOptions & {
+  flushHandler: BufferedBatchHandler<SupabaseAuditRecord>;
 };
 
 const TELEMETRY_MAX_QUEUE_SIZE = 10_000;
@@ -2015,28 +2057,40 @@ function toOtlpAttribute(
 }
 
 function toOtlpLogPayload(
-  telemetry: CoFailureTelemetry,
+  telemetry: CoFailureTelemetry | readonly CoFailureTelemetry[],
   serviceName: string,
 ): Record<string, unknown> {
-  const attributes: Record<string, unknown>[] = [
-    toOtlpAttribute("fusion.total_adapters", telemetry.totalAdapters),
-    toOtlpAttribute("fusion.successful_adapters", telemetry.successfulAdapters),
-    toOtlpAttribute("fusion.failed_adapters", telemetry.failedAdapters),
-  ];
+  const records: readonly CoFailureTelemetry[] = Array.isArray(telemetry)
+    ? telemetry
+    : [telemetry];
+  const logRecords = records.map((record) => {
+    const attributes: Record<string, unknown>[] = [
+      toOtlpAttribute("fusion.total_adapters", record.totalAdapters),
+      toOtlpAttribute("fusion.successful_adapters", record.successfulAdapters),
+      toOtlpAttribute("fusion.failed_adapters", record.failedAdapters),
+    ];
 
-  telemetry.failures.forEach((failure, index) => {
-    attributes.push(
-      toOtlpAttribute(`fusion.failures.${index}.provider`, failure.provider),
-    );
-    attributes.push(
-      toOtlpAttribute(`fusion.failures.${index}.model`, failure.model),
-    );
-    attributes.push(
-      toOtlpAttribute(`fusion.failures.${index}.code`, failure.code),
-    );
-    attributes.push(
-      toOtlpAttribute(`fusion.failures.${index}.message`, failure.message),
-    );
+    record.failures.forEach((failure: TelemetryFailure, index: number) => {
+      attributes.push(
+        toOtlpAttribute(`fusion.failures.${index}.provider`, failure.provider),
+      );
+      attributes.push(
+        toOtlpAttribute(`fusion.failures.${index}.model`, failure.model),
+      );
+      attributes.push(
+        toOtlpAttribute(`fusion.failures.${index}.code`, failure.code),
+      );
+      attributes.push(
+        toOtlpAttribute(`fusion.failures.${index}.message`, failure.message),
+      );
+    });
+
+    return {
+      timeUnixNano: `${Date.now()}000000`,
+      severityText: "WARN",
+      body: { stringValue: "co_failure_telemetry" },
+      attributes,
+    };
   });
 
   return {
@@ -2050,14 +2104,7 @@ function toOtlpLogPayload(
         scopeLogs: [
           {
             scope: { name: "fusion-router" },
-            logRecords: [
-              {
-                timeUnixNano: `${Date.now()}000000`,
-                severityText: "WARN",
-                body: { stringValue: "co_failure_telemetry" },
-                attributes,
-              },
-            ],
+            logRecords,
           },
         ],
       },
@@ -2068,6 +2115,13 @@ function toOtlpLogPayload(
 export function createOtlpHttpTelemetrySink(
   options: OtlpTelemetrySinkOptions,
 ): TelemetrySink {
+  const handler = createOtlpTelemetryHandler(options);
+  return (telemetry) => handler([telemetry], { deadlineMs: Date.now() + 500 });
+}
+
+export function createOtlpTelemetryHandler(
+  options: OtlpTelemetrySinkOptions,
+): BufferedBatchHandler<CoFailureTelemetry> {
   const timeoutMs = boundedInteger(
     options.timeoutMs,
     500,
@@ -2079,7 +2133,7 @@ export function createOtlpHttpTelemetrySink(
     endpointRedactionValues,
   );
 
-  return async (telemetry) => {
+  return async (records) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     unrefBestEffort(timeoutId);
@@ -2094,7 +2148,7 @@ export function createOtlpHttpTelemetrySink(
         },
         signal: controller.signal,
         body: JSON.stringify(
-          toOtlpLogPayload(telemetry, options.serviceName ?? "fusion-router"),
+          toOtlpLogPayload(records, options.serviceName ?? "fusion-router"),
         ),
       });
     } catch (error) {
@@ -2144,7 +2198,7 @@ async function awaitWithDeadline<T>(
   if (timeoutMs <= 0) {
     throw new ProcessExecutionError(
       "timeout",
-      "Telemetry sink flush deadline exceeded.",
+      "Buffered sink flush deadline exceeded.",
     );
   }
 
@@ -2157,7 +2211,7 @@ async function awaitWithDeadline<T>(
           reject(
             new ProcessExecutionError(
               "timeout",
-              "Telemetry sink flush deadline exceeded.",
+              "Buffered sink flush deadline exceeded.",
             ),
           );
         }, timeoutMs);
@@ -2197,10 +2251,23 @@ export async function closeTelemetrySink(
   }
 }
 
-export function createBufferedTelemetrySink(
-  downstream: TelemetrySink,
-  options: BufferedTelemetrySinkOptions = {},
-): FlushableTelemetrySink {
+function bufferedSinkError(
+  name: string,
+  message: string,
+): ProcessExecutionError {
+  return new ProcessExecutionError(
+    "buffered_sink_failed",
+    `${name}: ${message}`,
+  );
+}
+
+export function createBufferedBatchSink<TRecord>(
+  handler: BufferedBatchHandler<TRecord>,
+  options: BufferedBatchSinkOptions = {},
+): BufferedBatchSink<TRecord> {
+  const name = options.name ?? "buffered_sink";
+  const overflowPolicy = options.overflowPolicy ?? "drop_oldest";
+  const deliveryMode = options.deliveryMode ?? "best_effort";
   const maxQueueSize = boundedInteger(
     options.maxQueueSize,
     1_000,
@@ -2239,7 +2306,7 @@ export function createBufferedTelemetrySink(
   );
   const now = options.now ?? (() => Date.now());
 
-  const queue: Array<BufferedTelemetryEntry | undefined> = new Array(
+  const queue: Array<BufferedBatchEntry<TRecord> | undefined> = new Array(
     maxQueueSize,
   );
   let queueHead = 0;
@@ -2251,20 +2318,21 @@ export function createBufferedTelemetrySink(
   const stats = {
     enqueued: 0,
     delivered: 0,
+    rejected: 0,
     droppedOldest: 0,
     droppedAfterRetries: 0,
     failedFlushes: 0,
   };
 
   const queueSize = () => queueSizeValue;
-
   const queueIndex = (offset: number) => (queueHead + offset) % maxQueueSize;
 
-  const snapshot = (): BufferedTelemetrySinkStats => ({
+  const snapshot = (): BufferedBatchSinkStats => ({
     queueSize: queueSize(),
     maxQueueSize,
     enqueued: stats.enqueued,
     delivered: stats.delivered,
+    rejected: stats.rejected,
     droppedOldest: stats.droppedOldest,
     droppedAfterRetries: stats.droppedAfterRetries,
     failedFlushes: stats.failedFlushes,
@@ -2285,8 +2353,13 @@ export function createBufferedTelemetrySink(
     }
   };
 
-  const enqueueEntry = (entry: BufferedTelemetryEntry) => {
+  const enqueueEntry = (entry: BufferedBatchEntry<TRecord>) => {
     if (queueSizeValue === maxQueueSize) {
+      if (overflowPolicy === "fail_closed") {
+        stats.rejected += 1;
+        throw bufferedSinkError(name, "queue is full");
+      }
+
       queue[queueHead] = entry;
       queueHead = (queueHead + 1) % maxQueueSize;
       stats.droppedOldest += 1;
@@ -2297,7 +2370,7 @@ export function createBufferedTelemetrySink(
     queueSizeValue += 1;
   };
 
-  const resetQueueFrom = (entries: BufferedTelemetryEntry[]) => {
+  const resetQueueFrom = (entries: BufferedBatchEntry<TRecord>[]) => {
     queue.fill(undefined);
     queueHead = 0;
     queueSizeValue = entries.length;
@@ -2312,8 +2385,8 @@ export function createBufferedTelemetrySink(
       maxBackoffMs,
     );
 
-  const entriesInOrder = (): BufferedTelemetryEntry[] => {
-    const entries: BufferedTelemetryEntry[] = [];
+  const entriesInOrder = (): BufferedBatchEntry<TRecord>[] => {
+    const entries: BufferedBatchEntry<TRecord>[] = [];
     for (let offset = 0; offset < queueSizeValue; offset += 1) {
       const entry = queue[queueIndex(offset)];
       if (entry) {
@@ -2338,7 +2411,7 @@ export function createBufferedTelemetrySink(
   };
 
   const scheduleFlush = (delayMs = flushIntervalMs) => {
-    if (closed) {
+    if (closed || deliveryMode === "must_accept") {
       return;
     }
 
@@ -2352,17 +2425,20 @@ export function createBufferedTelemetrySink(
     timerId = setTimeout(() => {
       timerId = undefined;
       void sink.flush().catch((error) => {
-        console.warn(
-          `Telemetry buffered flush failure: ${errorMessage(error)}`,
-        );
+        console.warn(`${name} buffered flush failure: ${errorMessage(error)}`);
       });
     }, delayMs);
     unrefBestEffort(timerId);
   };
 
-  const selectEligibleBatch = (force: boolean): BufferedTelemetryEntry[] => {
-    const batch: BufferedTelemetryEntry[] = [];
-    const remaining: BufferedTelemetryEntry[] = [];
+  const planEligibleBatch = (
+    force: boolean,
+  ): {
+    batch: BufferedBatchEntry<TRecord>[];
+    remaining: BufferedBatchEntry<TRecord>[];
+  } => {
+    const batch: BufferedBatchEntry<TRecord>[] = [];
+    const remaining: BufferedBatchEntry<TRecord>[] = [];
     const timestamp = now();
 
     for (const entry of entriesInOrder()) {
@@ -2376,59 +2452,101 @@ export function createBufferedTelemetrySink(
       }
     }
 
+    return { batch, remaining };
+  };
+
+  const selectEligibleBatch = (
+    force: boolean,
+  ): BufferedBatchEntry<TRecord>[] => {
+    const { batch, remaining } = planEligibleBatch(force);
     resetQueueFrom(remaining);
     return batch;
   };
 
+  const peekEligibleBatch = (
+    force: boolean,
+  ): BufferedBatchEntry<TRecord>[] => planEligibleBatch(force).batch;
+
+  const removeBatchEntries = (
+    batch: BufferedBatchEntry<TRecord>[],
+  ): void => {
+    const selected = new Set(batch);
+    resetQueueFrom(entriesInOrder().filter((entry) => !selected.has(entry)));
+  };
+
   const requeueAfterFailure = (
-    entry: BufferedTelemetryEntry,
+    entries: BufferedBatchEntry<TRecord>[],
     force: boolean,
   ) => {
-    const attempts = entry.attempts + 1;
-    if (force || attempts >= maxAttempts) {
-      stats.droppedAfterRetries += 1;
-      return;
-    }
+    for (const entry of entries) {
+      const attempts = entry.attempts + 1;
+      if (force || attempts >= maxAttempts) {
+        stats.droppedAfterRetries += 1;
+        continue;
+      }
 
-    enqueueEntry({
-      telemetry: entry.telemetry,
-      attempts,
-      nextAttemptAt: now() + retryDelayMs(attempts),
-    });
+      enqueueEntry({
+        record: entry.record,
+        attempts,
+        nextAttemptAt: now() + retryDelayMs(attempts),
+      });
+    }
+  };
+
+  const prependEntries = (entries: BufferedBatchEntry<TRecord>[]) => {
+    resetQueueFrom([...entries, ...entriesInOrder()].slice(0, maxQueueSize));
   };
 
   const flushBatch = async (
     force: boolean,
     deadline: number,
+    throwOnFailure: boolean,
   ): Promise<boolean> => {
     if (now() >= deadline) {
       return false;
     }
 
-    const batch = selectEligibleBatch(force);
+    const batch = throwOnFailure
+      ? peekEligibleBatch(force)
+      : selectEligibleBatch(force);
     if (batch.length === 0) {
       return false;
     }
 
-    for (const entry of batch) {
-      if (now() >= deadline) {
-        enqueueEntry(entry);
-        continue;
+    if (now() >= deadline) {
+      if (!throwOnFailure) {
+        prependEntries(batch);
       }
+      return false;
+    }
 
-      try {
-        await awaitWithDeadline(downstream(entry.telemetry), deadline - now());
-        stats.delivered += 1;
-      } catch {
-        stats.failedFlushes += 1;
-        requeueAfterFailure(entry, force);
+    try {
+      await awaitWithDeadline(
+        handler(
+          batch.map((entry) => entry.record),
+          { deadlineMs: deadline },
+        ),
+        deadline - now(),
+      );
+      if (throwOnFailure) {
+        removeBatchEntries(batch);
       }
+      stats.delivered += batch.length;
+    } catch (error) {
+      stats.failedFlushes += 1;
+      if (throwOnFailure) {
+        throw error;
+      }
+      requeueAfterFailure(batch, force);
     }
 
     return true;
   };
 
-  const drain = async (options: TelemetryFlushOptions = {}) => {
+  const drain = async (
+    options: TelemetryFlushOptions = {},
+    throwOnFailure = false,
+  ) => {
     const force = options.force ?? false;
     const maxDurationMs = boundedInteger(
       options.maxDurationMs,
@@ -2440,7 +2558,7 @@ export function createBufferedTelemetrySink(
     clearFlushTimer();
 
     while (queueSize() > 0 && now() < deadline) {
-      const progressed = await flushBatch(force, deadline);
+      const progressed = await flushBatch(force, deadline, throwOnFailure);
       if (!progressed) {
         break;
       }
@@ -2455,33 +2573,46 @@ export function createBufferedTelemetrySink(
     }
   };
 
-  const sink = ((telemetry: CoFailureTelemetry) => {
+  const runSerialized = async (
+    task: () => Promise<void>,
+  ): Promise<void> => {
+    const previous = flushChain.catch(() => undefined);
+    const next = previous.then(task);
+    flushChain = next.catch(() => undefined);
+    await next;
+  };
+
+  const sink = ((record: TRecord) => {
     if (closed) {
-      stats.droppedAfterRetries += 1;
-      return;
+      stats.rejected += 1;
+      throw bufferedSinkError(name, "sink is closed");
     }
 
+    enqueueEntry({ record, attempts: 0, nextAttemptAt: now() });
     stats.enqueued += 1;
-    enqueueEntry({ telemetry, attempts: 0, nextAttemptAt: now() });
+
+    if (deliveryMode === "must_accept") {
+      return sink.flush({ maxDurationMs: defaultDrainMs, force: true });
+    }
+
     scheduleFlush(queueSize() >= maxBatchSize ? 0 : flushIntervalMs);
-  }) as FlushableTelemetrySink;
+  }) as BufferedBatchSink<TRecord>;
 
   sink.flush = async (flushOptions: TelemetryFlushOptions = {}) => {
-    flushChain = flushChain.then(() => drain(flushOptions));
-    await flushChain;
+    const throwOnFailure = deliveryMode === "must_accept";
+    await runSerialized(() => drain(flushOptions, throwOnFailure));
   };
 
   sink.close = async (flushOptions: TelemetryFlushOptions = {}) => {
     closed = true;
     clearFlushTimer();
     removeUnloadHook();
-    flushChain = flushChain.then(() =>
+    await runSerialized(() =>
       drain({
         maxDurationMs: flushOptions.maxDurationMs ?? defaultDrainMs,
         force: flushOptions.force ?? true,
       })
     );
-    await flushChain;
   };
 
   sink.stats = snapshot;
@@ -2494,6 +2625,37 @@ export function createBufferedTelemetrySink(
   }
 
   return sink;
+}
+
+export function createBufferedTelemetrySink(
+  downstream: TelemetrySink,
+  options: BufferedTelemetrySinkOptions = {},
+): FlushableTelemetrySink {
+  return createBufferedBatchSink<CoFailureTelemetry>(
+    async (records) => {
+      for (const telemetry of records) {
+        await downstream(telemetry);
+      }
+    },
+    {
+      ...options,
+      name: options.name ?? "telemetry_sink",
+      maxBatchSize: 1,
+      overflowPolicy: "drop_oldest",
+      deliveryMode: "best_effort",
+    },
+  );
+}
+
+export function createSupabaseAuditSink(
+  options: SupabaseAuditSinkOptions,
+): BufferedBatchSink<SupabaseAuditRecord> {
+  return createBufferedBatchSink<SupabaseAuditRecord>(options.flushHandler, {
+    name: "supabase_audit_sink",
+    overflowPolicy: "fail_closed",
+    deliveryMode: "must_accept",
+    ...options,
+  });
 }
 
 export function createCompositeTelemetrySink(
@@ -2516,6 +2678,7 @@ export function createCompositeTelemetrySink(
     maxQueueSize: 0,
     enqueued: 0,
     delivered: 0,
+    rejected: 0,
     droppedOldest: 0,
     droppedAfterRetries: 0,
     failedFlushes: 0,
@@ -2658,7 +2821,7 @@ function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
     return undefined;
   }
 
-  const otlpSink = createOtlpHttpTelemetrySink({
+  const otlpHandler = createOtlpTelemetryHandler({
     endpoint,
     serviceName: "fusion-router",
     timeoutMs: boundedEnvInteger(
@@ -2668,7 +2831,8 @@ function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
     ),
   });
 
-  return createBufferedTelemetrySink(otlpSink, {
+  return createBufferedBatchSink(otlpHandler, {
+    name: "otlp_telemetry",
     maxQueueSize: boundedEnvInteger(
       "FUSION_ROUTER_TELEMETRY_MAX_QUEUE",
       1_000,

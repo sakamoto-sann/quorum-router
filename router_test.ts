@@ -1,11 +1,13 @@
 import {
   CoFailureTelemetry,
   createAnthropicDirectAdapter,
+  createBufferedBatchSink,
   createBufferedTelemetrySink,
   createOpenAIDirectAdapter,
   createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
   createProcessAdapter,
+  createSupabaseAuditSink,
   FinalSynthesis,
   FinalSynthesisSchema,
   FusionRouter,
@@ -22,6 +24,7 @@ import {
   assertRejects,
   assertStringIncludes,
 } from "@std/assert";
+import { FakeTime } from "@std/testing/time";
 
 async function makeScript(content: string): Promise<string> {
   const dir = await Deno.makeTempDir({ prefix: "fusion-router-test-" });
@@ -83,6 +86,22 @@ function telemetryFixture(message: string): CoFailureTelemetry {
         message,
       },
     ],
+  };
+}
+
+type AuditFixture = {
+  eventType: string;
+  actorType: "ai_assistant";
+  decision: "allow" | "deny" | "error";
+  workflowId: string;
+};
+
+function auditFixture(eventType: string): AuditFixture {
+  return {
+    eventType,
+    actorType: "ai_assistant",
+    decision: "allow",
+    workflowId: "wf-fixture",
   };
 }
 
@@ -751,6 +770,332 @@ Deno.test("buffered telemetry sink drain budget limits slow downstream", async (
   assertEquals(sink.stats().droppedAfterRetries, 1);
 
   await sink.close({ force: true, maxDurationMs: 5 });
+});
+
+Deno.test("generic buffered batch sink fail-closed rejects full queue", async () => {
+  const sink = createBufferedBatchSink<number>(() => {}, {
+    maxQueueSize: 1,
+    maxBatchSize: 10,
+    flushIntervalMs: 60_000,
+    overflowPolicy: "fail_closed",
+    registerUnloadHook: false,
+  });
+
+  sink(1);
+  await assertRejects(
+    async () => await sink(2),
+    ProcessExecutionError,
+    "queue is full",
+  );
+  assertEquals(sink.stats().queueSize, 1);
+  assertEquals(sink.stats().rejected, 1);
+  assertEquals(sink.stats().droppedOldest, 0);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("generic buffered batch sink preserves ordered batches", async () => {
+  const batches: number[][] = [];
+  const sink = createBufferedBatchSink<number>((records) => {
+    batches.push([...records]);
+  }, {
+    maxQueueSize: 10,
+    maxBatchSize: 3,
+    flushIntervalMs: 60_000,
+    registerUnloadHook: false,
+  });
+
+  sink(1);
+  sink(2);
+  sink(3);
+  sink(4);
+  sink(5);
+  await sink.flush({ force: true, maxDurationMs: 100 });
+
+  assertEquals(batches, [[1, 2, 3], [4, 5]]);
+  assertEquals(sink.stats().delivered, 5);
+  assertEquals(sink.stats().queueSize, 0);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("generic buffered batch sink retries deterministically with FakeTime", async () => {
+  const time = new FakeTime(0);
+  try {
+    let calls = 0;
+    const delivered: number[] = [];
+    const sink = createBufferedBatchSink<number>((records) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error("collector unavailable");
+      }
+      delivered.push(...records);
+    }, {
+      maxBatchSize: 1,
+      flushIntervalMs: 60_000,
+      baseBackoffMs: 100,
+      maxBackoffMs: 100,
+      maxAttempts: 3,
+      registerUnloadHook: false,
+    });
+
+    sink(42);
+    await sink.flush({ maxDurationMs: 50 });
+
+    assertEquals(calls, 1);
+    assertEquals(delivered, []);
+    assertEquals(sink.stats().queueSize, 1);
+
+    await sink.flush({ maxDurationMs: 50 });
+    assertEquals(calls, 1);
+
+    time.tick(100);
+    await sink.flush({ maxDurationMs: 50 });
+
+    assertEquals(calls, 2);
+    assertEquals(delivered, [42]);
+    assertEquals(sink.stats().delivered, 1);
+    assertEquals(sink.stats().queueSize, 0);
+
+    await sink.close({ force: true, maxDurationMs: 50 });
+  } finally {
+    time.restore();
+  }
+});
+
+Deno.test("generic buffered batch sink drop-oldest implementation avoids Array.shift", async () => {
+  const source = await Deno.readTextFile("router.ts");
+  const genericBlock = source.slice(
+    source.indexOf("export function createBufferedBatchSink"),
+    source.indexOf("export function createBufferedTelemetrySink"),
+  );
+
+  assert(!genericBlock.includes(".shift("));
+});
+
+Deno.test("generic must-accept sink preserves concurrent accepted records after failed flush", async () => {
+  let rejectFirst: ((error: Error) => void) | undefined;
+  const delivered: number[] = [];
+  const calls: number[][] = [];
+  const sink = createBufferedBatchSink<number>((records) => {
+    calls.push([...records]);
+    if (calls.length === 1) {
+      return new Promise<void>((_resolve, reject) => {
+        rejectFirst = reject;
+      });
+    }
+    delivered.push(...records);
+  }, {
+    deliveryMode: "must_accept",
+    overflowPolicy: "fail_closed",
+    maxQueueSize: 2,
+    maxBatchSize: 1,
+    defaultDrainMs: 1_000,
+    registerUnloadHook: false,
+  });
+
+  const first = sink(1) as Promise<void>;
+  for (
+    let attempt = 0;
+    attempt < 10 && rejectFirst === undefined;
+    attempt += 1
+  ) {
+    await Promise.resolve();
+  }
+  assert(rejectFirst);
+
+  const second = sink(2) as Promise<void>;
+  await assertRejects(
+    async () => await sink(3),
+    ProcessExecutionError,
+    "queue is full",
+  );
+
+  rejectFirst(new Error("audit store unavailable"));
+  await assertRejects(
+    async () => await first,
+    Error,
+    "audit store unavailable",
+  );
+  await second;
+
+  assertEquals(delivered, [1, 2]);
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().rejected, 1);
+  assertEquals(sink.stats().delivered, 2);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("legacy telemetry sink avoids duplicate delivery after partial downstream failure", async () => {
+  const time = new FakeTime(0);
+  try {
+    let failSecond = true;
+    const delivered: string[] = [];
+    const sink = createBufferedTelemetrySink((telemetry) => {
+      const message = telemetry.failures[0]?.message ?? "missing";
+      if (message === "second" && failSecond) {
+        failSecond = false;
+        throw new Error("partial downstream failure");
+      }
+      delivered.push(message);
+    }, {
+      maxQueueSize: 5,
+      maxBatchSize: 2,
+      flushIntervalMs: 60_000,
+      baseBackoffMs: 100,
+      maxBackoffMs: 100,
+      maxAttempts: 3,
+      registerUnloadHook: false,
+    });
+
+    sink(telemetryFixture("first"));
+    sink(telemetryFixture("second"));
+    await sink.flush({ maxDurationMs: 50 });
+
+    assertEquals(delivered, ["first"]);
+    assertEquals(sink.stats().queueSize, 1);
+
+    await sink.flush({ maxDurationMs: 50 });
+
+    assertEquals(delivered, ["first"]);
+    assertEquals(sink.stats().queueSize, 1);
+
+    await sink.flush({ maxDurationMs: 50, force: true });
+
+    assertEquals(delivered, ["first", "second"]);
+    assertEquals(sink.stats().queueSize, 0);
+
+    await sink.close({ force: true, maxDurationMs: 50 });
+  } finally {
+    time.restore();
+  }
+});
+
+Deno.test("generic must-accept sink recovers after handler failure", async () => {
+  let failNext = true;
+  const delivered: number[] = [];
+  const sink = createBufferedBatchSink<number>((records) => {
+    if (failNext) {
+      failNext = false;
+      throw new Error("audit store unavailable");
+    }
+    delivered.push(...records);
+  }, {
+    deliveryMode: "must_accept",
+    overflowPolicy: "fail_closed",
+    maxQueueSize: 3,
+    maxBatchSize: 1,
+    defaultDrainMs: 50,
+    registerUnloadHook: false,
+  });
+
+  await assertRejects(
+    async () => await sink(1),
+    Error,
+    "audit store unavailable",
+  );
+  assertEquals(sink.stats().queueSize, 1);
+  assertEquals(sink.stats().delivered, 0);
+
+  await sink(2);
+
+  assertEquals(delivered, [1, 2]);
+  assertEquals(sink.stats().delivered, 2);
+  assertEquals(sink.stats().queueSize, 0);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("supabase audit sink fail-closed delivery does not drop accepted logs", async () => {
+  const delivered: AuditFixture[] = [];
+  const sink = createSupabaseAuditSink({
+    flushHandler: (records) => {
+      delivered.push(...records as AuditFixture[]);
+    },
+    maxQueueSize: 2,
+    maxBatchSize: 2,
+    flushIntervalMs: 60_000,
+    registerUnloadHook: false,
+  });
+
+  await sink(auditFixture("workflow.start"));
+  await sink(auditFixture("workflow.end"));
+
+  assertEquals(delivered.map((record) => record.eventType), [
+    "workflow.start",
+    "workflow.end",
+  ]);
+  assertEquals(sink.stats().delivered, 2);
+  assertEquals(sink.stats().droppedOldest, 0);
+  assertEquals(sink.stats().droppedAfterRetries, 0);
+  assertEquals(sink.stats().queueSize, 0);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("supabase audit sink runtime path does not require service role env", async () => {
+  const original = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+  try {
+    const delivered: AuditFixture[] = [];
+    const sink = createSupabaseAuditSink({
+      flushHandler: (records) => {
+        delivered.push(...records as AuditFixture[]);
+      },
+      registerUnloadHook: false,
+    });
+
+    await sink(auditFixture("workflow.audit"));
+
+    assertEquals(delivered.length, 1);
+    assertEquals(Object.keys(delivered[0]).includes("org_id"), false);
+    assertEquals(Object.keys(delivered[0]).includes("service_role"), false);
+  } finally {
+    if (original === undefined) {
+      Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+    } else {
+      Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", original);
+    }
+  }
+});
+
+Deno.test("router runtime sink implementation has no Supabase service-role env dependency", async () => {
+  const source = await Deno.readTextFile("router.ts");
+  assert(!/SUPABASE.*SERVICE.*ROLE/i.test(source));
+});
+
+Deno.test("doctor masks endpoint query and fragment credentials", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    env: {
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        "https://user:password@example.test/v1/logs?q=redaction-fixture#fragment-fixture",
+    },
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  assertStringIncludes(text, "https://[REDACTED]@example.test/v1/logs");
+  assert(!text.includes("redaction-fixture"));
+  assert(!text.includes("fragment-fixture"));
+  assert(!text.includes("q="));
+  assert(!text.includes("password"));
+});
+
+Deno.test("doctor service-role check is scoped to Supabase env keys", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    env: {
+      SERVICE_ROLE_KEY: "unrelated-fixture-value",
+    },
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  assertStringIncludes(text, "no service-role-like Supabase env vars present");
 });
 
 Deno.test("zcode-style stdout error is treated as failure", async () => {

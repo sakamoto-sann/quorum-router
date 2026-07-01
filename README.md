@@ -144,8 +144,18 @@ structured `RouterError` with status `4401`.
 Telemetry is **best effort** on the request path, but no longer direct-inline:
 failed adapter telemetry is enqueued into a bounded in-memory buffer and flushed
 asynchronously. Sink failures are logged/retried without blocking consensus. The
-shipped code includes an OTLP/HTTP log sink so correlated failures can be
+shipped code includes an OTLP/HTTP adapter so correlated failures can still be
 forwarded to OpenTelemetry-compatible backends.
+
+The buffering layer is transport-agnostic: `createBufferedBatchSink<T>()` owns
+the ring buffer, batch selection, retry/backoff, and shutdown drain while
+callers inject the transport-specific batch handler. Telemetry and audit sinks
+use the same primitive with different semantics:
+
+| Use case              | Overflow policy | Delivery mode | Failure semantics                                      |
+| --------------------- | --------------- | ------------- | ------------------------------------------------------ |
+| Co-failure telemetry  | `drop_oldest`   | `best_effort` | preserve newest signals; never block consensus         |
+| Workflow access audit | `fail_closed`   | `must_accept` | reject when the audit event cannot be accepted/drained |
 
 Buffered telemetry defaults:
 
@@ -168,6 +178,11 @@ Shutdown `force: true` ignores backoff eligibility for one final delivery pass;
 entries that still fail during that pass are dropped rather than immediately
 requeued, which bounds shutdown traffic and prevents retry storms.
 
+Phase 1 also ships a mockable `createSupabaseAuditSink()` interface for the
+future Supabase RPC transport. Runtime code must not depend on service-role
+credentials; tests assert the audit payload avoids `org_id` and service-role
+fields so the DB layer can inject org/actor context from JWT claims in Phase 2.
+
 Cancellation is transport-specific:
 
 - CLI / wrapper lanes are bounded by process timeout, `SIGTERM`, and listener /
@@ -185,6 +200,7 @@ execution. Prefer the checked-in tasks:
 deno task check
 deno task lint
 deno task test
+deno task doctor
 deno task run
 ```
 
@@ -220,10 +236,17 @@ Dependency update workflow:
 
 ## Next production steps
 
-1. Install / authenticate the required CLIs on each target host (Claude Code,
+1. Implement the Phase 2 Supabase schema/RPC path: `workflow_access_audit`,
+   append-only grants, RLS, and
+   `insert_workflow_access_audit_batch(records jsonb)` that injects `org_id` and
+   actor identity from JWT claims rather than trusting client payload fields.
+2. Replace the Phase 1 mock Supabase audit flush handler with the RPC transport,
+   still using `createBufferedBatchSink<T>()` with `fail_closed` / `must_accept`
+   audit semantics.
+3. Install / authenticate the required CLIs on each target host (Claude Code,
    Gemini CLI, Cline, and `zcode` may still fail if the local session is missing
-   or invalid)
-2. Supply a valid ZCode model config on hosts that should execute the GLM lane.
+   or invalid).
+4. Supply a valid ZCode model config on hosts that should execute the GLM lane.
    The minimal working shape on this host is:
 
    ```json
@@ -252,11 +275,11 @@ Dependency update workflow:
    ```
 
    Save that as `~/.zcode/cli/config.json`.
-3. Add Google Gemini / Vertex and xAI direct HTTP adapters.
-4. Persist budget / circuit-breaker state outside process memory.
-5. Add CI smoke jobs that exercise each installed CLI lane and each mocked
+5. Add Google Gemini / Vertex and xAI direct HTTP adapters.
+6. Persist budget / circuit-breaker state outside process memory.
+7. Add CI smoke jobs that exercise each installed CLI lane and each mocked
    direct HTTP lane separately.
-6. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
+8. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
    dashboards.
-7. Persist buffered telemetry counters to a metrics surface if operators need
+9. Persist buffered telemetry counters to a metrics surface if operators need
    queue/drop dashboards.
