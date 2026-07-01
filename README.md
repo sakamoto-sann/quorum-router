@@ -6,24 +6,24 @@
 [![routing](https://img.shields.io/badge/routing-fail--closed-0a7f42)](#fail-closed-contract)
 
 A small, readable proof-of-concept for a **fusion router** that fans out a
-prompt to multiple **CLI / wrapper-backed LLM adapters**, validates their
-outputs with **Zod**, and asks a stronger model (here **Codex / GPT-5.5**) to
-produce the final consensus.
+prompt to multiple **CLI / wrapper-backed or direct HTTP LLM adapters**,
+validates their outputs with **Zod**, and asks a stronger model to produce the
+final consensus.
 
 ## Status
 
-> **PoC, but no longer mock-only.** This repository now ships repo-local OAuth
+> **PoC, but no longer mock-only.** This repository ships repo-local OAuth
 > wrapper launchers for Codex CLI, Claude Code, Gemini CLI, Grok CLI, plus a
 > repo-local `bin/zcode-headless` wrapper lane for GLM. Devin CLI and Cline
-> remain direct process-backed lanes. Live success still depends on each host
-> having the right CLI installed and authenticated. Provider-native direct API
-> surfaces (OpenAI / Anthropic / Google / xAI via API key) are documented here,
-> but are **not yet modeled as first-class adapters in this repo**.
+> remain process-backed lanes. It also now includes first-class provider-native
+> **direct HTTP** adapters for OpenAI and Anthropic, with mocked HTTP tests and
+> an explicit `AbortSignal` cancellation contract. Google Gemini / Vertex and
+> xAI direct HTTP lanes remain follow-up work.
 
 ## Architecture at a glance
 
-> Conceptual diagram for the current **process-backed PoC**. The repository
-> favors local CLIs / wrappers over direct provider SDK calls.
+> Conceptual diagram for the current PoC. The default run still favors local
+> CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
 
 ```mermaid
 flowchart TD
@@ -32,10 +32,12 @@ flowchart TD
     R --> A1[Adapter: CLI / process]
     R --> A2[Adapter: repo-local OAuth wrapper]
     R --> A3[Adapter: zcode wrapper]
+    R --> A4[Adapter: direct HTTP API]
 
     A1 --> V[Router-side Zod validation]
     A2 --> V
     A3 --> V
+    A4 --> V
 
     V --> Q{Validated quorum met?}
     Q -- No --> E[RouterError 4401<br/>fail-closed]
@@ -47,7 +49,7 @@ flowchart TD
 
 ## What this PoC demonstrates
 
-- Parallel fan-out across multiple CLI / wrapper adapters
+- Parallel fan-out across multiple CLI / wrapper and direct HTTP adapters
 - Zod validation at both the **adapter output** layer and the **final
   consensus** layer
 - **Fail-closed** routing boundaries
@@ -55,11 +57,14 @@ flowchart TD
   - insufficient validated responses abort consensus
   - invalid synthesis output aborts the request with a structured error
 - real process-backed adapter execution through installed CLIs / wrappers
+- first-class OpenAI / Anthropic direct HTTP adapters using runtime API keys
 - auth/session readiness checks plus optional refresh hooks per adapter
 - retry policy with backoff for transient failures / rate limiting
 - estimated spend budget guardrails per lane
 - per-adapter circuit breaking after repeated failures
-- bounded adapter execution, even if an adapter ignores `AbortSignal`
+- bounded process-backed adapter execution, even if an adapter ignores
+  `AbortSignal`
+- direct HTTP cancellation by threading `AbortSignal` into upstream `fetch`
 - **Co-failure telemetry** capture with an OTLP/HTTP log sink option
 - Support for describing multiple auth surfaces without pretending they are all
   the same thing:
@@ -84,15 +89,27 @@ The default router wires real process-backed adapters for these surfaces:
 
 ## Provider-native direct API surfaces
 
-These are **real provider auth surfaces**, but this repo does **not** implement
-them as adapters yet:
+Direct HTTP adapters use runtime-loaded API keys and bypass local CLIs. They are
+opt-in so the default smoke run does not accidentally spend API budget.
 
-| Provider                   | Native auth shape                             | Status in this repo |
-| -------------------------- | --------------------------------------------- | ------------------- |
-| OpenAI API                 | API key (`OPENAI_API_KEY`)                    | documented only     |
-| Anthropic API              | API key (`ANTHROPIC_API_KEY`)                 | documented only     |
-| Google Gemini / Vertex API | API key (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) | documented only     |
-| xAI API                    | API key (`XAI_API_KEY`)                       | documented only     |
+| Provider                   | Native auth shape                             | Status in this repo                          |
+| -------------------------- | --------------------------------------------- | -------------------------------------------- |
+| OpenAI API                 | API key (`OPENAI_API_KEY`)                    | first-class `directHttp` adapter + synthesis |
+| Anthropic API              | API key (`ANTHROPIC_API_KEY`)                 | first-class `directHttp` adapter             |
+| Google Gemini / Vertex API | API key (`GEMINI_API_KEY` / `GOOGLE_API_KEY`) | follow-up                                    |
+| xAI API                    | API key (`XAI_API_KEY`)                       | follow-up                                    |
+
+Direct HTTP modes:
+
+```bash
+# Add OpenAI / Anthropic direct HTTP lanes alongside CLI / wrapper lanes when
+# their API keys are present.
+FUSION_ROUTER_ENABLE_DIRECT_HTTP=1 deno task run
+
+# Run without local CLIs. Export an OpenAI API key in your shell first because
+# the direct-only synthesis stage currently uses OpenAI Chat Completions.
+FUSION_ROUTER_DIRECT_HTTP_ONLY=1 deno task run
+```
 
 `authMode` and `transport` are not just table labels anymore: the router now
 maps configured readiness checks, optional refresh hooks, wrapper-specific
@@ -100,7 +117,8 @@ env/token plumbing, retries, estimated budget guardrails, and circuit-breaking
 behavior into process-backed adapters. The GLM lane stays isolated behind
 `zcodeWrapper` via `bin/zcode-headless`; Codex / Claude / Gemini / Grok now
 default to repo-local wrapper launchers instead of calling the upstream CLIs
-directly.
+directly. Direct HTTP lanes use `transport: directHttp`, runtime-loaded API
+keys, mock-testable `fetch` injection, and provider-specific response parsers.
 
 ## Wrapper commands
 
@@ -126,6 +144,14 @@ Telemetry is still **best effort** on the request path: sink failures are
 logged, but they do not block the main request. The shipped code includes an
 OTLP/HTTP log sink so correlated failures can be forwarded to
 OpenTelemetry-compatible backends.
+
+Cancellation is transport-specific:
+
+- CLI / wrapper lanes are bounded by process timeout, `SIGTERM`, and listener /
+  timer cleanup in `runProcess`.
+- Direct HTTP lanes must pass the router's `AbortSignal` into upstream
+  `fetch(..., { signal })`. Tests assert that omission would prevent timeout
+  cancellation from reaching the provider-client boundary.
 
 ## Local run
 
@@ -203,6 +229,10 @@ Dependency update workflow:
    ```
 
    Save that as `~/.zcode/cli/config.json`.
-3. Persist budget / circuit-breaker state outside process memory
-4. Add CI smoke jobs that exercise each installed CLI lane separately
-5. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and dashboards
+3. Add Google Gemini / Vertex and xAI direct HTTP adapters.
+4. Persist budget / circuit-breaker state outside process memory.
+5. Add CI smoke jobs that exercise each installed CLI lane and each mocked
+   direct HTTP lane separately.
+6. Replace best-effort telemetry with a buffered async flush / retry sink.
+7. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
+   dashboards.

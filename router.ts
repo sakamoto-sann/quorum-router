@@ -23,7 +23,11 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 const AuthModeSchema = z.enum(["apiKey", "oauth", "session"]);
-const TransportSchema = z.enum(["zcodeWrapper", "processAdapter"]);
+const TransportSchema = z.enum([
+  "zcodeWrapper",
+  "processAdapter",
+  "directHttp",
+]);
 
 const ProviderDescriptorSchema = z.object({
   provider: z.string().min(1),
@@ -98,11 +102,11 @@ export class RouterError extends Error {
     message: string,
     details?: unknown,
   ) {
-    super(message);
+    super(sanitizeDiagnosticText(message));
     this.name = "RouterError";
     this.status = status;
     this.code = code;
-    this.details = details;
+    this.details = sanitizeDiagnosticValue(details);
   }
 }
 
@@ -122,14 +126,25 @@ export class ProcessExecutionError extends Error {
       stderr?: string;
       retryAfterMs?: number;
       cause?: unknown;
+      redactionValues?: string[];
     },
   ) {
-    super(message, options?.cause ? { cause: options.cause } : undefined);
+    const redactionValues = options?.redactionValues ?? [];
+    super(
+      sanitizeDiagnosticText(message, redactionValues),
+      options?.cause ? { cause: options.cause } : undefined,
+    );
     this.name = "ProcessExecutionError";
     this.codeName = codeName;
     this.exitCode = options?.exitCode;
-    this.stdout = options?.stdout ?? "";
-    this.stderr = options?.stderr ?? "";
+    this.stdout = sanitizeDiagnosticText(
+      options?.stdout ?? "",
+      redactionValues,
+    );
+    this.stderr = sanitizeDiagnosticText(
+      options?.stderr ?? "",
+      redactionValues,
+    );
     this.retryAfterMs = options?.retryAfterMs;
   }
 }
@@ -145,10 +160,73 @@ function failClosed(
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return error.message;
+    return sanitizeDiagnosticText(error.message);
   }
 
-  return String(error);
+  return sanitizeDiagnosticText(String(error));
+}
+
+function hasCredentialLikeName(name: string): boolean {
+  return /(auth|credential|key|password|secret|session|token)/i.test(name);
+}
+
+function credentialValuesFromEnv(
+  env: Record<string, string> | undefined,
+): string[] {
+  return Object.entries(env ?? {})
+    .filter(([name, value]) =>
+      hasCredentialLikeName(name) && value.trim().length >= 4
+    )
+    .map(([, value]) => value.trim());
+}
+
+function ambientCredentialValues(): string[] {
+  try {
+    return credentialValuesFromEnv(Deno.env.toObject());
+  } catch {
+    return [];
+  }
+}
+
+function sanitizeDiagnosticText(
+  text: string,
+  extraCredentialValues: string[] = [],
+): string {
+  const credentialValues = [
+    ...ambientCredentialValues(),
+    ...extraCredentialValues,
+  ].filter((value) => value.length >= 4);
+
+  return redactSecrets(text, credentialValues)
+    .replace(
+      /(authorization\s*:?\s*bearer\s+)[^\s"'`]+/gi,
+      "$1[REDACTED]",
+    )
+    .replace(
+      /((?:api[_-]?key|auth|credential|password|secret|session|token)\s*[:=]\s*)[^\s"'`]+/gi,
+      "$1[REDACTED]",
+    );
+}
+
+function sanitizeDiagnosticValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return sanitizeDiagnosticText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeDiagnosticValue(item));
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+        key,
+        sanitizeDiagnosticValue(item),
+      ]),
+    );
+  }
+
+  return value;
 }
 
 function errorCode(error: unknown): string {
@@ -377,17 +455,26 @@ function classifyProcessFailure(
   stdout: string,
   stderr: string,
   exitCode?: number,
+  redactionValues: string[] = [],
 ): ProcessExecutionError {
-  const haystack = `${message}\n${stdout}\n${stderr}`.toLowerCase();
-  const retryAfterMs = extractRetryAfterMs(`${stdout}\n${stderr}`);
+  const haystack = `${message}
+${stdout}
+${stderr}`.toLowerCase();
+  const retryAfterMs = extractRetryAfterMs(`${stdout}
+${stderr}`);
+  const safeMessage = sanitizeDiagnosticText(message, redactionValues);
+  const safeStdout = sanitizeDiagnosticText(stdout, redactionValues);
+  const safeStderr = sanitizeDiagnosticText(stderr, redactionValues);
+  const options = {
+    exitCode,
+    stdout: safeStdout,
+    stderr: safeStderr,
+    retryAfterMs,
+    redactionValues,
+  };
 
   if (haystack.includes("timed out")) {
-    return new ProcessExecutionError("timeout", message, {
-      exitCode,
-      stdout,
-      stderr,
-      retryAfterMs,
-    });
+    return new ProcessExecutionError("timeout", safeMessage, options);
   }
 
   if (
@@ -401,24 +488,18 @@ function classifyProcessFailure(
     haystack.includes("auth required") ||
     haystack.includes("must select an auth method")
   ) {
-    return new ProcessExecutionError("auth_failed", message, {
-      exitCode,
-      stdout,
-      stderr,
-      retryAfterMs,
-    });
+    return new ProcessExecutionError("auth_failed", safeMessage, options);
   }
 
   if (
     haystack.includes("model config is missing") ||
     haystack.includes("explicit model provider")
   ) {
-    return new ProcessExecutionError("wrapper_config_missing", message, {
-      exitCode,
-      stdout,
-      stderr,
-      retryAfterMs,
-    });
+    return new ProcessExecutionError(
+      "wrapper_config_missing",
+      safeMessage,
+      options,
+    );
   }
 
   if (
@@ -426,32 +507,21 @@ function classifyProcessFailure(
     haystack.includes("429") ||
     haystack.includes("too many requests")
   ) {
-    return new ProcessExecutionError("rate_limited", message, {
-      exitCode,
-      stdout,
-      stderr,
-      retryAfterMs,
-    });
+    return new ProcessExecutionError("rate_limited", safeMessage, options);
   }
 
   if (
     haystack.includes("not found") ||
     haystack.includes("no such file or directory")
   ) {
-    return new ProcessExecutionError("command_unavailable", message, {
-      exitCode,
-      stdout,
-      stderr,
-      retryAfterMs,
-    });
+    return new ProcessExecutionError(
+      "command_unavailable",
+      safeMessage,
+      options,
+    );
   }
 
-  return new ProcessExecutionError("process_failed", message, {
-    exitCode,
-    stdout,
-    stderr,
-    retryAfterMs,
-  });
+  return new ProcessExecutionError("process_failed", safeMessage, options);
 }
 
 function isRetriableError(error: unknown): boolean {
@@ -499,6 +569,7 @@ async function runProcess(
 ): Promise<ProcessExecutionResult> {
   const startedAt = Date.now();
   const timeoutMs = invocation.timeoutMs ?? defaultTimeoutMs;
+  const redactionValues = credentialValuesFromEnv(invocation.env);
 
   let child: Deno.ChildProcess | undefined;
   let aborted = false;
@@ -567,6 +638,7 @@ async function runProcess(
           exitCode: code,
           stdout: stdoutText,
           stderr: stderrText,
+          redactionValues,
         },
       );
     }
@@ -576,6 +648,7 @@ async function runProcess(
         exitCode: code,
         stdout: stdoutText,
         stderr: stderrText,
+        redactionValues,
       });
     }
 
@@ -585,13 +658,14 @@ async function runProcess(
         stdoutText,
         stderrText,
         code,
+        redactionValues,
       );
     }
 
     return {
       code,
-      stdout: stdoutText,
-      stderr: stderrText,
+      stdout: sanitizeDiagnosticText(stdoutText, redactionValues),
+      stderr: sanitizeDiagnosticText(stderrText, redactionValues),
       durationMs: Date.now() - startedAt,
     };
   } catch (error) {
@@ -874,6 +948,535 @@ export function createProcessAdapter(
   options: ProcessModelAdapterOptions,
 ): ModelAdapter {
   return new ProcessModelAdapter(options);
+}
+
+export type FetchLike = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export type DirectHttpRequest = {
+  url: string;
+  init: RequestInit;
+};
+
+export type DirectHttpExecutionResult = {
+  json: unknown;
+  durationMs: number;
+};
+
+export type DirectHttpResponseParser = (
+  result: DirectHttpExecutionResult,
+  descriptor: ProviderDescriptor,
+) => ModelOutput;
+
+export type DirectHttpAdapterOptions = {
+  descriptor: ProviderDescriptor;
+  apiKeyEnv: string;
+  apiKeyProvider?: () => string | undefined;
+  buildRequest: (prompt: string, apiKey: string) => DirectHttpRequest;
+  parseResponse: DirectHttpResponseParser;
+  fetchFn?: FetchLike;
+  retryPolicy?: RetryPolicy;
+  circuitBreaker?: CircuitBreakerOptions;
+  budgetManager?: BudgetManager;
+  estimatedCostUsd?: number;
+  defaultTimeoutMs?: number;
+};
+
+function trimApiKey(apiKey: string | undefined): string | undefined {
+  const trimmed = apiKey?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function redactSecrets(text: string, secrets: string[]): string {
+  return secrets
+    .filter((secret) => secret.length > 0)
+    .reduce(
+      (current, secret) => current.split(secret).join("[REDACTED]"),
+      text,
+    );
+}
+
+function truncateForError(text: string, maxLength = 500): string {
+  return text.length > maxLength ? `${text.slice(0, maxLength)}…` : text;
+}
+
+function retryAfterHeaderMs(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.ceil(seconds * 1000);
+  }
+
+  const epochMs = Date.parse(value);
+  if (Number.isFinite(epochMs)) {
+    return Math.max(0, epochMs - Date.now());
+  }
+
+  return undefined;
+}
+
+async function classifyDirectHttpFailure(
+  response: Response,
+  label: string,
+  secrets: string[],
+): Promise<ProcessExecutionError> {
+  const retryAfterMs = retryAfterHeaderMs(response.headers.get("retry-after"));
+  const rawBody = await response.text().catch(() => "");
+  const body = truncateForError(
+    sanitizeDiagnosticText(redactSecrets(rawBody, secrets), secrets),
+  );
+  const message = body
+    ? `${label} HTTP ${response.status}: ${body}`
+    : `${label} HTTP ${response.status}.`;
+
+  if (response.status === 401 || response.status === 403) {
+    return new ProcessExecutionError("auth_failed", message, {
+      retryAfterMs,
+      redactionValues: secrets,
+    });
+  }
+
+  if (response.status === 429) {
+    return new ProcessExecutionError("rate_limited", message, {
+      retryAfterMs,
+      redactionValues: secrets,
+    });
+  }
+
+  if (response.status >= 500) {
+    return new ProcessExecutionError("process_failed", message, {
+      retryAfterMs,
+      redactionValues: secrets,
+    });
+  }
+
+  return new ProcessExecutionError("provider_malformed", message, {
+    retryAfterMs,
+    redactionValues: secrets,
+  });
+}
+
+async function fetchDirectHttpJson(
+  request: DirectHttpRequest,
+  signal: AbortSignal,
+  label: string,
+  defaultTimeoutMs: number,
+  fetchFn: FetchLike,
+  secrets: string[],
+): Promise<DirectHttpExecutionResult> {
+  if (signal.aborted) {
+    throw new ProcessExecutionError(
+      "aborted",
+      `${label} aborted before direct HTTP request.`,
+    );
+  }
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, defaultTimeoutMs);
+
+  const onAbort = () => controller.abort();
+
+  try {
+    signal.addEventListener("abort", onAbort, { once: true });
+    const response = await fetchFn(request.url, {
+      ...request.init,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw await classifyDirectHttpFailure(response, label, secrets);
+    }
+
+    let json: unknown;
+    try {
+      json = await response.json();
+    } catch (error) {
+      throw new ProcessExecutionError(
+        "provider_malformed",
+        `${label} returned invalid JSON: ${errorMessage(error)}`,
+      );
+    }
+
+    return {
+      json,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    if (error instanceof ProcessExecutionError) {
+      throw error;
+    }
+
+    const name = error instanceof Error ? error.name : "";
+    if (timedOut || name === "AbortError") {
+      const codeName = timedOut ? "timeout" : "aborted";
+      const reason = timedOut
+        ? `${label} direct HTTP request timed out after ${defaultTimeoutMs}ms.`
+        : `${label} direct HTTP request was aborted.`;
+      throw new ProcessExecutionError(codeName, reason, { cause: error });
+    }
+
+    throw classifyProcessFailure(
+      redactSecrets(errorMessage(error), secrets),
+      "",
+      "",
+      undefined,
+    );
+  } finally {
+    clearTimeout(timeoutId);
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
+class DirectHttpModelAdapter implements ModelAdapter {
+  readonly descriptor: ProviderDescriptor;
+  private readonly apiKeyEnv: string;
+  private readonly apiKeyProvider: () => string | undefined;
+  private readonly buildRequest: (
+    prompt: string,
+    apiKey: string,
+  ) => DirectHttpRequest;
+  private readonly parseResponse: DirectHttpResponseParser;
+  private readonly fetchFn: FetchLike;
+  private readonly retryPolicy: RetryPolicy;
+  private readonly circuitBreaker: CircuitBreaker;
+  private readonly budgetManager?: BudgetManager;
+  private readonly estimatedCostUsd: number;
+  private readonly defaultTimeoutMs: number;
+
+  constructor(options: DirectHttpAdapterOptions) {
+    this.descriptor = ProviderDescriptorSchema.parse(options.descriptor);
+    this.apiKeyEnv = options.apiKeyEnv;
+    this.apiKeyProvider = options.apiKeyProvider ??
+      (() => Deno.env.get(options.apiKeyEnv));
+    this.buildRequest = options.buildRequest;
+    this.parseResponse = options.parseResponse;
+    this.fetchFn = options.fetchFn ?? fetch;
+    this.retryPolicy = options.retryPolicy ?? {
+      maxAttempts: 2,
+      baseDelayMs: 400,
+      maxDelayMs: 5_000,
+    };
+    this.circuitBreaker = new CircuitBreaker(
+      options.circuitBreaker ?? {
+        failureThreshold: 3,
+        cooldownMs: 15_000,
+      },
+    );
+    this.budgetManager = options.budgetManager;
+    this.estimatedCostUsd = options.estimatedCostUsd ?? 0;
+    this.defaultTimeoutMs = options.defaultTimeoutMs ?? 60_000;
+  }
+
+  async invoke(prompt: string, signal: AbortSignal): Promise<ModelOutput> {
+    const label = `${this.descriptor.provider}/${this.descriptor.model}`;
+    this.circuitBreaker.assertAvailable(label);
+
+    let lastError: unknown;
+    let budgetReserved = false;
+
+    for (
+      let attempt = 1;
+      attempt <= this.retryPolicy.maxAttempts;
+      attempt += 1
+    ) {
+      try {
+        const credential = trimApiKey(this.apiKeyProvider());
+        if (!credential) {
+          throw new ProcessExecutionError(
+            "auth_failed",
+            `${label} missing API key environment variable ${this.apiKeyEnv}.`,
+          );
+        }
+
+        if (
+          !budgetReserved && this.estimatedCostUsd > 0 && this.budgetManager
+        ) {
+          this.budgetManager.consume(label, this.estimatedCostUsd);
+          budgetReserved = true;
+        }
+
+        const result = await fetchDirectHttpJson(
+          this.buildRequest(prompt, credential),
+          signal,
+          label,
+          this.defaultTimeoutMs,
+          this.fetchFn,
+          [credential],
+        );
+
+        try {
+          const parsed = this.parseResponse(result, this.descriptor);
+          this.circuitBreaker.recordSuccess();
+          return ModelOutputSchema.parse(parsed);
+        } catch (error) {
+          throw new ProcessExecutionError(
+            "provider_malformed",
+            `${label} returned malformed provider response: ${
+              errorMessage(error)
+            }`,
+            { cause: error },
+          );
+        }
+      } catch (error) {
+        lastError = error;
+
+        if (shouldCountTowardsCircuitBreaker(error)) {
+          this.circuitBreaker.recordFailure();
+        }
+
+        if (
+          !isRetriableError(error) || attempt >= this.retryPolicy.maxAttempts
+        ) {
+          break;
+        }
+
+        const delayMs = backoffDelayMs(attempt, this.retryPolicy, error);
+        await sleepWithAbort(delayMs, signal);
+      }
+    }
+
+    throw lastError;
+  }
+}
+
+export function createDirectHttpAdapter(
+  options: DirectHttpAdapterOptions,
+): ModelAdapter {
+  return new DirectHttpModelAdapter(options);
+}
+
+function getPath(obj: unknown, path: Array<string | number>): unknown {
+  return path.reduce<unknown>((current, segment) => {
+    if (typeof segment === "number") {
+      return Array.isArray(current) ? current[segment] : undefined;
+    }
+    if (typeof current === "object" && current !== null && segment in current) {
+      return (current as Record<string, unknown>)[segment];
+    }
+    return undefined;
+  }, obj);
+}
+
+function parseOpenAIChatContent(
+  result: DirectHttpExecutionResult,
+  descriptor: ProviderDescriptor,
+): ModelOutput {
+  const content = getPath(result.json, ["choices", 0, "message", "content"]);
+  if (typeof content !== "string" || !content.trim()) {
+    throw new Error("missing choices[0].message.content");
+  }
+
+  const responseModel = getPath(result.json, ["model"]);
+  return ModelOutputSchema.parse({
+    content: content.trim(),
+    model: typeof responseModel === "string" && responseModel.trim()
+      ? responseModel
+      : descriptor.model,
+    provider: descriptor.provider,
+    latencyMs: result.durationMs,
+  });
+}
+
+function parseAnthropicMessageContent(
+  result: DirectHttpExecutionResult,
+  descriptor: ProviderDescriptor,
+): ModelOutput {
+  const blocks = getPath(result.json, ["content"]);
+  if (!Array.isArray(blocks)) {
+    throw new Error("missing content blocks");
+  }
+
+  const content = blocks
+    .flatMap((block) => {
+      if (
+        typeof block === "object" && block !== null &&
+        (block as { type?: unknown }).type === "text" &&
+        typeof (block as { text?: unknown }).text === "string"
+      ) {
+        return [(block as { text: string }).text];
+      }
+      return [];
+    })
+    .join("\n")
+    .trim();
+
+  if (!content) {
+    throw new Error("missing text content block");
+  }
+
+  const responseModel = getPath(result.json, ["model"]);
+  return ModelOutputSchema.parse({
+    content,
+    model: typeof responseModel === "string" && responseModel.trim()
+      ? responseModel
+      : descriptor.model,
+    provider: descriptor.provider,
+    latencyMs: result.durationMs,
+  });
+}
+
+export type OpenAIDirectAdapterOptions = {
+  model?: string;
+  endpoint?: string;
+  apiKeyEnv?: string;
+  apiKeyProvider?: () => string | undefined;
+  fetchFn?: FetchLike;
+  budgetManager?: BudgetManager;
+  retryPolicy?: RetryPolicy;
+  defaultTimeoutMs?: number;
+};
+
+export function createOpenAIDirectAdapter(
+  options: OpenAIDirectAdapterOptions = {},
+): ModelAdapter {
+  const model = options.model ?? "gpt-4o-mini";
+  const endpoint = options.endpoint ??
+    "https://api.openai.com/v1/chat/completions";
+
+  return createDirectHttpAdapter({
+    descriptor: {
+      provider: "OpenAI",
+      model,
+      authMode: "apiKey",
+      transport: "directHttp",
+      client: "OpenAIChatCompletions",
+    },
+    apiKeyEnv: options.apiKeyEnv ?? "OPENAI_API_KEY",
+    apiKeyProvider: options.apiKeyProvider,
+    fetchFn: options.fetchFn,
+    retryPolicy: options.retryPolicy,
+    budgetManager: options.budgetManager,
+    estimatedCostUsd: 0.02,
+    defaultTimeoutMs: options.defaultTimeoutMs,
+    parseResponse: parseOpenAIChatContent,
+    buildRequest: (prompt, apiKey) => ({
+      url: endpoint,
+      init: {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      },
+    }),
+  });
+}
+
+export type AnthropicDirectAdapterOptions = {
+  model?: string;
+  endpoint?: string;
+  apiKeyEnv?: string;
+  apiKeyProvider?: () => string | undefined;
+  fetchFn?: FetchLike;
+  budgetManager?: BudgetManager;
+  retryPolicy?: RetryPolicy;
+  defaultTimeoutMs?: number;
+  maxTokens?: number;
+};
+
+export function createAnthropicDirectAdapter(
+  options: AnthropicDirectAdapterOptions = {},
+): ModelAdapter {
+  const model = options.model ?? "claude-3-5-haiku-latest";
+  const endpoint = options.endpoint ?? "https://api.anthropic.com/v1/messages";
+
+  return createDirectHttpAdapter({
+    descriptor: {
+      provider: "Anthropic",
+      model,
+      authMode: "apiKey",
+      transport: "directHttp",
+      client: "AnthropicMessagesAPI",
+    },
+    apiKeyEnv: options.apiKeyEnv ?? "ANTHROPIC_API_KEY",
+    apiKeyProvider: options.apiKeyProvider,
+    fetchFn: options.fetchFn,
+    retryPolicy: options.retryPolicy,
+    budgetManager: options.budgetManager,
+    estimatedCostUsd: 0.03,
+    defaultTimeoutMs: options.defaultTimeoutMs,
+    parseResponse: parseAnthropicMessageContent,
+    buildRequest: (prompt, apiKey) => ({
+      url: endpoint,
+      init: {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: options.maxTokens ?? 1024,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      },
+    }),
+  });
+}
+
+export type OpenAIDirectSynthesisAdapterOptions = OpenAIDirectAdapterOptions;
+
+export class OpenAIDirectSynthesisAdapter implements SynthesisAdapter {
+  readonly descriptor: ProviderDescriptor;
+  private readonly adapter: ModelAdapter;
+
+  constructor(options: OpenAIDirectSynthesisAdapterOptions = {}) {
+    const model = options.model ?? "gpt-4o-mini";
+    this.descriptor = ProviderDescriptorSchema.parse({
+      provider: "OpenAI",
+      model,
+      authMode: "apiKey",
+      transport: "directHttp",
+      client: "OpenAIChatCompletions",
+    });
+    this.adapter = createOpenAIDirectAdapter({ ...options, model });
+  }
+
+  async synthesize(
+    prompt: string,
+    outputs: ModelOutput[],
+    signal: AbortSignal,
+  ): Promise<FinalSynthesis> {
+    const sourceLines = outputs
+      .map((output, index) =>
+        `${index + 1}. [${output.provider}/${output.model}] ${output.content}`
+      )
+      .join("\n");
+    const synthesisPrompt = [
+      "You are the consensus stage of a fail-closed fusion router.",
+      "Return only a JSON object with keys: synthesis, reasoning, consensusModel, sources.",
+      "Do not wrap the JSON in markdown.",
+      `Original user prompt: ${prompt}`,
+      "Validated upstream outputs:",
+      sourceLines,
+      `Set consensusModel to ${this.descriptor.provider}/${this.descriptor.model}.`,
+      "Set sources to the list of contributing provider/model labels.",
+    ].join("\n\n");
+
+    const output = await this.adapter.invoke(synthesisPrompt, signal);
+    return FinalSynthesisSchema.parse(JSON.parse(output.content));
+  }
+}
+
+export function createOpenAIDirectSynthesisAdapter(
+  options: OpenAIDirectSynthesisAdapterOptions = {},
+): SynthesisAdapter {
+  return new OpenAIDirectSynthesisAdapter(options);
 }
 
 export type CodexCliAdapterOptions = {
@@ -1530,52 +2133,102 @@ function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
   });
 }
 
+function envFlagEnabled(name: string): boolean {
+  return Deno.env.get(name) === "1" ||
+    Deno.env.get(name)?.toLowerCase() === "true";
+}
+
+function createDefaultDirectHttpAdapters(): ModelAdapter[] {
+  const adapters: ModelAdapter[] = [];
+
+  if (trimApiKey(Deno.env.get("OPENAI_API_KEY"))) {
+    adapters.push(
+      createOpenAIDirectAdapter({
+        budgetManager: new InMemoryBudgetManager(0.2),
+      }),
+    );
+  }
+
+  if (trimApiKey(Deno.env.get("ANTHROPIC_API_KEY"))) {
+    adapters.push(
+      createAnthropicDirectAdapter({
+        budgetManager: new InMemoryBudgetManager(0.2),
+      }),
+    );
+  }
+
+  return adapters;
+}
+
+function createDefaultCliAdapters(): ModelAdapter[] {
+  return [
+    createCodexCliAdapter({ budgetManager: new InMemoryBudgetManager(0.25) }),
+    createClaudeCodeAdapter({
+      budgetManager: new InMemoryBudgetManager(0.25),
+    }),
+    createGeminiCliAdapter({
+      budgetManager: new InMemoryBudgetManager(0.15),
+    }),
+    createGrokCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
+    createDevinCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
+    createClineCliAdapter({ budgetManager: new InMemoryBudgetManager(0.15) }),
+    createZcodeGlmAdapter({
+      command: repoLocalBin("zcode-headless"),
+      budgetManager: new InMemoryBudgetManager(0.15),
+      auth: {
+        env: {
+          ZCODE_HOME: Deno.env.get("ZCODE_HOME") ?? Deno.env.get("HOME") ??
+            "/Users/tetsu",
+        },
+        readinessCheck: {
+          command: repoLocalBin("zcode-headless"),
+          args: ["doctor"],
+        },
+      },
+    }),
+  ];
+}
+
 function createDefaultRouter(): FusionRouter {
   const envTelemetrySink = maybeCreateEnvTelemetrySink();
   const telemetrySink = envTelemetrySink
     ? createCompositeTelemetrySink(consoleTelemetrySink, envTelemetrySink)
     : consoleTelemetrySink;
+  const directOnly = envFlagEnabled("FUSION_ROUTER_DIRECT_HTTP_ONLY");
+  const directHttpEnabled = directOnly ||
+    envFlagEnabled("FUSION_ROUTER_ENABLE_DIRECT_HTTP");
+  const directAdapters = directHttpEnabled
+    ? createDefaultDirectHttpAdapters()
+    : [];
+  const cliAdapters = directOnly ? [] : createDefaultCliAdapters();
+  const modelAdapters = [...directAdapters, ...cliAdapters];
+
+  if (directOnly && !trimApiKey(Deno.env.get("OPENAI_API_KEY"))) {
+    throw new Error(
+      "FUSION_ROUTER_DIRECT_HTTP_ONLY requires OPENAI_API_KEY for direct HTTP synthesis.",
+    );
+  }
+
+  const synthesisAdapter = directOnly
+    ? createOpenAIDirectSynthesisAdapter({
+      budgetManager: new InMemoryBudgetManager(0.25),
+    })
+    : createCodexStructuredSynthesisAdapter({
+      budgetManager: new InMemoryBudgetManager(0.25),
+    });
 
   return new FusionRouter({
     timeoutMs: 120_000,
-    minSuccessfulAdapters: 2,
+    minSuccessfulAdapters: Math.min(2, modelAdapters.length),
     telemetrySink,
-    modelAdapters: [
-      createCodexCliAdapter({ budgetManager: new InMemoryBudgetManager(0.25) }),
-      createClaudeCodeAdapter({
-        budgetManager: new InMemoryBudgetManager(0.25),
-      }),
-      createGeminiCliAdapter({
-        budgetManager: new InMemoryBudgetManager(0.15),
-      }),
-      createGrokCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
-      createDevinCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
-      createClineCliAdapter({ budgetManager: new InMemoryBudgetManager(0.15) }),
-      createZcodeGlmAdapter({
-        command: repoLocalBin("zcode-headless"),
-        budgetManager: new InMemoryBudgetManager(0.15),
-        auth: {
-          env: {
-            ZCODE_HOME: Deno.env.get("ZCODE_HOME") ?? Deno.env.get("HOME") ??
-              "/Users/tetsu",
-          },
-          readinessCheck: {
-            command: repoLocalBin("zcode-headless"),
-            args: ["doctor"],
-          },
-        },
-      }),
-    ],
-    synthesisAdapter: createCodexStructuredSynthesisAdapter({
-      budgetManager: new InMemoryBudgetManager(0.25),
-    }),
+    modelAdapters,
+    synthesisAdapter,
   });
 }
 
 if (import.meta.main) {
-  const router = createDefaultRouter();
-
   try {
+    const router = createDefaultRouter();
     const result = await router.route(
       "Explain the impact of quantum computing on encryption.",
     );
