@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Hermes / sandbox environments may override HOME, but ZCode keeps its state
+# under the real user home. Allow explicit override when needed.
+if [[ "${ZCODE_KEEP_HOME:-}" != "1" ]]; then
+  REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}' || true)"
+  export HOME="${ZCODE_HOME:-${REAL_HOME:-$HOME}}"
+fi
+
+NODE_BIN="${ZCODE_NODE_BIN:-$(command -v node)}"
+GLM_ENTRY="${ZCODE_GLM_ENTRY:-/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs}"
+
+exec "$NODE_BIN" "$GLM_ENTRY" "$@"

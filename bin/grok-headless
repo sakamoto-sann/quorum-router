@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${GROK_KEEP_HOME:-}" != "1" ]]; then
+  REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}' || true)"
+  export HOME="${GROK_HOME:-${REAL_HOME:-$HOME}}"
+fi
+
+GROK_BIN="${GROK_BIN:-$(command -v grok)}"
+ACTION="${1:-}"
+
+status_check() {
+  python3 - <<'PY'
+from datetime import datetime, timezone
+from pathlib import Path
+import json, os, sys
+
+path = Path(os.environ.get('GROK_AUTH_PATH', os.path.expanduser('~/.grok/auth.json')))
+if not path.exists():
+    print('Grok OAuth session not found. Run: bin/grok-headless login', file=sys.stderr)
+    raise SystemExit(1)
+
+payload = json.loads(path.read_text())
+if not payload:
+    print('Grok auth.json is empty. Run: bin/grok-headless login', file=sys.stderr)
+    raise SystemExit(1)
+
+entry = next(iter(payload.values()))
+expires_at = entry.get('expires_at')
+if expires_at:
+    expiry = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+    if expiry <= datetime.now(timezone.utc):
+        print('Grok OAuth session is expired. Run: bin/grok-headless login', file=sys.stderr)
+        raise SystemExit(1)
+
+print(json.dumps({
+    'ready': True,
+    'auth_mode': entry.get('auth_mode'),
+    'email': entry.get('email'),
+    'expires_at': expires_at,
+}, indent=2))
+PY
+}
+
+case "$ACTION" in
+  doctor|status)
+    shift
+    status_check "$@"
+    ;;
+  login)
+    shift
+    if [[ $# -eq 0 ]]; then
+      exec "$GROK_BIN" login --oauth
+    fi
+    exec "$GROK_BIN" login "$@"
+    ;;
+  *)
+    exec "$GROK_BIN" "$@"
+    ;;
+esac
