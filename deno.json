@@ -6,12 +6,12 @@
     "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
   },
   "tasks": {
-    "check": "deno check router.ts router_test.ts doctor.ts",
-    "fmt": "deno fmt router.ts router_test.ts doctor.ts README.md deno.json",
-    "lint": "deno lint router.ts router_test.ts doctor.ts",
+    "check": "deno check router.ts router_test.ts doctor.ts src/**/*.ts",
+    "fmt": "deno fmt router.ts router_test.ts doctor.ts src README.md docs deno.json",
+    "lint": "deno lint router.ts router_test.ts doctor.ts src",
     "test": "deno test -A router_test.ts",
     "run": "deno run --allow-run --allow-read --allow-write --allow-env --allow-net router.ts",
-    "doctor": "deno run --allow-env --allow-run doctor.ts",
+    "doctor": "deno run --allow-env --allow-run --allow-read doctor.ts",
     "lock": "deno cache --lock=deno.lock router.ts router_test.ts doctor.ts",
     "lock:check": "deno cache --lock=deno.lock --frozen router.ts router_test.ts doctor.ts"
   }

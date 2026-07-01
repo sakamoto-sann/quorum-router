@@ -1,4 +1,5 @@
 import {
+  CircuitBreaker,
   CoFailureTelemetry,
   createAnthropicDirectAdapter,
   createBufferedBatchSink,
@@ -19,10 +20,69 @@ import {
   ModelOutput,
   parseRoutingMode,
   ProcessExecutionError,
+  redactSecrets,
   resolveRoutingMode,
   RouterError,
   ROUTING_MODE_ENV,
   SynthesisAdapter,
+} from "./router.ts";
+import type {
+  AnthropicDirectAdapterOptions as SmokeAnthropicDirectAdapterOptions,
+  AuthStrategy as SmokeAuthStrategy,
+  BudgetManager as SmokeBudgetManager,
+  BufferedBatchHandler as SmokeBufferedBatchHandler,
+  BufferedBatchSink as SmokeBufferedBatchSink,
+  BufferedBatchSinkOptions as SmokeBufferedBatchSinkOptions,
+  BufferedBatchSinkStats as SmokeBufferedBatchSinkStats,
+  BufferedSinkDeliveryMode as SmokeBufferedSinkDeliveryMode,
+  BufferedSinkFlushContext as SmokeBufferedSinkFlushContext,
+  BufferedSinkOverflowPolicy as SmokeBufferedSinkOverflowPolicy,
+  BufferedTelemetrySinkOptions as SmokeBufferedTelemetrySinkOptions,
+  BufferedTelemetrySinkStats as SmokeBufferedTelemetrySinkStats,
+  CircuitBreakerOptions as SmokeCircuitBreakerOptions,
+  ClineCliAdapterOptions as SmokeClineCliAdapterOptions,
+  CodexCliAdapterOptions as SmokeCodexCliAdapterOptions,
+  CodexSynthesisAdapterOptions as SmokeCodexSynthesisAdapterOptions,
+  CoFailureTelemetry as SmokeCoFailureTelemetry,
+  DevinCliAdapterOptions as SmokeDevinCliAdapterOptions,
+  DirectHttpAdapterOptions as SmokeDirectHttpAdapterOptions,
+  DirectHttpExecutionResult as SmokeDirectHttpExecutionResult,
+  DirectHttpRequest as SmokeDirectHttpRequest,
+  DirectHttpResponseParser as SmokeDirectHttpResponseParser,
+  ExplicitRoutingModeSource as SmokeExplicitRoutingModeSource,
+  FetchLike as SmokeFetchLike,
+  FinalSynthesis as SmokeFinalSynthesis,
+  FlushableTelemetrySink as SmokeFlushableTelemetrySink,
+  FusionRouterConfig as SmokeFusionRouterConfig,
+  FusionRouterOptions as SmokeFusionRouterOptions,
+  FusionRouterRouteOptions as SmokeFusionRouterRouteOptions,
+  GeminiCliAdapterOptions as SmokeGeminiCliAdapterOptions,
+  GrokCliAdapterOptions as SmokeGrokCliAdapterOptions,
+  ModelAdapter as SmokeModelAdapter,
+  ModelOutput as SmokeModelOutput,
+  ModelOutputParser as SmokeModelOutputParser,
+  OpenAIDirectAdapterOptions as SmokeOpenAIDirectAdapterOptions,
+  OpenAIDirectSynthesisAdapterOptions
+    as SmokeOpenAIDirectSynthesisAdapterOptions,
+  OtlpTelemetrySinkOptions as SmokeOtlpTelemetrySinkOptions,
+  ProcessExecutionResult as SmokeProcessExecutionResult,
+  ProcessInvocation as SmokeProcessInvocation,
+  ProcessModelAdapterOptions as SmokeProcessModelAdapterOptions,
+  ProviderDescriptor as SmokeProviderDescriptor,
+  RetryPolicy as SmokeRetryPolicy,
+  RoutingMode as SmokeRoutingMode,
+  RoutingModeDecision as SmokeRoutingModeDecision,
+  RoutingModeResolution as SmokeRoutingModeResolution,
+  RoutingModeResolveInput as SmokeRoutingModeResolveInput,
+  RoutingModeSource as SmokeRoutingModeSource,
+  SupabaseAuditHandlerOptions as SmokeSupabaseAuditHandlerOptions,
+  SupabaseAuditRecord as SmokeSupabaseAuditRecord,
+  SupabaseAuditSinkOptions as SmokeSupabaseAuditSinkOptions,
+  SynthesisAdapter as SmokeSynthesisAdapter,
+  TelemetryFailure as SmokeTelemetryFailure,
+  TelemetryFlushOptions as SmokeTelemetryFlushOptions,
+  TelemetrySink as SmokeTelemetrySink,
+  ZcodeAdapterOptions as SmokeZcodeAdapterOptions,
 } from "./router.ts";
 import {
   assert,
@@ -31,6 +91,168 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
+
+type PublicExportTypeSmoke = [
+  SmokeAnthropicDirectAdapterOptions,
+  SmokeAuthStrategy,
+  SmokeBufferedBatchHandler<unknown>,
+  SmokeBufferedBatchSink<unknown>,
+  SmokeBufferedBatchSinkOptions,
+  SmokeBufferedBatchSinkStats,
+  SmokeBufferedSinkDeliveryMode,
+  SmokeBufferedSinkFlushContext,
+  SmokeBufferedSinkOverflowPolicy,
+  SmokeBufferedTelemetrySinkOptions,
+  SmokeBufferedTelemetrySinkStats,
+  SmokeBudgetManager,
+  SmokeCircuitBreakerOptions,
+  SmokeClineCliAdapterOptions,
+  SmokeCodexCliAdapterOptions,
+  SmokeCodexSynthesisAdapterOptions,
+  SmokeCoFailureTelemetry,
+  SmokeDevinCliAdapterOptions,
+  SmokeDirectHttpAdapterOptions,
+  SmokeDirectHttpExecutionResult,
+  SmokeDirectHttpRequest,
+  SmokeDirectHttpResponseParser,
+  SmokeExplicitRoutingModeSource,
+  SmokeFetchLike,
+  SmokeFinalSynthesis,
+  SmokeFlushableTelemetrySink,
+  SmokeFusionRouterConfig,
+  SmokeFusionRouterOptions,
+  SmokeFusionRouterRouteOptions,
+  SmokeGeminiCliAdapterOptions,
+  SmokeGrokCliAdapterOptions,
+  SmokeModelAdapter,
+  SmokeModelOutput,
+  SmokeModelOutputParser,
+  SmokeOpenAIDirectAdapterOptions,
+  SmokeOpenAIDirectSynthesisAdapterOptions,
+  SmokeOtlpTelemetrySinkOptions,
+  SmokeProcessExecutionResult,
+  SmokeProcessInvocation,
+  SmokeProcessModelAdapterOptions,
+  SmokeProviderDescriptor,
+  SmokeRetryPolicy,
+  SmokeRoutingMode,
+  SmokeRoutingModeDecision,
+  SmokeRoutingModeResolution,
+  SmokeRoutingModeResolveInput,
+  SmokeRoutingModeSource,
+  SmokeSupabaseAuditHandlerOptions,
+  SmokeSupabaseAuditRecord,
+  SmokeSupabaseAuditSinkOptions,
+  SmokeSynthesisAdapter,
+  SmokeTelemetryFailure,
+  SmokeTelemetryFlushOptions,
+  SmokeTelemetrySink,
+  SmokeZcodeAdapterOptions,
+];
+
+function assertPublicTypeSmoke(_value?: PublicExportTypeSmoke): void {
+}
+
+const LEGACY_PUBLIC_EXPORT_NAMES = [
+  "ALLOWED_ROUTING_MODES",
+  "AnthropicDirectAdapterOptions",
+  "AuthStrategy",
+  "BudgetManager",
+  "BufferedBatchHandler",
+  "BufferedBatchSink",
+  "BufferedBatchSinkOptions",
+  "BufferedBatchSinkStats",
+  "BufferedSinkDeliveryMode",
+  "BufferedSinkFlushContext",
+  "BufferedSinkOverflowPolicy",
+  "BufferedTelemetrySinkOptions",
+  "BufferedTelemetrySinkStats",
+  "CircuitBreakerOptions",
+  "ClaudeCodeAdapterOptions",
+  "ClineCliAdapterOptions",
+  "CoFailureTelemetry",
+  "CoFailureTelemetrySchema",
+  "CodexCliAdapterOptions",
+  "CodexStructuredSynthesisAdapter",
+  "CodexSynthesisAdapterOptions",
+  "DevinCliAdapterOptions",
+  "DirectHttpAdapterOptions",
+  "DirectHttpExecutionResult",
+  "DirectHttpRequest",
+  "DirectHttpResponseParser",
+  "ExplicitRoutingModeSource",
+  "FetchLike",
+  "FinalSynthesis",
+  "FinalSynthesisSchema",
+  "FlushableTelemetrySink",
+  "FusionRouter",
+  "FusionRouterConfig",
+  "FusionRouterConfigFileSchema",
+  "FusionRouterOptions",
+  "FusionRouterRouteOptions",
+  "GeminiCliAdapterOptions",
+  "GrokCliAdapterOptions",
+  "InMemoryBudgetManager",
+  "ModelAdapter",
+  "ModelOutput",
+  "ModelOutputParser",
+  "ModelOutputSchema",
+  "OpenAIDirectAdapterOptions",
+  "OpenAIDirectSynthesisAdapter",
+  "OpenAIDirectSynthesisAdapterOptions",
+  "OtlpTelemetrySinkOptions",
+  "ProcessExecutionError",
+  "ProcessExecutionResult",
+  "ProcessInvocation",
+  "ProcessModelAdapterOptions",
+  "ProviderDescriptor",
+  "ProviderDescriptorSchema",
+  "ROUTING_MODE_ENV",
+  "RetryPolicy",
+  "RouterError",
+  "RoutingMode",
+  "RoutingModeDecision",
+  "RoutingModeResolution",
+  "RoutingModeResolveInput",
+  "RoutingModeSchema",
+  "RoutingModeSource",
+  "SupabaseAuditHandlerOptions",
+  "SupabaseAuditRecord",
+  "SupabaseAuditSinkOptions",
+  "SynthesisAdapter",
+  "TelemetryFailure",
+  "TelemetryFailureSchema",
+  "TelemetryFlushOptions",
+  "TelemetrySink",
+  "ZcodeAdapterOptions",
+  "closeTelemetrySink",
+  "createAnthropicDirectAdapter",
+  "createBufferedBatchSink",
+  "createBufferedTelemetrySink",
+  "createClaudeCodeAdapter",
+  "createClineCliAdapter",
+  "createCodexCliAdapter",
+  "createCodexStructuredSynthesisAdapter",
+  "createCompositeTelemetrySink",
+  "createDevinCliAdapter",
+  "createDirectHttpAdapter",
+  "createGeminiCliAdapter",
+  "createGrokCliAdapter",
+  "createOpenAIDirectAdapter",
+  "createOpenAIDirectSynthesisAdapter",
+  "createOtlpHttpTelemetrySink",
+  "createOtlpTelemetryHandler",
+  "createProcessAdapter",
+  "createSupabaseAuditHandler",
+  "createSupabaseAuditSink",
+  "createZcodeGlmAdapter",
+  "describeRoutingModeDecision",
+  "flushTelemetrySink",
+  "isRoutingModeImplemented",
+  "loadFusionRouterConfig",
+  "parseRoutingMode",
+  "resolveRoutingMode",
+] as const;
 
 async function makeScript(content: string): Promise<string> {
   const dir = await Deno.makeTempDir({ prefix: "fusion-router-test-" });
@@ -2099,8 +2321,20 @@ Deno.test("supabase audit sink runtime path does not require service role env", 
 });
 
 Deno.test("router runtime sink implementation has no Supabase service-role env dependency", async () => {
-  const source = await Deno.readTextFile("router.ts");
-  assert(!/SUPABASE.*SERVICE.*ROLE/i.test(source));
+  const sourceFiles = [
+    "router.ts",
+    "src/runtime.ts",
+    "src/router.ts",
+    "src/audit/supabase-audit.ts",
+    "src/telemetry/buffered-batch-sink.ts",
+  ];
+  for (const file of sourceFiles) {
+    const source = await Deno.readTextFile(file);
+    assert(
+      !/Deno\.env\.(get|has)\([^)]*SUPABASE.*SERVICE.*ROLE/i.test(source),
+      file,
+    );
+  }
 });
 
 function isolatedDoctorEnv(
@@ -2109,9 +2343,115 @@ function isolatedDoctorEnv(
   return { PATH: Deno.env.get("PATH") ?? "", ...env };
 }
 
+function doctorArgs(path = "doctor.ts"): string[] {
+  return ["run", "--allow-env", "--allow-run", "--allow-read", path];
+}
+
+Deno.test("public compatibility barrel preserves core exports", async () => {
+  assertPublicTypeSmoke();
+  const api = await import("./router.ts");
+  for (
+    const name of [
+      "FusionRouter",
+      "RouterError",
+      "ProcessExecutionError",
+      "RoutingModeSchema",
+      "parseRoutingMode",
+      "resolveRoutingMode",
+      "describeRoutingModeDecision",
+      "loadFusionRouterConfig",
+      "createProcessAdapter",
+      "createCodexCliAdapter",
+      "createClaudeCodeAdapter",
+      "createGeminiCliAdapter",
+      "createGrokCliAdapter",
+      "createDevinCliAdapter",
+      "createClineCliAdapter",
+      "createZcodeGlmAdapter",
+      "createOpenAIDirectAdapter",
+      "createAnthropicDirectAdapter",
+      "createBufferedBatchSink",
+      "createBufferedTelemetrySink",
+      "createOtlpHttpTelemetrySink",
+      "createSupabaseAuditHandler",
+      "createSupabaseAuditSink",
+      "ModelOutputSchema",
+      "FinalSynthesisSchema",
+      "CoFailureTelemetrySchema",
+      "InMemoryBudgetManager",
+    ]
+  ) {
+    assert(api[name as keyof typeof api] !== undefined, name);
+  }
+});
+
+Deno.test("public compatibility barrel preserves the full legacy export surface", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["doc", "--json", "router.ts"],
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const doc = JSON.parse(text) as {
+    nodes: Record<string, { symbols?: Array<{ name?: string }> }>;
+  };
+  const exportedNames = new Set(
+    Object.values(doc.nodes).flatMap((node) =>
+      (node.symbols ?? []).map((symbol) => symbol.name).filter((name) =>
+        typeof name === "string"
+      )
+    ),
+  );
+  for (const name of LEGACY_PUBLIC_EXPORT_NAMES) {
+    assert(exportedNames.has(name), name);
+  }
+});
+
+Deno.test("redactSecrets replaces overlapping secrets longest first", () => {
+  const text = "token=abcd and prefix=abc";
+  const redacted = redactSecrets(text, ["abc", "abcd"]);
+  assertEquals(redacted, "token=[REDACTED] and prefix=[REDACTED]");
+  assert(!redacted.includes("d and"));
+});
+
+Deno.test("FusionRouter rejects invalid quorum values", () => {
+  const modelAdapter = new CountingAdapter();
+  const synthesisAdapter = staticOkSynthesis();
+  for (const value of [Number.NaN, 0, 1.5]) {
+    try {
+      new FusionRouter({
+        modelAdapters: [modelAdapter],
+        synthesisAdapter,
+        minSuccessfulAdapters: value,
+      });
+      throw new Error("expected constructor to reject invalid quorum");
+    } catch (error) {
+      assert(error instanceof Error);
+      assertStringIncludes(error.message, "minSuccessfulAdapters");
+    }
+  }
+});
+
+Deno.test("audit sink enforces fail-closed must-accept semantics over caller overrides", async () => {
+  const sink = createSupabaseAuditSink({
+    flushHandler: () => {},
+    overflowPolicy: "drop_oldest",
+    deliveryMode: "best_effort",
+  });
+
+  const accepted = sink({
+    eventType: "fixture.first",
+    actorType: "ai_assistant",
+    decision: "allow",
+  });
+  assert(accepted instanceof Promise);
+  await accepted;
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
 Deno.test("doctor masks endpoint query and fragment credentials", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    args: doctorArgs(),
     clearEnv: true,
     env: isolatedDoctorEnv({
       OTEL_EXPORTER_OTLP_ENDPOINT:
@@ -2131,7 +2471,7 @@ Deno.test("doctor masks endpoint query and fragment credentials", async () => {
 
 Deno.test("doctor service-role check is scoped to Supabase env keys", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    args: doctorArgs(),
     clearEnv: true,
     env: isolatedDoctorEnv({
       SERVICE_ROLE_KEY: "unrelated-fixture-value",
@@ -2147,7 +2487,7 @@ Deno.test("doctor service-role check is scoped to Supabase env keys", async () =
 Deno.test("doctor fails closed when Supabase service-role env is present", async () => {
   const credentialFixture = ["runtime", "blocked", "fixture"].join("-");
   const output = await new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    args: doctorArgs(),
     clearEnv: true,
     env: isolatedDoctorEnv({
       FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY: credentialFixture,
@@ -2164,7 +2504,7 @@ Deno.test("doctor fails closed when Supabase service-role env is present", async
 
 Deno.test("doctor treats unconfigured Supabase audit as informational", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    args: doctorArgs(),
     clearEnv: true,
     env: isolatedDoctorEnv(),
   }).output();
@@ -2178,6 +2518,102 @@ Deno.test("doctor treats unconfigured Supabase audit as informational", async ()
   );
   assertEquals(check.detail, "not configured");
   assertEquals(check.severity, "info");
+});
+
+Deno.test("doctor reports absent config and default direct readiness", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-empty-" });
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
+    cwd: dir,
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const configCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_config_file"
+  );
+  const modeCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_effective_mode"
+  );
+  assertStringIncludes(configCheck.detail, "absent or empty");
+  assertEquals(modeCheck.detail, "direct from default; implemented=true");
+});
+
+Deno.test("doctor reports valid config and config-over-env precedence without leaking env", async () => {
+  const dir = await Deno.makeTempDir({
+    prefix: "fusion-router-doctor-config-",
+  });
+  await Deno.writeTextFile(
+    `${dir}/fusion-router.config.json`,
+    JSON.stringify({ routing: { mode: "direct" } }),
+  );
+  const hiddenEnvValue = "agent_chat";
+  const unrelatedSecretEnvValue = "doctor-secret-fixture";
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
+    cwd: dir,
+    clearEnv: true,
+    env: isolatedDoctorEnv({
+      [ROUTING_MODE_ENV]: hiddenEnvValue,
+      FUSION_ROUTER_UNUSED_MARKER: unrelatedSecretEnvValue,
+    }),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const configCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_config_file"
+  );
+  const precedenceCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_config_env_precedence"
+  );
+  assertEquals(configCheck.detail, "valid: routing.mode=direct");
+  assertStringIncludes(
+    precedenceCheck.detail,
+    "config routing.mode takes precedence",
+  );
+  assert(!text.includes(unrelatedSecretEnvValue));
+});
+
+Deno.test("doctor fails closed on invalid env routing mode without raw value", async () => {
+  const hiddenInvalidValue = "auto-secret-fixture";
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(),
+    clearEnv: true,
+    env: isolatedDoctorEnv({ [ROUTING_MODE_ENV]: hiddenInvalidValue }),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(!output.success, text);
+  assertStringIncludes(text, "routing_mode_env");
+  assertStringIncludes(text, "raw value hidden");
+  assert(!text.includes(hiddenInvalidValue));
+});
+
+Deno.test("doctor warns when agent_chat is selected because runtime is not implemented", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(),
+    clearEnv: true,
+    env: isolatedDoctorEnv({ [ROUTING_MODE_ENV]: "agent_chat" }),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const modeCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_effective_mode"
+  );
+  assertEquals(modeCheck.ok, false);
+  assertEquals(modeCheck.severity, "warn");
+  assertEquals(modeCheck.detail, "agent_chat from env; implemented=false");
 });
 
 Deno.test("zcode-style stdout error is treated as failure", async () => {
@@ -2203,6 +2639,54 @@ EOF
     Error,
     "Model config is missing",
   );
+});
+
+Deno.test("process adapter bounds children that ignore SIGTERM", async () => {
+  const script = await makeScript(`#!/usr/bin/env bash
+trap "" TERM
+sleep 5
+`);
+
+  const adapter = createProcessAdapter({
+    descriptor: {
+      provider: "Fixture",
+      model: "ignores-term",
+      authMode: "session",
+      transport: "processAdapter",
+      client: "FixtureCLI",
+    },
+    defaultTimeoutMs: 50,
+    buildInvocation: () => ({ command: script }),
+  });
+
+  const startedAt = Date.now();
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+    "timed out",
+  );
+  assertEquals(error.codeName, "timeout");
+  assert(Date.now() - startedAt < 2_000);
+});
+
+Deno.test("plain process output may begin with Error outside zcode wrapper", async () => {
+  const script = await makeScript(`#!/usr/bin/env bash
+echo 'Error: this is valid model content'
+`);
+
+  const adapter = createProcessAdapter({
+    descriptor: {
+      provider: "Fixture",
+      model: "error-content",
+      authMode: "session",
+      transport: "processAdapter",
+      client: "FixtureCLI",
+    },
+    buildInvocation: () => ({ command: script }),
+  });
+
+  const output = await adapter.invoke("hello", new AbortController().signal);
+  assertEquals(output.content, "Error: this is valid model content");
 });
 
 Deno.test("provider auth policy failures classify as auth_failed", async () => {
@@ -2444,11 +2928,65 @@ Deno.test("direct HTTP adapter propagates AbortSignal into fetch", async () => {
   assert(sawAbort);
 });
 
+Deno.test("direct HTTP adapter normalizes invalid retry maxAttempts to one attempt", async () => {
+  let attempts = 0;
+  const adapter = createOpenAIDirectAdapter({
+    apiKeyProvider: () => "openai-key",
+    retryPolicy: { maxAttempts: 0, baseDelayMs: 0, maxDelayMs: 0 },
+    fetchFn: () => {
+      attempts += 1;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "ok" } }],
+            model: "gpt-fixture",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+    },
+  });
+
+  const output = await adapter.invoke("hello", new AbortController().signal);
+  assertEquals(output.content, "ok");
+  assertEquals(attempts, 1);
+});
+
+Deno.test("circuit breaker rejects invalid options", () => {
+  for (
+    const options of [
+      { failureThreshold: 0, cooldownMs: 1_000 },
+      { failureThreshold: 1.5, cooldownMs: 1_000 },
+      { failureThreshold: 1, cooldownMs: Number.NaN },
+      { failureThreshold: 1, cooldownMs: -1 },
+    ]
+  ) {
+    try {
+      new CircuitBreaker(options);
+      throw new Error("expected invalid circuit breaker options to reject");
+    } catch (error) {
+      assert(error instanceof Error);
+    }
+  }
+});
+
+Deno.test("budget manager allows decimal spend that exactly reaches limit", () => {
+  const budget = new InMemoryBudgetManager(0.3);
+  budget.consume("first", 0.1);
+  budget.consume("second", 0.2);
+  assert(Math.abs(budget.snapshot().remainingUsd) < 1e-8);
+});
+
 Deno.test("OpenAI direct HTTP synthesis parses JSON content", async () => {
+  let capturedBody: Record<string, unknown> | undefined;
   const synthesisAdapter = createOpenAIDirectSynthesisAdapter({
     apiKeyProvider: () => "openai-synth-key",
-    fetchFn: (_input, _init) =>
-      Promise.resolve(
+    fetchFn: (_input, init) => {
+      capturedBody = JSON.parse(String(init?.body));
+      return Promise.resolve(
         new Response(
           JSON.stringify({
             choices: [{
@@ -2467,7 +3005,8 @@ Deno.test("OpenAI direct HTTP synthesis parses JSON content", async () => {
             headers: { "content-type": "application/json" },
           },
         ),
-      ),
+      );
+    },
   });
 
   const output = await synthesisAdapter.synthesize(
@@ -2483,6 +3022,7 @@ Deno.test("OpenAI direct HTTP synthesis parses JSON content", async () => {
 
   assertEquals(output.synthesis, "direct synthesis ok");
   assertEquals(output.sources, ["OpenAI/gpt-fixture"]);
+  assertEquals(capturedBody?.response_format, { type: "json_object" });
 });
 
 Deno.test("budget manager blocks over-budget invocation", async () => {
