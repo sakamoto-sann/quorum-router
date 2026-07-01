@@ -48,8 +48,8 @@ flowchart TD
 - **Co-failure telemetry** capture so correlated provider failures can be logged/observed
 - Support for describing multiple adapter surfaces:
   - direct provider API integrations
-  - OAuth-backed wrapper clients such as a `zcode`-style bridge
-  - custom/session-backed adapters for tool-specific surfaces
+  - OAuth-backed wrapper lanes where a provider-specific bridge actually makes sense
+  - custom/session-backed adapters for tool-specific surfaces such as Codex CLI, Claude Code, Devin, and Cline
 
 ## Included surfaces in the PoC
 
@@ -67,9 +67,11 @@ The demo configuration includes examples for these adapter shapes:
 | Google (Gemini) | API key | direct API |
 | Anthropic (Claude Opus) | API key | direct API |
 | Cognition (Devin) | session-backed | `customAdapter` |
+| Codex CLI | session-backed | `customAdapter` |
+| Claude Code | session-backed | `customAdapter` |
 | Cline | session-backed | `customAdapter` |
 
-These are **architecture placeholders** in this repo's current form. The shipped code uses mock adapters so the structure stays easy to read. In the demo config, `zcodeWrapper` is intentionally shown only for the GLM lane rather than as a generic transport for every provider/tool. The Cline lane is intentionally marked as a failure case so the demo continues to exercise co-failure telemetry and fail-closed behavior under partial upstream failure.
+These are **architecture placeholders** in this repo's current form. The shipped code uses mock adapters so the structure stays easy to read. The demo config intentionally separates three different shapes: direct API lanes, a dedicated GLM wrapper lane, and session/process-backed custom adapters. The Cline lane is intentionally marked as a failure case so the demo continues to exercise co-failure telemetry and fail-closed behavior under partial upstream failure.
 
 ## Fail-closed contract
 

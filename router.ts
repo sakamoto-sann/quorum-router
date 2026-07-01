@@ -483,6 +483,20 @@ if (import.meta.main) {
         client: "Devin",
       }),
       createMockAdapter({
+        provider: "OpenAI",
+        model: "codex-cli",
+        authMode: "session",
+        transport: "customAdapter",
+        client: "CodexCLI",
+      }),
+      createMockAdapter({
+        provider: "Anthropic",
+        model: "claude-code",
+        authMode: "session",
+        transport: "customAdapter",
+        client: "ClaudeCode",
+      }),
+      createMockAdapter({
         provider: "Cline",
         model: "claude-sonnet-4",
         authMode: "session",
