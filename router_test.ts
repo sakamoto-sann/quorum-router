@@ -1,4 +1,7 @@
 import {
+  createAnthropicDirectAdapter,
+  createOpenAIDirectAdapter,
+  createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
   createProcessAdapter,
   FinalSynthesis,
@@ -141,6 +144,73 @@ exit 1
 
   assertEquals(error.status, 4401);
   assertEquals(error.code, "consensus_insufficient");
+});
+
+Deno.test("process adapter failure diagnostics redact credentials", async () => {
+  const leakFixture = ["leak", "fixture", "value"].join("-");
+  const failingScript = await makeScript(`#!/usr/bin/env bash
+printf 'auth=%s\n' "$FUSION_ROUTER_TEST_AUTH"
+>&2 printf 'credential=%s\n' "$FUSION_ROUTER_TEST_AUTH"
+exit 1
+`);
+
+  const makeLeakingAdapter = () =>
+    createProcessAdapter({
+      descriptor: {
+        provider: "Fixture",
+        model: "leaky-process",
+        authMode: "session",
+        transport: "processAdapter",
+        client: "FixtureCLI",
+      },
+      retryPolicy: {
+        maxAttempts: 1,
+        baseDelayMs: 1,
+        maxDelayMs: 1,
+      },
+      buildInvocation: () => ({
+        command: failingScript,
+        env: { FUSION_ROUTER_TEST_AUTH: leakFixture },
+      }),
+    });
+
+  const processError = await assertRejects(
+    () => makeLeakingAdapter().invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+  const processSurface = JSON.stringify({
+    message: processError.message,
+    stdout: processError.stdout,
+    stderr: processError.stderr,
+  });
+  assert(!processSurface.includes(leakFixture));
+  assertStringIncludes(processSurface, "[REDACTED]");
+
+  const telemetryRecords: unknown[] = [];
+  const router = new FusionRouter({
+    modelAdapters: [makeLeakingAdapter()],
+    synthesisAdapter: new StaticSynthesisAdapter({
+      synthesis: "unused",
+      reasoning: "unused",
+      consensusModel: "unused",
+      sources: ["unused"],
+    }),
+    minSuccessfulAdapters: 1,
+    timeoutMs: 10_000,
+    telemetrySink: (telemetry) => {
+      telemetryRecords.push(telemetry);
+    },
+  });
+
+  const routerError = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+  const routerSurface = JSON.stringify({
+    details: routerError.details,
+    telemetryRecords,
+  });
+  assert(!routerSurface.includes(leakFixture));
 });
 
 Deno.test("synthesis validation failure fails closed", async () => {
@@ -450,6 +520,236 @@ exit 1
   );
 
   assertEquals(error.codeName, "auth_failed");
+});
+
+Deno.test("OpenAI direct HTTP adapter sends bearer token and parses chat content", async () => {
+  let capturedAuthorization = "";
+  let capturedBody: Record<string, unknown> | undefined;
+
+  const adapter = createOpenAIDirectAdapter({
+    endpoint: "https://fixture.test/openai",
+    apiKeyProvider: () => "openai-test-key",
+    fetchFn: (_input, init) => {
+      capturedAuthorization = new Headers(init?.headers).get("authorization") ??
+        "";
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            model: "gpt-fixture",
+            choices: [{ message: { content: "openai says hi" } }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+    },
+  });
+
+  const output = await adapter.invoke("hello", new AbortController().signal);
+
+  assertEquals(capturedAuthorization, "Bearer openai-test-key");
+  assertEquals(capturedBody?.model, "gpt-4o-mini");
+  assertEquals(output.provider, "OpenAI");
+  assertEquals(output.model, "gpt-fixture");
+  assertEquals(output.content, "openai says hi");
+});
+
+Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", async () => {
+  let capturedApiKey = "";
+  let capturedVersion = "";
+  let capturedBody: Record<string, unknown> | undefined;
+
+  const adapter = createAnthropicDirectAdapter({
+    endpoint: "https://fixture.test/anthropic",
+    apiKeyProvider: () => "anthropic-test-key",
+    fetchFn: (_input, init) => {
+      const headers = new Headers(init?.headers);
+      capturedApiKey = headers.get("x-api-key") ?? "";
+      capturedVersion = headers.get("anthropic-version") ?? "";
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            model: "claude-fixture",
+            content: [
+              { type: "text", text: "anthropic" },
+              { type: "text", text: "says hi" },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+    },
+  });
+
+  const output = await adapter.invoke("hello", new AbortController().signal);
+
+  assertEquals(capturedApiKey, "anthropic-test-key");
+  assertEquals(capturedVersion, "2023-06-01");
+  assertEquals(capturedBody?.model, "claude-3-5-haiku-latest");
+  assertEquals(output.provider, "Anthropic");
+  assertEquals(output.model, "claude-fixture");
+  assertEquals(output.content, "anthropic\nsays hi");
+});
+
+Deno.test("direct HTTP adapter fails closed before fetch when API key is missing", async () => {
+  let fetchCalls = 0;
+  const adapter = createOpenAIDirectAdapter({
+    apiKeyProvider: () => undefined,
+    fetchFn: () => {
+      fetchCalls += 1;
+      return Promise.resolve(new Response("should not run"));
+    },
+  });
+
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+
+  assertEquals(error.codeName, "auth_failed");
+  assertStringIncludes(error.message, "OPENAI_API_KEY");
+  assertEquals(fetchCalls, 0);
+});
+
+Deno.test("direct HTTP provider auth failures redact API keys", async () => {
+  const fixtureCredential = "redaction-test-key";
+  const adapter = createOpenAIDirectAdapter({
+    apiKeyProvider: () => fixtureCredential,
+    fetchFn: () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: { message: `bad key ${fixtureCredential}` },
+          }),
+          {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      ),
+  });
+
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+
+  assertEquals(error.codeName, "auth_failed");
+  assertStringIncludes(error.message, "[REDACTED]");
+  assert(!error.message.includes(fixtureCredential));
+});
+
+Deno.test("direct HTTP adapter retries rate limits and succeeds", async () => {
+  let attempts = 0;
+  const adapter = createOpenAIDirectAdapter({
+    apiKeyProvider: () => "openai-retry-key",
+    retryPolicy: { maxAttempts: 2, baseDelayMs: 1, maxDelayMs: 5 },
+    fetchFn: () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.resolve(
+          new Response("rate limit", {
+            status: 429,
+            headers: { "retry-after": "0" },
+          }),
+        );
+      }
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: "retry success" } }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+    },
+  });
+
+  const output = await adapter.invoke("hello", new AbortController().signal);
+
+  assertEquals(attempts, 2);
+  assertEquals(output.content, "retry success");
+});
+
+Deno.test("direct HTTP adapter propagates AbortSignal into fetch", async () => {
+  let sawSignal = false;
+  let sawAbort = false;
+  const adapter = createOpenAIDirectAdapter({
+    apiKeyProvider: () => "openai-abort-key",
+    defaultTimeoutMs: 10,
+    retryPolicy: { maxAttempts: 1, baseDelayMs: 1, maxDelayMs: 1 },
+    fetchFn: (_input, init) => {
+      const signal = init?.signal;
+      sawSignal = signal instanceof AbortSignal;
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener("abort", () => {
+          sawAbort = true;
+          reject(new DOMException("aborted", "AbortError"));
+        }, { once: true });
+      });
+    },
+  });
+
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+
+  assertEquals(error.codeName, "timeout");
+  assert(sawSignal);
+  assert(sawAbort);
+});
+
+Deno.test("OpenAI direct HTTP synthesis parses JSON content", async () => {
+  const synthesisAdapter = createOpenAIDirectSynthesisAdapter({
+    apiKeyProvider: () => "openai-synth-key",
+    fetchFn: (_input, _init) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            choices: [{
+              message: {
+                content: JSON.stringify({
+                  synthesis: "direct synthesis ok",
+                  reasoning: "mocked OpenAI direct HTTP synthesis",
+                  consensusModel: "OpenAI/gpt-4o-mini",
+                  sources: ["OpenAI/gpt-fixture"],
+                }),
+              },
+            }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      ),
+  });
+
+  const output = await synthesisAdapter.synthesize(
+    "hello",
+    [{
+      provider: "OpenAI",
+      model: "gpt-fixture",
+      content: "source output",
+      latencyMs: 1,
+    }],
+    new AbortController().signal,
+  );
+
+  assertEquals(output.synthesis, "direct synthesis ok");
+  assertEquals(output.sources, ["OpenAI/gpt-fixture"]);
 });
 
 Deno.test("budget manager blocks over-budget invocation", async () => {
