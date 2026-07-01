@@ -11,12 +11,13 @@ import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
  * 5. Pass validated outputs to a stronger consensus model (e.g. GPT-5.5).
  *
  * NOTE: This file intentionally ships mock adapters. It models the architecture
- * for direct API providers and OAuth-backed wrapper clients (e.g. zcodeWrapper)
+ * for direct API providers, OAuth-backed wrapper clients (e.g. zcodeWrapper),
+ * and custom adapter surfaces such as local/session-backed tools.
  * without baking in any one vendor SDK.
  */
 
-const AuthModeSchema = z.enum(["apiKey", "oauth"]);
-const TransportSchema = z.enum(["directApi", "zcodeWrapper"]);
+const AuthModeSchema = z.enum(["apiKey", "oauth", "session"]);
+const TransportSchema = z.enum(["directApi", "zcodeWrapper", "customAdapter"]);
 
 const ProviderDescriptorSchema = z.object({
   provider: z.string().min(1),
@@ -459,37 +460,36 @@ if (import.meta.main) {
       createMockAdapter({
         provider: "xAI",
         model: "grok-4",
-        authMode: "oauth",
-        transport: "zcodeWrapper",
-        client: "Zcode",
+        authMode: "apiKey",
+        transport: "directApi",
       }),
       createMockAdapter({
         provider: "Google",
         model: "gemini-2.5-pro",
-        authMode: "oauth",
-        transport: "zcodeWrapper",
-        client: "Zcode",
+        authMode: "apiKey",
+        transport: "directApi",
       }),
       createMockAdapter({
         provider: "Anthropic",
         model: "claude-opus-4.1",
-        authMode: "oauth",
-        transport: "zcodeWrapper",
-        client: "Zcode",
+        authMode: "apiKey",
+        transport: "directApi",
       }),
       createMockAdapter({
         provider: "Cognition",
         model: "devin",
-        authMode: "oauth",
-        transport: "zcodeWrapper",
-        client: "Zcode",
+        authMode: "session",
+        transport: "customAdapter",
+        client: "Devin",
       }),
       createMockAdapter({
         provider: "Cline",
         model: "claude-sonnet-4",
-        authMode: "oauth",
-        transport: "zcodeWrapper",
-        client: "Zcode",
+        authMode: "session",
+        transport: "customAdapter",
+        client: "Cline",
+        // Intentional demo failure so the sample run still exercises
+        // co-failure telemetry and bounded partial-failure handling.
         shouldFail: true,
       }),
     ],
