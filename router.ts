@@ -29,6 +29,23 @@ const TransportSchema = z.enum([
   "directHttp",
 ]);
 
+export const RoutingModeSchema = z.enum(["direct", "agent_chat"]);
+export type RoutingMode = z.infer<typeof RoutingModeSchema>;
+export type ExplicitRoutingModeSource = "request" | "config" | "env";
+export type RoutingModeSource = ExplicitRoutingModeSource | "default";
+export type RoutingModeResolution = {
+  mode: RoutingMode;
+  source: RoutingModeSource;
+};
+export type RoutingModeResolveInput = {
+  requestMode?: unknown;
+  configMode?: unknown;
+  envMode?: unknown;
+};
+
+export const ROUTING_MODE_ENV = "FUSION_ROUTER_MODE";
+export const ALLOWED_ROUTING_MODES = RoutingModeSchema.options;
+
 const ProviderDescriptorSchema = z.object({
   provider: z.string().min(1),
   model: z.string().min(1),
@@ -156,6 +173,79 @@ function failClosed(
   details?: unknown,
 ): never {
   throw new RouterError(status, code, message, details);
+}
+
+export function parseRoutingMode(
+  value: unknown,
+  source: ExplicitRoutingModeSource,
+): RoutingModeResolution | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    failClosed(
+      4400,
+      "invalid_routing_mode",
+      `Invalid routing mode selected from ${source}. Allowed values: ${
+        ALLOWED_ROUTING_MODES.join(
+          ", ",
+        )
+      }.`,
+      {
+        source,
+        allowedModes: ALLOWED_ROUTING_MODES,
+        receivedType: value === null ? "null" : typeof value,
+      },
+    );
+  }
+
+  const parsed = RoutingModeSchema.safeParse(value.trim());
+  if (!parsed.success) {
+    failClosed(
+      4400,
+      "invalid_routing_mode",
+      `Invalid routing mode selected from ${source}. Allowed values: ${
+        ALLOWED_ROUTING_MODES.join(
+          ", ",
+        )
+      }.`,
+      {
+        source,
+        allowedModes: ALLOWED_ROUTING_MODES,
+      },
+    );
+  }
+
+  return { mode: parsed.data, source };
+}
+
+export function resolveRoutingMode(
+  input: RoutingModeResolveInput = {},
+): RoutingModeResolution {
+  return parseRoutingMode(input.requestMode, "request") ??
+    parseRoutingMode(input.configMode, "config") ??
+    parseRoutingMode(input.envMode, "env") ??
+    { mode: "direct", source: "default" };
+}
+
+function readRoutingModeEnv(): string | undefined {
+  try {
+    return Deno.env.get(ROUTING_MODE_ENV);
+  } catch {
+    return undefined;
+  }
+}
+
+function assertImplementedRoutingMode(resolution: RoutingModeResolution): void {
+  if (resolution.mode === "agent_chat") {
+    failClosed(
+      4401,
+      "routing_mode_not_implemented",
+      "Routing mode agent_chat is recognized but not implemented.",
+      resolution,
+    );
+  }
 }
 
 function errorMessage(error: unknown): string {
@@ -2843,6 +2933,12 @@ export type FusionRouterOptions = {
   timeoutMs?: number;
   minSuccessfulAdapters?: number;
   telemetrySink?: TelemetrySink;
+  routingMode?: unknown;
+  routingModeEnvProvider?: () => unknown;
+};
+
+export type FusionRouterRouteOptions = {
+  routingMode?: unknown;
 };
 
 export class FusionRouter {
@@ -2851,6 +2947,8 @@ export class FusionRouter {
   private readonly timeoutMs: number;
   private readonly minSuccessfulAdapters: number;
   private readonly telemetrySink?: TelemetrySink;
+  private readonly routingModeConfig?: unknown;
+  private readonly routingModeEnvProvider: () => unknown;
 
   constructor(options: FusionRouterOptions) {
     if (options.modelAdapters.length === 0) {
@@ -2873,6 +2971,18 @@ export class FusionRouter {
     }
 
     this.telemetrySink = options.telemetrySink;
+    this.routingModeConfig = options.routingMode;
+    this.routingModeEnvProvider = options.routingModeEnvProvider ??
+      readRoutingModeEnv;
+  }
+
+  resolveRoutingModeForRequest(
+    options: FusionRouterRouteOptions = {},
+  ): RoutingModeResolution {
+    return parseRoutingMode(options.routingMode, "request") ??
+      parseRoutingMode(this.routingModeConfig, "config") ??
+      parseRoutingMode(this.routingModeEnvProvider(), "env") ??
+      { mode: "direct", source: "default" };
   }
 
   async flushTelemetry(options: TelemetryFlushOptions = {}): Promise<void> {
@@ -2883,7 +2993,13 @@ export class FusionRouter {
     await closeTelemetrySink(this.telemetrySink, options);
   }
 
-  async route(prompt: string): Promise<FinalSynthesis> {
+  async route(
+    prompt: string,
+    options: FusionRouterRouteOptions = {},
+  ): Promise<FinalSynthesis> {
+    const routingMode = this.resolveRoutingModeForRequest(options);
+    assertImplementedRoutingMode(routingMode);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 

@@ -1,8 +1,10 @@
 # Routing mode design
 
 Phase 3 design pass for the fusion router routing-mode switch. This document is
-a contract proposal for a future implementation. It does not add runtime
-behavior, new providers, migrations, installers, or agent-chat execution.
+the contract for future runtime work. Implementation slice 1 adds only the safe
+parser/resolver boundary: `direct` is active on the existing router flow, and
+`agent_chat` is recognized but fails closed before adapter execution because the
+agent-chat runtime is intentionally not implemented yet.
 
 ## Goals
 
@@ -19,9 +21,8 @@ latency, budget, audit, timeout, fallback, and observability rules.
 
 ## Non-goals
 
-This design pass intentionally does not add:
+The current implementation intentionally does not add:
 
-- routing mode switch implementation;
 - agent-chat runtime;
 - agmsg protocol implementation;
 - installer changes;
@@ -321,9 +322,31 @@ observability slots rather than replacing the audit boundary. Protocol messages
 are not the audit source of truth; the Supabase audit RPC remains the durable
 boundary.
 
-## Implementation checklist for a future PR
+## Implementation status
 
-A later implementation PR should add tests for:
+Implemented in slice 1:
+
+- routing mode parser for `direct` and `agent_chat`;
+- default mode of `direct`;
+- fail-closed handling for invalid explicit values, including explicit empty
+  strings;
+- selection precedence: request metadata > router config > `FUSION_ROUTER_MODE`
+  > default;
+- `direct` connected to the existing router flow;
+- `agent_chat` recognized but not implemented, with fail-closed behavior before
+  adapter execution.
+
+Still future work:
+
+- agent-chat runtime;
+- agmsg protocol;
+- planner / coder / reviewer / red-team / closeout execution;
+- audit or telemetry schema expansion beyond the current boundary;
+- installer or provider changes.
+
+## Implementation checklist for future PRs
+
+Future implementation PRs should keep tests for:
 
 - default mode is `direct`;
 - allowed values are exactly `direct` and `agent_chat`;

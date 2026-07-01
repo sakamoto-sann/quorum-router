@@ -15,8 +15,11 @@ import {
   InMemoryBudgetManager,
   ModelAdapter,
   ModelOutput,
+  parseRoutingMode,
   ProcessExecutionError,
+  resolveRoutingMode,
   RouterError,
+  ROUTING_MODE_ENV,
   SynthesisAdapter,
 } from "./router.ts";
 import {
@@ -106,17 +109,422 @@ function auditFixture(eventType: string): AuditFixture {
   };
 }
 
+class CountingAdapter implements ModelAdapter {
+  readonly descriptor = {
+    provider: "Fixture",
+    model: "counting",
+    authMode: "session",
+    transport: "processAdapter",
+    client: "CountingAdapter",
+  } as const;
+  calls = 0;
+
+  constructor(
+    private readonly response: ModelOutput = {
+      provider: "Fixture",
+      model: "counting",
+      content: "validated upstream output",
+      latencyMs: 1,
+    },
+  ) {}
+
+  invoke(_prompt: string, _signal: AbortSignal): Promise<ModelOutput> {
+    this.calls += 1;
+    return Promise.resolve(this.response);
+  }
+}
+
+async function withRoutingModeEnv<T>(
+  value: string | undefined,
+  fn: () => T | Promise<T>,
+): Promise<T> {
+  const original = Deno.env.get(ROUTING_MODE_ENV);
+  if (value === undefined) {
+    Deno.env.delete(ROUTING_MODE_ENV);
+  } else {
+    Deno.env.set(ROUTING_MODE_ENV, value);
+  }
+
+  try {
+    return await fn();
+  } finally {
+    if (original === undefined) {
+      Deno.env.delete(ROUTING_MODE_ENV);
+    } else {
+      Deno.env.set(ROUTING_MODE_ENV, original);
+    }
+  }
+}
+
 function buildRouter(
   adapter: ModelAdapter,
   synthesisAdapter: SynthesisAdapter,
+  options: {
+    routingMode?: unknown;
+    routingModeEnvProvider?: () => unknown;
+  } = {},
 ): FusionRouter {
   return new FusionRouter({
     modelAdapters: [adapter],
     synthesisAdapter,
     minSuccessfulAdapters: 1,
     timeoutMs: 10_000,
+    routingMode: options.routingMode,
+    routingModeEnvProvider: options.routingModeEnvProvider,
   });
 }
+
+function staticOkSynthesis(): StaticSynthesisAdapter {
+  return new StaticSynthesisAdapter({
+    synthesis: "ok",
+    reasoning: "fixture consensus",
+    consensusModel: "Test/static-synth",
+    sources: ["Fixture/counting"],
+  });
+}
+
+Deno.test("routing mode default is direct", () => {
+  assertEquals(resolveRoutingMode(), { mode: "direct", source: "default" });
+});
+
+Deno.test("routing mode absent or undefined values default to direct", () => {
+  assertEquals(
+    resolveRoutingMode({
+      requestMode: undefined,
+      configMode: undefined,
+      envMode: undefined,
+    }),
+    { mode: "direct", source: "default" },
+  );
+  assertEquals(parseRoutingMode(undefined, "request"), undefined);
+});
+
+Deno.test("routing mode direct explicit value works", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => undefined,
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest({ routingMode: "direct" }), {
+    mode: "direct",
+    source: "request",
+  });
+
+  const result = await router.route("hello", { routingMode: "direct" });
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("routing mode precedence is request metadata over config over env over default", () => {
+  assertEquals(
+    resolveRoutingMode({
+      requestMode: "direct",
+      configMode: "agent_chat",
+      envMode: "agent_chat",
+    }),
+    { mode: "direct", source: "request" },
+  );
+  assertEquals(
+    resolveRoutingMode({ configMode: "agent_chat", envMode: "direct" }),
+    { mode: "agent_chat", source: "config" },
+  );
+  assertEquals(resolveRoutingMode({ envMode: "direct" }), {
+    mode: "direct",
+    source: "env",
+  });
+  assertEquals(resolveRoutingMode(), { mode: "direct", source: "default" });
+});
+
+Deno.test("routing mode default direct path preserves successful router behavior", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => undefined,
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "direct",
+    source: "default",
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("routing mode request direct overrides config and skips env provider at runtime", async () => {
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "agent_chat",
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      throw new Error("env provider should not run when request mode is set");
+    },
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest({ routingMode: "direct" }), {
+    mode: "direct",
+    source: "request",
+  });
+
+  const result = await router.route("hello", { routingMode: "direct" });
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("routing mode config direct overrides and skips env provider at runtime", async () => {
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "direct",
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      throw new Error("env provider should not run when config mode is set");
+    },
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "direct",
+    source: "config",
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("routing mode config agent_chat fails closed before adapter execution", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "agent_chat",
+    routingModeEnvProvider: () => "direct",
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "agent_chat",
+    source: "config",
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routing mode agent_chat is recognized but fails closed before adapter execution", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => undefined,
+  });
+
+  assertEquals(
+    router.resolveRoutingModeForRequest({ routingMode: "agent_chat" }),
+    {
+      mode: "agent_chat",
+      source: "request",
+    },
+  );
+
+  const error = await assertRejects(
+    () => router.route("hello", { routingMode: "agent_chat" }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4401);
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routing mode invalid value fails closed before adapter execution", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello", { routingMode: "auto" }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assert(!error.message.includes("auto"));
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routing mode invalid request value overrides valid lower-precedence modes", async () => {
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "direct",
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      return "direct";
+    },
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello", { routingMode: "auto" }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assert(!error.message.includes("auto"));
+  assertEquals(adapter.calls, 0);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("routing mode non-string explicit values fail closed before adapter execution", async () => {
+  const requestAdapter = new CountingAdapter();
+  const requestRouter = buildRouter(requestAdapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => "direct",
+  });
+  const requestError = await assertRejects(
+    () => requestRouter.route("hello", { routingMode: 123 }),
+    RouterError,
+  );
+  assertEquals(requestError.status, 4400);
+  assertEquals(requestError.code, "invalid_routing_mode");
+  assertEquals(requestAdapter.calls, 0);
+
+  const configAdapter = new CountingAdapter();
+  const configRouter = buildRouter(configAdapter, staticOkSynthesis(), {
+    routingMode: null,
+    routingModeEnvProvider: () => "direct",
+  });
+  const configError = await assertRejects(
+    () => configRouter.route("hello"),
+    RouterError,
+  );
+  assertEquals(configError.status, 4400);
+  assertEquals(configError.code, "invalid_routing_mode");
+  assertEquals(configAdapter.calls, 0);
+
+  const envAdapter = new CountingAdapter();
+  const envRouter = buildRouter(envAdapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => ({ mode: "direct" }),
+  });
+  const envError = await assertRejects(
+    () => envRouter.route("hello"),
+    RouterError,
+  );
+  assertEquals(envError.status, 4400);
+  assertEquals(envError.code, "invalid_routing_mode");
+  assertEquals(envAdapter.calls, 0);
+});
+
+Deno.test("routing mode config empty string fails closed before adapter execution", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "",
+    routingModeEnvProvider: () => "direct",
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routing mode explicit empty string fails closed", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello", { routingMode: "" }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routing mode env empty string fails closed before adapter execution", async () => {
+  await withRoutingModeEnv("", async () => {
+    const adapter = new CountingAdapter();
+    const router = buildRouter(adapter, staticOkSynthesis());
+
+    const error = await assertRejects(
+      () => router.route("hello"),
+      RouterError,
+    );
+
+    assertEquals(error.status, 4400);
+    assertEquals(error.code, "invalid_routing_mode");
+    assertEquals(adapter.calls, 0);
+  });
+});
+
+Deno.test("routing mode env direct works", async () => {
+  await withRoutingModeEnv("direct", async () => {
+    const adapter = new CountingAdapter();
+    const router = buildRouter(adapter, staticOkSynthesis());
+
+    assertEquals(router.resolveRoutingModeForRequest(), {
+      mode: "direct",
+      source: "env",
+    });
+
+    const result = await router.route("hello");
+
+    assertEquals(result.synthesis, "ok");
+    assertEquals(adapter.calls, 1);
+  });
+});
+
+Deno.test("routing mode env agent_chat resolves but fails closed before adapter execution", async () => {
+  await withRoutingModeEnv("agent_chat", async () => {
+    const adapter = new CountingAdapter();
+    const router = buildRouter(adapter, staticOkSynthesis());
+
+    assertEquals(router.resolveRoutingModeForRequest(), {
+      mode: "agent_chat",
+      source: "env",
+    });
+
+    const error = await assertRejects(
+      () => router.route("hello"),
+      RouterError,
+    );
+
+    assertEquals(error.code, "routing_mode_not_implemented");
+    assertEquals(adapter.calls, 0);
+  });
+});
+
+Deno.test("routing mode invalid env value fails closed before adapter execution", async () => {
+  await withRoutingModeEnv("invalid", async () => {
+    const adapter = new CountingAdapter();
+    const router = buildRouter(adapter, staticOkSynthesis());
+
+    const error = await assertRejects(
+      () => router.route("hello"),
+      RouterError,
+    );
+
+    assertEquals(error.status, 4400);
+    assertEquals(error.code, "invalid_routing_mode");
+    assert(!error.message.includes("invalid"));
+    assertEquals(adapter.calls, 0);
+  });
+});
 
 Deno.test("malformed provider response is rejected", async () => {
   const script = await makeScript(`#!/usr/bin/env bash
