@@ -46,27 +46,32 @@ flowchart TD
   - invalid synthesis output aborts the request with a structured error
 - bounded adapter execution, even if an adapter ignores `AbortSignal`
 - **Co-failure telemetry** capture so correlated provider failures can be logged/observed
-- Support for describing both:
+- Support for describing multiple adapter surfaces:
   - direct provider API integrations
-  - OAuth-backed wrapper clients such as a `zcode`-style bridge
+  - OAuth-backed wrapper lanes where a provider-specific bridge actually makes sense
+  - custom/session-backed adapters for tool-specific surfaces such as Codex CLI, Claude Code, Devin, and Cline
 
 ## Included surfaces in the PoC
 
 The demo configuration includes examples for these adapter shapes:
 
+> In the current PoC, `authMode` and `transport` are descriptive metadata for the demo configuration. They document intended integration shape; they do not yet implement full auth/session behavior by themselves.
+
 | Surface | Example auth | Example transport |
 |---|---|---|
 | OpenAI | API key | direct API |
-| Anthropic | API key | direct API |
+| Anthropic (Claude Sonnet) | API key | direct API |
 | DeepSeek | API key | direct API |
 | GLM | OAuth | `zcodeWrapper` |
-| xAI (Grok) | OAuth | `zcodeWrapper` |
-| Google (Gemini) | OAuth | `zcodeWrapper` |
-| Anthropic (Claude) | OAuth | `zcodeWrapper` |
-| Cognition (Devin) | OAuth | `zcodeWrapper` |
-| Cline | OAuth | `zcodeWrapper` |
+| xAI (Grok) | API key | direct API |
+| Google (Gemini) | API key | direct API |
+| Anthropic (Claude Opus) | API key | direct API |
+| Cognition (Devin) | session-backed | `customAdapter` |
+| Codex CLI | session-backed | `customAdapter` |
+| Claude Code | session-backed | `customAdapter` |
+| Cline | session-backed | `customAdapter` |
 
-These are **architecture placeholders** in this repo's current form. The shipped code uses mock adapters so the structure stays easy to read.
+These are **architecture placeholders** in this repo's current form. The shipped code uses mock adapters so the structure stays easy to read. The demo config intentionally separates three different shapes: direct API lanes, a dedicated GLM wrapper lane, and session/process-backed custom adapters. The Cline lane is intentionally marked as a failure case so the demo continues to exercise co-failure telemetry and fail-closed behavior under partial upstream failure.
 
 ## Fail-closed contract
 
