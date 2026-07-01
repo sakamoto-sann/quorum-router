@@ -87,13 +87,23 @@ checks.push({
   severity: "error",
 });
 
+const supabaseUrlConfigured = envPresent("FUSION_ROUTER_SUPABASE_URL") ||
+  envPresent("SUPABASE_URL");
+const supabaseAnonKeyConfigured =
+  envPresent("FUSION_ROUTER_SUPABASE_ANON_KEY") ||
+  envPresent("SUPABASE_ANON_KEY");
+const supabaseAuditConfigured = supabaseUrlConfigured &&
+  supabaseAnonKeyConfigured;
+const supabaseAuditPartial = supabaseUrlConfigured || supabaseAnonKeyConfigured;
 checks.push({
-  name: "supabase_url",
-  ok: envPresent("SUPABASE_URL") || envPresent("FUSION_ROUTER_SUPABASE_URL"),
-  detail: envPresent("SUPABASE_URL") || envPresent("FUSION_ROUTER_SUPABASE_URL")
+  name: "supabase_audit_config",
+  ok: supabaseAuditConfigured || !supabaseAuditPartial,
+  detail: supabaseAuditConfigured
     ? "configured"
+    : supabaseAuditPartial
+    ? "incomplete: Supabase URL and anon key are both required for audit RPC"
     : "not configured",
-  severity: "warn",
+  severity: supabaseAuditPartial && !supabaseAuditConfigured ? "warn" : "info",
 });
 
 const forbiddenServiceRoleKeys = serviceRoleEnvKeys();
