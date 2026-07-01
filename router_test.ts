@@ -9,6 +9,7 @@ import {
   createProcessAdapter,
   createSupabaseAuditHandler,
   createSupabaseAuditSink,
+  describeRoutingModeDecision,
   FinalSynthesis,
   FinalSynthesisSchema,
   FusionRouter,
@@ -191,6 +192,87 @@ function staticOkSynthesis(): StaticSynthesisAdapter {
   });
 }
 
+Deno.test("direct routing decision reports implemented true", () => {
+  assertEquals(
+    describeRoutingModeDecision({ mode: "direct", source: "default" }),
+    { mode: "direct", source: "default", implemented: true },
+  );
+});
+
+Deno.test("agent_chat routing decision reports implemented false", () => {
+  assertEquals(
+    describeRoutingModeDecision({ mode: "agent_chat", source: "request" }),
+    { mode: "agent_chat", source: "request", implemented: false },
+  );
+});
+
+Deno.test("routing decision source is preserved for request config env and default", () => {
+  assertEquals(
+    describeRoutingModeDecision(
+      resolveRoutingMode({ requestMode: "direct", configMode: "agent_chat" }),
+    ),
+    { mode: "direct", source: "request", implemented: true },
+  );
+  assertEquals(
+    describeRoutingModeDecision(
+      resolveRoutingMode({ configMode: "direct", envMode: "agent_chat" }),
+    ),
+    { mode: "direct", source: "config", implemented: true },
+  );
+  assertEquals(
+    describeRoutingModeDecision(resolveRoutingMode({ envMode: "direct" })),
+    { mode: "direct", source: "env", implemented: true },
+  );
+  assertEquals(describeRoutingModeDecision(resolveRoutingMode()), {
+    mode: "direct",
+    source: "default",
+    implemented: true,
+  });
+});
+
+Deno.test("router exposes routing decisions for request config env and default", async () => {
+  const configPath = await writeConfigFile(JSON.stringify({
+    routing: { mode: "direct" },
+  }));
+  const config = await loadFusionRouterConfig(configPath);
+  const router = buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    routingMode: config.routingMode,
+    routingModeEnvProvider: () => "agent_chat",
+  });
+
+  assertEquals(router.describeRoutingModeDecisionForRequest(), {
+    mode: "direct",
+    source: "config",
+    implemented: true,
+  });
+  assertEquals(
+    router.describeRoutingModeDecisionForRequest({ routingMode: "direct" }),
+    { mode: "direct", source: "request", implemented: true },
+  );
+
+  const envRouter = buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    routingModeEnvProvider: () => "direct",
+  });
+  assertEquals(envRouter.describeRoutingModeDecisionForRequest(), {
+    mode: "direct",
+    source: "env",
+    implemented: true,
+  });
+
+  const defaultRouter = buildRouter(
+    new CountingAdapter(),
+    staticOkSynthesis(),
+    {
+      routingModeEnvProvider: () => undefined,
+    },
+  );
+  assertEquals(defaultRouter.describeRoutingModeDecisionForRequest(), {
+    mode: "direct",
+    source: "default",
+    implemented: true,
+  });
+});
+
 Deno.test("missing config file returns empty config with no routing mode", async () => {
   const dir = await Deno.makeTempDir({
     prefix: "fusion-router-config-missing-",
@@ -261,6 +343,13 @@ Deno.test("valid config agent_chat loads and route fails closed before adapter e
   );
 
   assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.details, {
+    routingMode: {
+      mode: "agent_chat",
+      source: "config",
+      implemented: false,
+    },
+  });
   assertEquals(adapter.calls, 0);
 });
 
@@ -605,6 +694,13 @@ Deno.test("routing mode agent_chat is recognized but fails closed before adapter
 
   assertEquals(error.status, 4401);
   assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.details, {
+    routingMode: {
+      mode: "agent_chat",
+      source: "request",
+      implemented: false,
+    },
+  });
   assertEquals(adapter.calls, 0);
 });
 
@@ -622,6 +718,7 @@ Deno.test("routing mode invalid value fails closed before adapter execution", as
   assertEquals(error.status, 4400);
   assertEquals(error.code, "invalid_routing_mode");
   assert(!error.message.includes("auto"));
+  assert(!JSON.stringify(error.details).includes("auto"));
   assertEquals(adapter.calls, 0);
 });
 
@@ -644,6 +741,7 @@ Deno.test("routing mode invalid request value overrides valid lower-precedence m
   assertEquals(error.status, 4400);
   assertEquals(error.code, "invalid_routing_mode");
   assert(!error.message.includes("auto"));
+  assert(!JSON.stringify(error.details).includes("auto"));
   assertEquals(adapter.calls, 0);
   assertEquals(envCalls, 0);
 });
@@ -769,12 +867,20 @@ Deno.test("routing mode env agent_chat resolves but fails closed before adapter 
     );
 
     assertEquals(error.code, "routing_mode_not_implemented");
+    assertEquals(error.details, {
+      routingMode: {
+        mode: "agent_chat",
+        source: "env",
+        implemented: false,
+      },
+    });
     assertEquals(adapter.calls, 0);
   });
 });
 
 Deno.test("routing mode invalid env value fails closed before adapter execution", async () => {
-  await withRoutingModeEnv("invalid", async () => {
+  const invalidEnvMode = "auto-env-fixture";
+  await withRoutingModeEnv(invalidEnvMode, async () => {
     const adapter = new CountingAdapter();
     const router = buildRouter(adapter, staticOkSynthesis());
 
@@ -785,7 +891,8 @@ Deno.test("routing mode invalid env value fails closed before adapter execution"
 
     assertEquals(error.status, 4400);
     assertEquals(error.code, "invalid_routing_mode");
-    assert(!error.message.includes("invalid"));
+    assert(!error.message.includes(invalidEnvMode));
+    assert(!JSON.stringify(error.details).includes(invalidEnvMode));
     assertEquals(adapter.calls, 0);
   });
 });
@@ -854,6 +961,11 @@ exit 1
 
   assertEquals(error.status, 4401);
   assertEquals(error.code, "consensus_insufficient");
+  assertEquals((error.details as { routingMode?: unknown }).routingMode, {
+    mode: "direct",
+    source: "default",
+    implemented: true,
+  });
 });
 
 Deno.test("process adapter failure diagnostics redact credentials", async () => {
@@ -948,6 +1060,11 @@ echo 'validated upstream output'
 
   assertEquals(error.status, 4401);
   assertEquals(error.code, "consensus_validation_failed");
+  assertEquals((error.details as { routingMode?: unknown }).routingMode, {
+    mode: "direct",
+    source: "default",
+    implemented: true,
+  });
 });
 
 Deno.test("rate-limited adapter retries and succeeds", async () => {

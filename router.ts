@@ -37,6 +37,9 @@ export type RoutingModeResolution = {
   mode: RoutingMode;
   source: RoutingModeSource;
 };
+export type RoutingModeDecision = RoutingModeResolution & {
+  implemented: boolean;
+};
 export type RoutingModeResolveInput = {
   requestMode?: unknown;
   configMode?: unknown;
@@ -239,6 +242,20 @@ export function resolveRoutingMode(
     { mode: "direct", source: "default" };
 }
 
+export function isRoutingModeImplemented(mode: RoutingMode): boolean {
+  return mode === "direct";
+}
+
+export function describeRoutingModeDecision(
+  resolution: RoutingModeResolution,
+): RoutingModeDecision {
+  return {
+    mode: resolution.mode,
+    source: resolution.source,
+    implemented: isRoutingModeImplemented(resolution.mode),
+  };
+}
+
 export async function loadFusionRouterConfig(
   path: string,
 ): Promise<FusionRouterConfig> {
@@ -296,13 +313,13 @@ function readRoutingModeEnv(): string | undefined {
   }
 }
 
-function assertImplementedRoutingMode(resolution: RoutingModeResolution): void {
-  if (resolution.mode === "agent_chat") {
+function assertImplementedRoutingMode(decision: RoutingModeDecision): void {
+  if (!decision.implemented) {
     failClosed(
       4401,
       "routing_mode_not_implemented",
       "Routing mode agent_chat is recognized but not implemented.",
-      resolution,
+      { routingMode: decision },
     );
   }
 }
@@ -3044,6 +3061,14 @@ export class FusionRouter {
       { mode: "direct", source: "default" };
   }
 
+  describeRoutingModeDecisionForRequest(
+    options: FusionRouterRouteOptions = {},
+  ): RoutingModeDecision {
+    return describeRoutingModeDecision(
+      this.resolveRoutingModeForRequest(options),
+    );
+  }
+
   async flushTelemetry(options: TelemetryFlushOptions = {}): Promise<void> {
     await flushTelemetrySink(this.telemetrySink, options);
   }
@@ -3056,7 +3081,7 @@ export class FusionRouter {
     prompt: string,
     options: FusionRouterRouteOptions = {},
   ): Promise<FinalSynthesis> {
-    const routingMode = this.resolveRoutingModeForRequest(options);
+    const routingMode = this.describeRoutingModeDecisionForRequest(options);
     assertImplementedRoutingMode(routingMode);
 
     const controller = new AbortController();
@@ -3087,7 +3112,10 @@ export class FusionRouter {
           4401,
           "consensus_insufficient",
           `Validated quorum not met: required ${this.minSuccessfulAdapters}, got ${successfulOutputs.length}.`,
-          telemetry,
+          {
+            routingMode,
+            telemetry,
+          },
         );
       }
 
@@ -3109,6 +3137,7 @@ export class FusionRouter {
           "Consensus stage failed validation.",
           {
             cause: errorMessage(error),
+            routingMode,
             telemetry,
           },
         );

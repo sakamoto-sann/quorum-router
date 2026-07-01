@@ -1,8 +1,9 @@
 # Routing mode design
 
 Phase 3 design pass for the fusion router routing-mode switch. This document is
-the contract for future runtime work. Implementation slice 1 adds only the safe
-parser/resolver boundary: `direct` is active on the existing router flow, and
+the contract for future runtime work. Implementation slices 1-3 add the safe
+parser/resolver boundary, config-loader skeleton, and sanitized routing decision
+summary: `direct` is active on the existing router flow, and
 `agent_chat` is recognized but fails closed before adapter execution because the
 agent-chat runtime is intentionally not implemented yet.
 
@@ -300,6 +301,25 @@ invalid_mode
 
 Telemetry stays best-effort. Audit stays fail-closed.
 
+The implemented routing decision summary is safe to expose in errors, status
+helpers, telemetry summaries, and future audit metadata because it contains only
+bounded enum fields:
+
+```ts
+type RoutingModeDecision = {
+  mode: "direct" | "agent_chat";
+  source: "request" | "config" | "env" | "default";
+  implemented: boolean;
+};
+```
+
+It intentionally omits raw prompts, raw invalid mode values, environment values,
+config-file contents, credentials, and provider outputs. Invalid mode errors
+continue to include only the source, allowed modes, and sanitized type metadata.
+For future durable audit rows, record `routing_mode` / `routing_mode_source` (or
+metadata equivalents) from this summary rather than storing caller-provided raw
+mode input.
+
 ### `direct` observability and audit fields
 
 `direct` should record enough to answer what the router did without logging
@@ -335,11 +355,12 @@ boundary.
 
 ## Implementation status
 
-Implemented in slices 1 and 2:
+Implemented in slices 1-3:
 
 - routing mode parser for `direct` and `agent_chat`;
 - config loader skeleton for `fusion-router.config.json` using only
   `routing.mode`;
+- sanitized routing decision summary with `mode`, `source`, and `implemented`;
 - default mode of `direct`;
 - fail-closed handling for invalid explicit values, including explicit empty
   strings, malformed config JSON, wrong config shape, non-string config values,
@@ -348,7 +369,7 @@ Implemented in slices 1 and 2:
   > default;
 - `direct` connected to the existing router flow;
 - `agent_chat` recognized but not implemented, with fail-closed behavior before
-  adapter execution.
+  adapter execution and a sanitized decision in `RouterError.details`.
 
 Still future work:
 
