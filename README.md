@@ -196,6 +196,14 @@ intact:
   unless only one side is configured, in which case doctor warns about the
   incomplete audit RPC config.
 
+Phase 2.5 adds setup/operator documentation only. Use
+[`docs/supabase-audit-setup.md`](docs/supabase-audit-setup.md) for migration,
+JWT claim, env, privilege-model, and doctor guidance, then use
+[`docs/supabase-audit-checklist.md`](docs/supabase-audit-checklist.md) for the
+manual verification checklist after applying the migration. `.env.example` keeps
+runtime Supabase audit values empty and documents that service-role credentials
+are migration/admin-only, never router runtime config.
+
 Cancellation is transport-specific:
 
 - CLI / wrapper lanes are bounded by process timeout, `SIGTERM`, and listener /
