@@ -318,18 +318,15 @@ exit 1
 
 Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
   const received: Array<Record<string, unknown>> = [];
-  const listener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
-  const port = (listener.addr as Deno.NetAddr).port;
-  listener.close();
-
   const abortController = new AbortController();
-  Deno.serve(
-    { hostname: "127.0.0.1", port, signal: abortController.signal },
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, signal: abortController.signal },
     async (request) => {
       received.push(await request.json() as Record<string, unknown>);
       return new Response("ok", { status: 200 });
     },
   );
+  const port = (server.addr as Deno.NetAddr).port;
 
   const sink = createOtlpHttpTelemetrySink({
     endpoint: `http://127.0.0.1:${port}/v1/logs`,
@@ -347,6 +344,7 @@ Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
   });
 
   abortController.abort();
+  await server.finished;
 
   assertEquals(received.length, 1);
   const resourceLogs = received[0].resourceLogs as Array<

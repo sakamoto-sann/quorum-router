@@ -95,9 +95,9 @@ them as adapters yet:
 | xAI API                    | API key (`XAI_API_KEY`)                       | documented only     |
 
 `authMode` and `transport` are not just table labels anymore: the router now
-maps readiness checks, optional refresh hooks, wrapper-specific env/token
-plumbing, retries, estimated budget guardrails, and circuit-breaking behavior
-into each process-backed adapter. The GLM lane stays isolated behind
+maps configured readiness checks, optional refresh hooks, wrapper-specific
+env/token plumbing, retries, estimated budget guardrails, and circuit-breaking
+behavior into process-backed adapters. The GLM lane stays isolated behind
 `zcodeWrapper` via `bin/zcode-headless`; Codex / Claude / Gemini / Grok now
 default to repo-local wrapper launchers instead of calling the upstream CLIs
 directly.
