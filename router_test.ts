@@ -7,6 +7,7 @@ import {
   createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
   createProcessAdapter,
+  createSupabaseAuditHandler,
   createSupabaseAuditSink,
   FinalSynthesis,
   FinalSynthesisSchema,
@@ -1007,6 +1008,254 @@ Deno.test("generic must-accept sink recovers after handler failure", async () =>
   await sink.close({ force: true, maxDurationMs: 50 });
 });
 
+Deno.test("supabase audit RPC payload omits DB-owned identity fields", async () => {
+  const jwtCredential = ["jwt", "fixture", "value"].join("-");
+  const publicCredential = ["public", "fixture", "value"].join("-");
+  const requests: Array<{ input: string | URL | Request; init?: RequestInit }> =
+    [];
+  const handler = createSupabaseAuditHandler({
+    supabaseUrl: "https://project.example.test",
+    jwtProvider: () => jwtCredential,
+    anonKeyProvider: () => publicCredential,
+    fetchFn: (input, init) => {
+      requests.push({ input, init });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    },
+  });
+  const record = {
+    ...auditFixture("workflow.access"),
+    actorId: "00000000-0000-0000-0000-000000000001",
+    createdAt: "2000-01-01T00:00:00.000Z",
+    org_id: "client-org",
+    actor_id: "00000000-0000-0000-0000-000000000002",
+    created_at: "1999-01-01T00:00:00.000Z",
+  } as AuditFixture & Record<string, unknown>;
+
+  await handler([record], { deadlineMs: Date.now() + 1_000 });
+
+  assertEquals(requests.length, 1);
+  const body = JSON.parse(String(requests[0].init?.body));
+  assertEquals(body.records.length, 1);
+  assertEquals(body.records[0].event_type, "workflow.access");
+  assertEquals(body.records[0].actor_type, "ai_assistant");
+  assertEquals(body.records[0].workflow_id, "wf-fixture");
+  assertEquals(body.records[0].decision, "allow");
+  assertEquals("org_id" in body.records[0], false);
+  assertEquals("actor_id" in body.records[0], false);
+  assertEquals("created_at" in body.records[0], false);
+  assertEquals("actorId" in body.records[0], false);
+  assertEquals("createdAt" in body.records[0], false);
+});
+
+Deno.test("supabase audit handler calls the batch RPC with user JWT", async () => {
+  const jwtCredential = ["jwt", "transport", "fixture"].join("-");
+  const publicCredential = ["public", "transport", "fixture"].join("-");
+  const requests: Array<{ input: string | URL | Request; init?: RequestInit }> =
+    [];
+  const handler = createSupabaseAuditHandler({
+    supabaseUrl: "https://project.example.test/",
+    jwtProvider: () => jwtCredential,
+    anonKeyProvider: () => publicCredential,
+    fetchFn: (input, init) => {
+      requests.push({ input, init });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    },
+  });
+
+  await handler([auditFixture("workflow.rpc")], {
+    deadlineMs: Date.now() + 1_000,
+  });
+
+  assertEquals(
+    String(requests[0].input),
+    "https://project.example.test/rest/v1/rpc/insert_workflow_access_audit_batch",
+  );
+  const headers = requests[0].init?.headers as Record<string, string>;
+  assertEquals(headers["authorization"], `Bearer ${jwtCredential}`);
+  assertEquals(headers["apikey"], publicCredential);
+  assertEquals(headers["prefer"], "return=minimal");
+});
+
+Deno.test("supabase audit RPC failure rejects the must-accept sink", async () => {
+  const jwtCredential = ["jwt", "failure", "fixture"].join("-");
+  const publicCredential = ["public", "failure", "fixture"].join("-");
+  const sink = createSupabaseAuditSink({
+    flushHandler: createSupabaseAuditHandler({
+      supabaseUrl: "https://project.example.test",
+      jwtProvider: () => jwtCredential,
+      anonKeyProvider: () => publicCredential,
+      fetchFn: () =>
+        Promise.resolve(
+          new Response(`upstream ${jwtCredential} ${publicCredential}`, {
+            status: 500,
+          }),
+        ),
+    }),
+    defaultDrainMs: 100,
+    registerUnloadHook: false,
+  });
+
+  const error = await assertRejects(
+    async () => await sink(auditFixture("workflow.fail")),
+    ProcessExecutionError,
+    "HTTP 500",
+  );
+
+  assert(!error.message.includes(jwtCredential));
+  assert(!error.message.includes(publicCredential));
+  assertStringIncludes(error.message, "[REDACTED]");
+  assertEquals(sink.stats().queueSize, 1);
+
+  await sink.close({ force: true, maxDurationMs: 10 });
+});
+
+Deno.test("supabase audit sink preserves accepted records after transient RPC failure", async () => {
+  const jwtCredential = ["jwt", "transient", "fixture"].join("-");
+  const publicCredential = ["public", "transient", "fixture"].join("-");
+  let calls = 0;
+  const bodies: unknown[] = [];
+  const sink = createSupabaseAuditSink({
+    flushHandler: createSupabaseAuditHandler({
+      supabaseUrl: "https://project.example.test",
+      jwtProvider: () => jwtCredential,
+      anonKeyProvider: () => publicCredential,
+      fetchFn: (_input, init) => {
+        calls += 1;
+        bodies.push(JSON.parse(String(init?.body)));
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response("temporary unavailable", { status: 500 }),
+          );
+        }
+        return Promise.resolve(new Response(null, { status: 204 }));
+      },
+    }),
+    maxQueueSize: 2,
+    maxBatchSize: 2,
+    defaultDrainMs: 100,
+    registerUnloadHook: false,
+  });
+
+  await assertRejects(
+    async () => await sink(auditFixture("workflow.first")),
+    ProcessExecutionError,
+    "HTTP 500",
+  );
+  await sink(auditFixture("workflow.second"));
+
+  const retried = bodies[1] as { records: Array<{ event_type: string }> };
+  assertEquals(
+    retried.records.map((record) => record.event_type),
+    ["workflow.first", "workflow.second"],
+  );
+  assertEquals(sink.stats().queueSize, 0);
+  assertEquals(sink.stats().delivered, 2);
+
+  await sink.close({ force: true, maxDurationMs: 50 });
+});
+
+Deno.test("supabase audit runtime path works without service-role env", async () => {
+  const original = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+  try {
+    const jwtCredential = ["jwt", "runtime", "fixture"].join("-");
+    const publicCredential = ["public", "runtime", "fixture"].join("-");
+    let delivered = 0;
+    const sink = createSupabaseAuditSink({
+      flushHandler: createSupabaseAuditHandler({
+        supabaseUrl: "https://project.example.test",
+        jwtProvider: () => jwtCredential,
+        anonKeyProvider: () => publicCredential,
+        fetchFn: () => {
+          delivered += 1;
+          return Promise.resolve(new Response(null, { status: 204 }));
+        },
+      }),
+      registerUnloadHook: false,
+    });
+
+    await sink(auditFixture("workflow.runtime"));
+
+    assertEquals(delivered, 1);
+    assertEquals(sink.stats().delivered, 1);
+  } finally {
+    if (original === undefined) {
+      Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+    } else {
+      Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", original);
+    }
+  }
+});
+
+Deno.test("supabase audit migration enforces RPC-only authenticated writes", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260701130000_workflow_access_audit.sql",
+  );
+  const normalized = sql.toLowerCase().replace(/\s+/g, " ");
+
+  assertStringIncludes(
+    normalized,
+    "create table if not exists public.workflow_access_audit",
+  );
+  assertStringIncludes(
+    normalized,
+    "alter table public.workflow_access_audit enable row level security",
+  );
+  assertStringIncludes(
+    normalized,
+    "revoke all privileges on table public.workflow_access_audit from authenticated",
+  );
+  assertStringIncludes(
+    normalized,
+    "grant execute on function public.insert_workflow_access_audit_batch(jsonb) to authenticated",
+  );
+  assert(
+    !/grant\s+(?:all|select|insert|update|delete)(?:\s+privileges)?\s+on\s+table\s+public\.workflow_access_audit\s+to\s+authenticated/i
+      .test(sql),
+  );
+});
+
+Deno.test("supabase audit migration denies anon table and RPC access", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260701130000_workflow_access_audit.sql",
+  );
+  const normalized = sql.toLowerCase().replace(/\s+/g, " ");
+
+  assertStringIncludes(
+    normalized,
+    "revoke all privileges on table public.workflow_access_audit from anon",
+  );
+  assertStringIncludes(
+    normalized,
+    "revoke all privileges on function public.insert_workflow_access_audit_batch(jsonb) from anon",
+  );
+  assert(
+    !/grant\s+execute\s+on\s+function\s+public\.insert_workflow_access_audit_batch\(jsonb\)\s+to\s+anon/i
+      .test(sql),
+  );
+});
+
+Deno.test("supabase audit RPC SQL derives actor and org from auth claims", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260701130000_workflow_access_audit.sql",
+  );
+  const normalized = sql.toLowerCase().replace(/\s+/g, " ");
+
+  assertStringIncludes(normalized, "security definer");
+  assertStringIncludes(normalized, "set search_path = public, pg_temp");
+  assertStringIncludes(normalized, "claim_actor_id := auth.uid()");
+  assertStringIncludes(
+    normalized,
+    "claim_org_id := nullif(auth.jwt() ->> 'org_id', '')",
+  );
+  assertStringIncludes(normalized, "claim_org_id,");
+  assertStringIncludes(normalized, "claim_actor_id,");
+  assertStringIncludes(normalized, "now()");
+  assert(!/rec\s*->>\s*'org_id'/i.test(sql));
+  assert(!/rec\s*->>\s*'actor_id'/i.test(sql));
+  assert(!/rec\s*->>\s*'created_at'/i.test(sql));
+});
+
 Deno.test("supabase audit sink fail-closed delivery does not drop accepted logs", async () => {
   const delivered: AuditFixture[] = [];
   const sink = createSupabaseAuditSink({
@@ -1065,13 +1314,20 @@ Deno.test("router runtime sink implementation has no Supabase service-role env d
   assert(!/SUPABASE.*SERVICE.*ROLE/i.test(source));
 });
 
+function isolatedDoctorEnv(
+  env: Record<string, string> = {},
+): Record<string, string> {
+  return { PATH: Deno.env.get("PATH") ?? "", ...env };
+}
+
 Deno.test("doctor masks endpoint query and fragment credentials", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
-    env: {
+    clearEnv: true,
+    env: isolatedDoctorEnv({
       OTEL_EXPORTER_OTLP_ENDPOINT:
         "https://user:password@example.test/v1/logs?q=redaction-fixture#fragment-fixture",
-    },
+    }),
   }).output();
 
   const text = new TextDecoder().decode(output.stdout) +
@@ -1087,15 +1343,52 @@ Deno.test("doctor masks endpoint query and fragment credentials", async () => {
 Deno.test("doctor service-role check is scoped to Supabase env keys", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
-    env: {
+    clearEnv: true,
+    env: isolatedDoctorEnv({
       SERVICE_ROLE_KEY: "unrelated-fixture-value",
-    },
+    }),
   }).output();
 
   const text = new TextDecoder().decode(output.stdout) +
     new TextDecoder().decode(output.stderr);
   assert(output.success, text);
   assertStringIncludes(text, "no service-role-like Supabase env vars present");
+});
+
+Deno.test("doctor fails closed when Supabase service-role env is present", async () => {
+  const credentialFixture = ["runtime", "blocked", "fixture"].join("-");
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    clearEnv: true,
+    env: isolatedDoctorEnv({
+      FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY: credentialFixture,
+    }),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(!output.success, text);
+  assertStringIncludes(text, "supabase_service_role_absent");
+  assertStringIncludes(text, "FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY");
+  assert(!text.includes(credentialFixture));
+});
+
+Deno.test("doctor treats unconfigured Supabase audit as informational", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: ["run", "--allow-env", "--allow-run", "doctor.ts"],
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const check = report.checks.find((item: { name: string }) =>
+    item.name === "supabase_audit_config"
+  );
+  assertEquals(check.detail, "not configured");
+  assertEquals(check.severity, "info");
 });
 
 Deno.test("zcode-style stdout error is treated as failure", async () => {

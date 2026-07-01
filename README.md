@@ -178,10 +178,23 @@ Shutdown `force: true` ignores backoff eligibility for one final delivery pass;
 entries that still fail during that pass are dropped rather than immediately
 requeued, which bounds shutdown traffic and prevents retry storms.
 
-Phase 1 also ships a mockable `createSupabaseAuditSink()` interface for the
-future Supabase RPC transport. Runtime code must not depend on service-role
-credentials; tests assert the audit payload avoids `org_id` and service-role
-fields so the DB layer can inject org/actor context from JWT claims in Phase 2.
+Phase 2 adds the real Supabase audit boundary while keeping the Phase 1 sink API
+intact:
+
+- `createSupabaseAuditHandler()` calls
+  `/rest/v1/rpc/insert_workflow_access_audit_batch` with a user/session JWT and
+  anon key only; runtime code never reads service-role credentials.
+- The handler shapes client payloads to `event_type`, `actor_type`,
+  `workflow_id`, `route`, `decision`, `reason`, and `metadata` only. It never
+  sends `org_id`, `actor_id`, or `created_at`; those are injected by the DB RPC.
+- `supabase/migrations/20260701130000_workflow_access_audit.sql` creates the
+  append-only `workflow_access_audit` table, enables RLS, revokes direct anon /
+  authenticated table access, and grants authenticated users only `EXECUTE` on
+  the RPC.
+- `deno task doctor` fails closed if a Supabase service-role-like environment
+  variable is present. Missing Supabase URL / anon key remains informational
+  unless only one side is configured, in which case doctor warns about the
+  incomplete audit RPC config.
 
 Cancellation is transport-specific:
 
@@ -236,17 +249,10 @@ Dependency update workflow:
 
 ## Next production steps
 
-1. Implement the Phase 2 Supabase schema/RPC path: `workflow_access_audit`,
-   append-only grants, RLS, and
-   `insert_workflow_access_audit_batch(records jsonb)` that injects `org_id` and
-   actor identity from JWT claims rather than trusting client payload fields.
-2. Replace the Phase 1 mock Supabase audit flush handler with the RPC transport,
-   still using `createBufferedBatchSink<T>()` with `fail_closed` / `must_accept`
-   audit semantics.
-3. Install / authenticate the required CLIs on each target host (Claude Code,
+1. Install / authenticate the required CLIs on each target host (Claude Code,
    Gemini CLI, Cline, and `zcode` may still fail if the local session is missing
    or invalid).
-4. Supply a valid ZCode model config on hosts that should execute the GLM lane.
+2. Supply a valid ZCode model config on hosts that should execute the GLM lane.
    The minimal working shape on this host is:
 
    ```json
@@ -275,11 +281,11 @@ Dependency update workflow:
    ```
 
    Save that as `~/.zcode/cli/config.json`.
-5. Add Google Gemini / Vertex and xAI direct HTTP adapters.
-6. Persist budget / circuit-breaker state outside process memory.
-7. Add CI smoke jobs that exercise each installed CLI lane and each mocked
+3. Add Google Gemini / Vertex and xAI direct HTTP adapters.
+4. Persist budget / circuit-breaker state outside process memory.
+5. Add CI smoke jobs that exercise each installed CLI lane and each mocked
    direct HTTP lane separately.
-8. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
+6. Add vendor-specific OTLP/Honeycomb/Datadog deployment examples and
    dashboards.
-9. Persist buffered telemetry counters to a metrics surface if operators need
+7. Persist buffered telemetry counters to a metrics surface if operators need
    queue/drop dashboards.
