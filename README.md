@@ -1,11 +1,40 @@
 # fusion-router
 
+[![release](https://img.shields.io/github/v/release/sakamoto-sann/fusion-router?display_name=tag)](https://github.com/sakamoto-sann/fusion-router/releases)
+[![runtime](https://img.shields.io/badge/runtime-Deno-000000?logo=deno&logoColor=white)](https://deno.com/)
+[![status](https://img.shields.io/badge/status-PoC-orange)](#status)
+[![routing](https://img.shields.io/badge/routing-fail--closed-0a7f42)](#fail-closed-contract)
+
 A small, readable proof-of-concept for a **fusion router** that fans out a prompt to multiple LLM adapters, validates their outputs with **Zod**, and asks a stronger model (for example **GPT-5.5**) to produce the final consensus.
 
 ## Status
 
 > **PoC only.** This repository is intentionally lightweight and readable.
 > For production use, you still need to implement real provider API adapters (or wrapper clients), authentication flows, retries, quotas, cost controls, and persistent telemetry sinks.
+
+## Architecture at a glance
+
+> Conceptual diagram for the current **mock-adapter PoC**. The repository does not yet ship real provider API clients.
+
+```mermaid
+flowchart TD
+    U[Prompt] --> R[FusionRouter]
+
+    R --> A1[Adapter: direct API]
+    R --> A2[Adapter: OAuth wrapper]
+    R --> A3[Adapter: additional providers]
+
+    A1 --> V[Router-side Zod validation]
+    A2 --> V
+    A3 --> V
+
+    V --> Q{Validated quorum met?}
+    Q -- No --> E[RouterError 4401<br/>fail-closed]
+    Q -- Yes --> S[Consensus model<br/>example: GPT-5.5]
+    V -. failedAdapters > 0 .-> T[Co-failure telemetry<br/>best effort]
+
+    S --> F[Final synthesis<br/>Zod-validated]
+```
 
 ## What this PoC demonstrates
 
