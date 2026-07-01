@@ -92,7 +92,12 @@ export class RouterError extends Error {
   readonly code: string;
   readonly details?: unknown;
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+  ) {
     super(message);
     this.name = "RouterError";
     this.status = status;
@@ -179,11 +184,13 @@ async function sleepWithAbort(ms: number, signal: AbortSignal): Promise<void> {
     const onAbort = () => {
       clearTimeout(timer);
       signal.removeEventListener("abort", onAbort);
-      reject(new ProcessExecutionError("aborted", "Request aborted or timed out."));
+      reject(
+        new ProcessExecutionError("aborted", "Request aborted or timed out."),
+      );
     };
 
     signal.addEventListener("abort", onAbort, { once: true });
-  });;
+  });
 }
 
 export type ProcessInvocation = {
@@ -271,7 +278,9 @@ class CircuitBreaker {
     if (Date.now() < this.openUntil) {
       throw new ProcessExecutionError(
         "circuit_open",
-        `${label} circuit open until ${new Date(this.openUntil).toISOString()}.`,
+        `${label} circuit open until ${
+          new Date(this.openUntil).toISOString()
+        }.`,
       );
     }
   }
@@ -314,7 +323,9 @@ export interface SynthesisAdapter {
   ): Promise<FinalSynthesis>;
 }
 
-export type TelemetrySink = (telemetry: CoFailureTelemetry) => void | Promise<void>;
+export type TelemetrySink = (
+  telemetry: CoFailureTelemetry,
+) => void | Promise<void>;
 
 export type ProcessModelAdapterOptions = {
   descriptor: ProviderDescriptor;
@@ -348,6 +359,10 @@ function mergeEnv(
   };
 }
 
+function repoLocalBin(name: string): string {
+  return `${Deno.cwd()}/bin/${name}`;
+}
+
 function extractRetryAfterMs(text: string): number | undefined {
   const retryAfterMatch = text.match(/retry[- ]after[:= ]+(\d+(?:\.\d+)?)s?/i);
   if (retryAfterMatch) {
@@ -375,7 +390,17 @@ function classifyProcessFailure(
     });
   }
 
-  if (haystack.includes("unauthorized") || haystack.includes("forbidden") || haystack.includes("permission denied")) {
+  if (
+    haystack.includes("unauthorized") ||
+    haystack.includes("forbidden") ||
+    haystack.includes("permission denied") ||
+    haystack.includes("permission_denied") ||
+    haystack.includes("reported as leaked") ||
+    haystack.includes("organization has disabled") ||
+    haystack.includes("ask your admin to enable access") ||
+    haystack.includes("auth required") ||
+    haystack.includes("must select an auth method")
+  ) {
     return new ProcessExecutionError("auth_failed", message, {
       exitCode,
       stdout,
@@ -384,7 +409,10 @@ function classifyProcessFailure(
     });
   }
 
-  if (haystack.includes("model config is missing") || haystack.includes("explicit model provider")) {
+  if (
+    haystack.includes("model config is missing") ||
+    haystack.includes("explicit model provider")
+  ) {
     return new ProcessExecutionError("wrapper_config_missing", message, {
       exitCode,
       stdout,
@@ -406,7 +434,10 @@ function classifyProcessFailure(
     });
   }
 
-  if (haystack.includes("not found") || haystack.includes("no such file or directory")) {
+  if (
+    haystack.includes("not found") ||
+    haystack.includes("no such file or directory")
+  ) {
     return new ProcessExecutionError("command_unavailable", message, {
       exitCode,
       stdout,
@@ -425,7 +456,9 @@ function classifyProcessFailure(
 
 function isRetriableError(error: unknown): boolean {
   if (error instanceof ProcessExecutionError) {
-    return ["rate_limited", "timeout", "process_failed"].includes(error.codeName);
+    return ["rate_limited", "timeout", "process_failed"].includes(
+      error.codeName,
+    );
   }
 
   return false;
@@ -444,8 +477,14 @@ function shouldCountTowardsCircuitBreaker(error: unknown): boolean {
   ].includes(error.codeName);
 }
 
-function backoffDelayMs(attempt: number, policy: RetryPolicy, error: unknown): number {
-  if (error instanceof ProcessExecutionError && error.retryAfterMs !== undefined) {
+function backoffDelayMs(
+  attempt: number,
+  policy: RetryPolicy,
+  error: unknown,
+): number {
+  if (
+    error instanceof ProcessExecutionError && error.retryAfterMs !== undefined
+  ) {
     return Math.min(error.retryAfterMs, policy.maxDelayMs);
   }
 
@@ -636,7 +675,8 @@ function parseCodexJsonlOutput(
       typeof obj === "object" &&
       obj !== null &&
       "item" in obj &&
-      typeof (obj as { item?: { type?: string; text?: string } }).item?.text === "string"
+      typeof (obj as { item?: { type?: string; text?: string } }).item?.text ===
+        "string"
     ) {
       const item = (obj as { item: { type?: string; text: string } }).item;
       if (item.type === "agent_message") {
@@ -751,15 +791,20 @@ class ProcessModelAdapter implements ModelAdapter {
       baseDelayMs: 400,
       maxDelayMs: 5_000,
     };
-    this.circuitBreaker = new CircuitBreaker(options.circuitBreaker ?? {
-      failureThreshold: 3,
-      cooldownMs: 15_000,
-    });
+    this.circuitBreaker = new CircuitBreaker(
+      options.circuitBreaker ?? {
+        failureThreshold: 3,
+        cooldownMs: 15_000,
+      },
+    );
     this.budgetManager = options.budgetManager;
     this.estimatedCostUsd = options.estimatedCostUsd ?? 0;
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? 60_000;
 
-    if (!Number.isInteger(this.retryPolicy.maxAttempts) || this.retryPolicy.maxAttempts < 1) {
+    if (
+      !Number.isInteger(this.retryPolicy.maxAttempts) ||
+      this.retryPolicy.maxAttempts < 1
+    ) {
       throw new Error("retryPolicy.maxAttempts must be an integer >= 1.");
     }
     if (this.retryPolicy.baseDelayMs < 0 || this.retryPolicy.maxDelayMs < 0) {
@@ -774,11 +819,17 @@ class ProcessModelAdapter implements ModelAdapter {
     let lastError: unknown;
     let budgetReserved = false;
 
-    for (let attempt = 1; attempt <= this.retryPolicy.maxAttempts; attempt += 1) {
+    for (
+      let attempt = 1;
+      attempt <= this.retryPolicy.maxAttempts;
+      attempt += 1
+    ) {
       try {
         await ensureAuthReady(this.auth, signal, label, this.defaultTimeoutMs);
 
-        if (!budgetReserved && this.estimatedCostUsd > 0 && this.budgetManager) {
+        if (
+          !budgetReserved && this.estimatedCostUsd > 0 && this.budgetManager
+        ) {
           this.budgetManager.consume(label, this.estimatedCostUsd);
           budgetReserved = true;
         }
@@ -804,7 +855,9 @@ class ProcessModelAdapter implements ModelAdapter {
           this.circuitBreaker.recordFailure();
         }
 
-        if (!isRetriableError(error) || attempt >= this.retryPolicy.maxAttempts) {
+        if (
+          !isRetriableError(error) || attempt >= this.retryPolicy.maxAttempts
+        ) {
           break;
         }
 
@@ -817,7 +870,9 @@ class ProcessModelAdapter implements ModelAdapter {
   }
 }
 
-export function createProcessAdapter(options: ProcessModelAdapterOptions): ModelAdapter {
+export function createProcessAdapter(
+  options: ProcessModelAdapterOptions,
+): ModelAdapter {
   return new ProcessModelAdapter(options);
 }
 
@@ -831,20 +886,27 @@ export type CodexCliAdapterOptions = {
 export function createCodexCliAdapter(
   options: CodexCliAdapterOptions = {},
 ): ModelAdapter {
+  const command = options.command ?? repoLocalBin("codex-headless");
+
   return createProcessAdapter({
     descriptor: {
       provider: "OpenAI",
       model: options.model ?? "codex",
-      authMode: "session",
+      authMode: "oauth",
       transport: "processAdapter",
       client: "CodexCLI",
     },
     parseOutput: parseCodexJsonlOutput,
     budgetManager: options.budgetManager,
     estimatedCostUsd: 0.03,
-    auth: options.auth,
+    auth: options.auth ?? {
+      readinessCheck: {
+        command,
+        args: ["status"],
+      },
+    },
     buildInvocation: (prompt) => ({
-      command: options.command ?? "codex",
+      command,
       args: [
         "exec",
         "--skip-git-repo-check",
@@ -866,19 +928,26 @@ export type ClaudeCodeAdapterOptions = {
 export function createClaudeCodeAdapter(
   options: ClaudeCodeAdapterOptions = {},
 ): ModelAdapter {
+  const command = options.command ?? repoLocalBin("claude-headless");
+
   return createProcessAdapter({
     descriptor: {
       provider: "Anthropic",
       model: "claude-code",
-      authMode: "session",
+      authMode: "oauth",
       transport: "processAdapter",
       client: "ClaudeCode",
     },
     estimatedCostUsd: 0.04,
     budgetManager: options.budgetManager,
-    auth: options.auth,
+    auth: options.auth ?? {
+      readinessCheck: {
+        command,
+        args: ["status"],
+      },
+    },
     buildInvocation: (prompt) => ({
-      command: options.command ?? "claude",
+      command,
       args: ["-p", prompt, "--output-format", "text"],
     }),
   });
@@ -893,19 +962,26 @@ export type GeminiCliAdapterOptions = {
 export function createGeminiCliAdapter(
   options: GeminiCliAdapterOptions = {},
 ): ModelAdapter {
+  const command = options.command ?? repoLocalBin("gemini-headless");
+
   return createProcessAdapter({
     descriptor: {
       provider: "Google",
       model: "gemini-cli",
-      authMode: "apiKey",
+      authMode: "oauth",
       transport: "processAdapter",
       client: "GeminiCLI",
     },
     estimatedCostUsd: 0.02,
     budgetManager: options.budgetManager,
-    auth: options.auth,
+    auth: options.auth ?? {
+      readinessCheck: {
+        command,
+        args: ["status"],
+      },
+    },
     buildInvocation: (prompt) => ({
-      command: options.command ?? "gemini",
+      command,
       args: [
         "-p",
         prompt,
@@ -928,19 +1004,26 @@ export type GrokCliAdapterOptions = {
 export function createGrokCliAdapter(
   options: GrokCliAdapterOptions = {},
 ): ModelAdapter {
+  const command = options.command ?? repoLocalBin("grok-headless");
+
   return createProcessAdapter({
     descriptor: {
       provider: "xAI",
       model: "grok",
-      authMode: "session",
+      authMode: "oauth",
       transport: "processAdapter",
       client: "GrokCLI",
     },
     estimatedCostUsd: 0.03,
     budgetManager: options.budgetManager,
-    auth: options.auth,
+    auth: options.auth ?? {
+      readinessCheck: {
+        command,
+        args: ["status"],
+      },
+    },
     buildInvocation: (prompt) => ({
-      command: options.command ?? "grok",
+      command,
       args: [
         "-p",
         prompt,
@@ -1034,7 +1117,7 @@ export type ZcodeAdapterOptions = {
 export function createZcodeGlmAdapter(
   options: ZcodeAdapterOptions = {},
 ): ModelAdapter {
-  const command = options.command ?? `${Deno.cwd()}/bin/zcode-headless`;
+  const command = options.command ?? repoLocalBin("zcode-headless");
 
   return createProcessAdapter({
     descriptor: {
@@ -1088,16 +1171,23 @@ export class CodexStructuredSynthesisAdapter implements SynthesisAdapter {
   private readonly defaultTimeoutMs: number;
 
   constructor(options: CodexSynthesisAdapterOptions = {}) {
+    const command = options.command ?? repoLocalBin("codex-headless");
+
     this.descriptor = ProviderDescriptorSchema.parse({
       provider: "OpenAI",
       model: options.model ?? "gpt-5.5",
-      authMode: "session",
+      authMode: "oauth",
       transport: "processAdapter",
       client: "CodexCLI",
     });
-    this.command = options.command ?? "codex";
+    this.command = command;
     this.budgetManager = options.budgetManager;
-    this.auth = options.auth;
+    this.auth = options.auth ?? {
+      readinessCheck: {
+        command,
+        args: ["status"],
+      },
+    };
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? 90_000;
   }
 
@@ -1124,7 +1214,9 @@ export class CodexStructuredSynthesisAdapter implements SynthesisAdapter {
       );
 
       const sourceLines = outputs
-        .map((output, index) => `${index + 1}. [${output.provider}/${output.model}] ${output.content}`)
+        .map((output, index) =>
+          `${index + 1}. [${output.provider}/${output.model}] ${output.content}`
+        )
         .join("\n");
 
       const synthesisPrompt = [
@@ -1213,7 +1305,10 @@ export type OtlpTelemetrySinkOptions = {
   serviceName?: string;
 };
 
-function toOtlpAttribute(key: string, value: string | number): Record<string, unknown> {
+function toOtlpAttribute(
+  key: string,
+  value: string | number,
+): Record<string, unknown> {
   if (typeof value === "number") {
     return { key, value: { intValue: value } };
   }
@@ -1232,10 +1327,18 @@ function toOtlpLogPayload(
   ];
 
   telemetry.failures.forEach((failure, index) => {
-    attributes.push(toOtlpAttribute(`fusion.failures.${index}.provider`, failure.provider));
-    attributes.push(toOtlpAttribute(`fusion.failures.${index}.model`, failure.model));
-    attributes.push(toOtlpAttribute(`fusion.failures.${index}.code`, failure.code));
-    attributes.push(toOtlpAttribute(`fusion.failures.${index}.message`, failure.message));
+    attributes.push(
+      toOtlpAttribute(`fusion.failures.${index}.provider`, failure.provider),
+    );
+    attributes.push(
+      toOtlpAttribute(`fusion.failures.${index}.model`, failure.model),
+    );
+    attributes.push(
+      toOtlpAttribute(`fusion.failures.${index}.code`, failure.code),
+    );
+    attributes.push(
+      toOtlpAttribute(`fusion.failures.${index}.message`, failure.message),
+    );
   });
 
   return {
@@ -1336,7 +1439,8 @@ export class FusionRouter {
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.minSuccessfulAdapters = Math.max(
       1,
-      options.minSuccessfulAdapters ?? Math.min(2, options.modelAdapters.length),
+      options.minSuccessfulAdapters ??
+        Math.min(2, options.modelAdapters.length),
     );
 
     if (this.minSuccessfulAdapters > options.modelAdapters.length) {
@@ -1356,7 +1460,9 @@ export class FusionRouter {
       console.log("Starting parallel model execution...");
 
       const settled = await Promise.allSettled(
-        this.modelAdapters.map((adapter) => adapter.invoke(prompt, controller.signal)),
+        this.modelAdapters.map((adapter) =>
+          adapter.invoke(prompt, controller.signal)
+        ),
       );
 
       const telemetry = buildCoFailureTelemetry(this.modelAdapters, settled);
@@ -1365,7 +1471,9 @@ export class FusionRouter {
       }
 
       const successfulOutputs = settled
-        .filter((result): result is PromiseFulfilledResult<ModelOutput> => result.status === "fulfilled")
+        .filter((result): result is PromiseFulfilledResult<ModelOutput> =>
+          result.status === "fulfilled"
+        )
         .map((result) => result.value);
 
       if (successfulOutputs.length < this.minSuccessfulAdapters) {
@@ -1416,7 +1524,10 @@ function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
     return undefined;
   }
 
-  return createOtlpHttpTelemetrySink({ endpoint, serviceName: "fusion-router" });
+  return createOtlpHttpTelemetrySink({
+    endpoint,
+    serviceName: "fusion-router",
+  });
 }
 
 function createDefaultRouter(): FusionRouter {
@@ -1431,20 +1542,25 @@ function createDefaultRouter(): FusionRouter {
     telemetrySink,
     modelAdapters: [
       createCodexCliAdapter({ budgetManager: new InMemoryBudgetManager(0.25) }),
-      createClaudeCodeAdapter({ budgetManager: new InMemoryBudgetManager(0.25) }),
-      createGeminiCliAdapter({ budgetManager: new InMemoryBudgetManager(0.15) }),
+      createClaudeCodeAdapter({
+        budgetManager: new InMemoryBudgetManager(0.25),
+      }),
+      createGeminiCliAdapter({
+        budgetManager: new InMemoryBudgetManager(0.15),
+      }),
       createGrokCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
       createDevinCliAdapter({ budgetManager: new InMemoryBudgetManager(0.2) }),
       createClineCliAdapter({ budgetManager: new InMemoryBudgetManager(0.15) }),
       createZcodeGlmAdapter({
-        command: `${Deno.cwd()}/bin/zcode-headless`,
+        command: repoLocalBin("zcode-headless"),
         budgetManager: new InMemoryBudgetManager(0.15),
         auth: {
           env: {
-            ZCODE_HOME: Deno.env.get("ZCODE_HOME") ?? Deno.env.get("HOME") ?? "/Users/tetsu",
+            ZCODE_HOME: Deno.env.get("ZCODE_HOME") ?? Deno.env.get("HOME") ??
+              "/Users/tetsu",
           },
           readinessCheck: {
-            command: `${Deno.cwd()}/bin/zcode-headless`,
+            command: repoLocalBin("zcode-headless"),
             args: ["doctor"],
           },
         },
@@ -1467,7 +1583,9 @@ if (import.meta.main) {
     console.log(JSON.stringify(result, null, 2));
   } catch (error) {
     if (error instanceof RouterError) {
-      console.error(`Router Error [${error.status}/${error.code}]: ${error.message}`);
+      console.error(
+        `Router Error [${error.status}/${error.code}]: ${error.message}`,
+      );
       console.error(JSON.stringify(error.details, null, 2));
     } else if (error instanceof Error) {
       console.error("Router Error:", error.message);

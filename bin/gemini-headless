@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${GEMINI_KEEP_HOME:-}" != "1" ]]; then
+  REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}' || true)"
+  export HOME="${GEMINI_HOME:-${REAL_HOME:-$HOME}}"
+fi
+
+GEMINI_BIN="${GEMINI_BIN:-$(command -v gemini)}"
+ACTION="${1:-}"
+
+status_check() {
+  python3 - <<'PY'
+from pathlib import Path
+import json, os, sys
+
+path = Path(os.environ.get('GEMINI_SETTINGS_PATH', os.path.expanduser('~/.gemini/settings.json')))
+if not path.exists():
+    print('Gemini OAuth auth required. Run: bin/gemini-headless login', file=sys.stderr)
+    raise SystemExit(1)
+
+payload = json.loads(path.read_text())
+selected = payload.get('selectedAuthType')
+if selected != 'oauth-personal':
+    print('Gemini OAuth auth required. Run: bin/gemini-headless login and choose Sign in with Google', file=sys.stderr)
+    print(json.dumps({
+        'ready': False,
+        'selectedAuthType': selected,
+        'hint': 'Run: bin/gemini-headless login and choose Sign in with Google',
+    }, indent=2), file=sys.stderr)
+    raise SystemExit(1)
+
+print(json.dumps({
+    'ready': True,
+    'selectedAuthType': selected,
+    'googleCloudProject': os.environ.get('GOOGLE_CLOUD_PROJECT', ''),
+}, indent=2))
+PY
+}
+
+case "$ACTION" in
+  doctor|status)
+    shift
+    status_check "$@"
+    ;;
+  login)
+    shift
+    exec env -u GEMINI_API_KEY -u GOOGLE_API_KEY "$GEMINI_BIN" "$@"
+    ;;
+  *)
+    exec "$GEMINI_BIN" "$@"
+    ;;
+esac

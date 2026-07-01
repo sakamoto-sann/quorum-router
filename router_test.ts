@@ -1,5 +1,4 @@
 import {
-  CoFailureTelemetry,
   createOtlpHttpTelemetrySink,
   createProcessAdapter,
   FinalSynthesis,
@@ -8,6 +7,7 @@ import {
   InMemoryBudgetManager,
   ModelAdapter,
   ModelOutput,
+  ProcessExecutionError,
   RouterError,
   SynthesisAdapter,
 } from "./router.ts";
@@ -37,12 +37,12 @@ class StaticSynthesisAdapter implements SynthesisAdapter {
 
   constructor(private readonly response: FinalSynthesis) {}
 
-  async synthesize(
+  synthesize(
     _prompt: string,
     _outputs: ModelOutput[],
     _signal: AbortSignal,
   ): Promise<FinalSynthesis> {
-    return FinalSynthesisSchema.parse(this.response);
+    return Promise.resolve(FinalSynthesisSchema.parse(this.response));
   }
 }
 
@@ -55,17 +55,20 @@ class InvalidSynthesisAdapter implements SynthesisAdapter {
     client: "InvalidSynth",
   } as const;
 
-  async synthesize(): Promise<FinalSynthesis> {
-    return FinalSynthesisSchema.parse({
+  synthesize(): Promise<FinalSynthesis> {
+    return Promise.resolve(FinalSynthesisSchema.parse({
       synthesis: "",
       reasoning: "missing",
       consensusModel: "invalid",
       sources: [],
-    });
+    }));
   }
 }
 
-function buildRouter(adapter: ModelAdapter, synthesisAdapter: SynthesisAdapter): FusionRouter {
+function buildRouter(
+  adapter: ModelAdapter,
+  synthesisAdapter: SynthesisAdapter,
+): FusionRouter {
   return new FusionRouter({
     modelAdapters: [adapter],
     synthesisAdapter,
@@ -346,17 +349,28 @@ Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
   abortController.abort();
 
   assertEquals(received.length, 1);
-  const resourceLogs = received[0].resourceLogs as Array<Record<string, unknown>>;
+  const resourceLogs = received[0].resourceLogs as Array<
+    Record<string, unknown>
+  >;
   const firstResource = resourceLogs[0];
   const resource = firstResource.resource as Record<string, unknown>;
-  const resourceAttributes = resource.attributes as Array<Record<string, unknown>>;
+  const resourceAttributes = resource.attributes as Array<
+    Record<string, unknown>
+  >;
   const scopeLogs = firstResource.scopeLogs as Array<Record<string, unknown>>;
-  const logRecords = (scopeLogs[0].logRecords as Array<Record<string, unknown>>);
+  const logRecords = scopeLogs[0].logRecords as Array<Record<string, unknown>>;
   const attributes = logRecords[0].attributes as Array<Record<string, unknown>>;
 
-  assertEquals((resourceAttributes[0].key as string), "service.name");
-  assertEquals(((resourceAttributes[0].value as Record<string, unknown>).stringValue as string), "fusion-router-test");
-  assertEquals((logRecords[0].body as Record<string, unknown>).stringValue, "co_failure_telemetry");
+  assertEquals(resourceAttributes[0].key as string, "service.name");
+  assertEquals(
+    (resourceAttributes[0].value as Record<string, unknown>)
+      .stringValue as string,
+    "fusion-router-test",
+  );
+  assertEquals(
+    (logRecords[0].body as Record<string, unknown>).stringValue,
+    "co_failure_telemetry",
+  );
   assert(
     attributes.some((attribute) =>
       attribute.key === "fusion.failed_adapters" &&
@@ -388,6 +402,56 @@ EOF
     Error,
     "Model config is missing",
   );
+});
+
+Deno.test("provider auth policy failures classify as auth_failed", async () => {
+  const script = await makeScript(`#!/usr/bin/env bash
+>&2 echo 'Your organization has disabled Claude subscription access for Claude Code · Use an Anthropic API key instead, or ask your admin to enable access'
+exit 1
+`);
+
+  const adapter = createProcessAdapter({
+    descriptor: {
+      provider: "Anthropic",
+      model: "claude-code",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "ClaudeCode",
+    },
+    buildInvocation: () => ({ command: script }),
+  });
+
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+
+  assertEquals(error.codeName, "auth_failed");
+});
+
+Deno.test("leaked API key failures classify as auth_failed", async () => {
+  const script = await makeScript(`#!/usr/bin/env bash
+>&2 echo 'Your API key was reported as leaked. Please use another API key.'
+exit 1
+`);
+
+  const adapter = createProcessAdapter({
+    descriptor: {
+      provider: "Google",
+      model: "gemini-cli",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "GeminiCLI",
+    },
+    buildInvocation: () => ({ command: script }),
+  });
+
+  const error = await assertRejects(
+    () => adapter.invoke("hello", new AbortController().signal),
+    ProcessExecutionError,
+  );
+
+  assertEquals(error.codeName, "auth_failed");
 });
 
 Deno.test("budget manager blocks over-budget invocation", async () => {

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${CODEX_KEEP_HOME:-}" != "1" ]]; then
+  REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}' || true)"
+  export HOME="${CODEX_HOME:-${REAL_HOME:-$HOME}}"
+fi
+
+CODEX_BIN="${CODEX_BIN:-$(command -v codex)}"
+ACTION="${1:-}"
+
+case "$ACTION" in
+  doctor)
+    shift
+    exec "$CODEX_BIN" doctor "$@"
+    ;;
+  status)
+    shift
+    exec "$CODEX_BIN" login status "$@"
+    ;;
+  login)
+    shift
+    if [[ $# -eq 0 ]]; then
+      exec "$CODEX_BIN" login --device-auth
+    fi
+    exec "$CODEX_BIN" login "$@"
+    ;;
+  *)
+    exec "$CODEX_BIN" "$@"
+    ;;
+esac

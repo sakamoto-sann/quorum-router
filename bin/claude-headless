@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${CLAUDE_KEEP_HOME:-}" != "1" ]]; then
+  REAL_HOME="$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}' || true)"
+  export HOME="${CLAUDE_HOME:-${REAL_HOME:-$HOME}}"
+fi
+
+CLAUDE_BIN="${CLAUDE_BIN:-$(command -v claude)}"
+ACTION="${1:-}"
+
+case "$ACTION" in
+  doctor|status)
+    shift
+    exec "$CLAUDE_BIN" auth status "$@"
+    ;;
+  login)
+    shift
+    if [[ $# -eq 0 ]]; then
+      exec "$CLAUDE_BIN" auth login --claudeai
+    fi
+    exec "$CLAUDE_BIN" auth login "$@"
+    ;;
+  *)
+    exec "$CLAUDE_BIN" "$@"
+    ;;
+esac
