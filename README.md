@@ -129,11 +129,45 @@ OpenTelemetry-compatible backends.
 
 ## Local run
 
-This repo uses remote Deno imports plus local CLI execution, so run it with:
+This repo uses repo-managed Deno imports in `deno.json` plus local CLI
+execution. Prefer the checked-in tasks:
+
+```bash
+deno task check
+deno task lint
+deno task test
+deno task run
+```
+
+The run task expands to:
 
 ```bash
 deno run --allow-run --allow-read --allow-write --allow-env --allow-net router.ts
 ```
+
+## Dependency pinning
+
+External Deno imports are intentionally centralized in `deno.json` and pinned in
+`deno.lock`. Do **not** import `https://...` specifiers directly from source
+files.
+
+Dependency update workflow:
+
+1. Edit the relevant alias in `deno.json`.
+2. Refresh the lockfile:
+
+   ```bash
+   deno task lock
+   ```
+
+3. Re-run verification:
+
+   ```bash
+   deno task check
+   deno task lock:check
+   deno task lint
+   deno task test
+   ```
 
 ## Next production steps
 

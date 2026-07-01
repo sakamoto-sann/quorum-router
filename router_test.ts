@@ -16,7 +16,7 @@ import {
   assertEquals,
   assertRejects,
   assertStringIncludes,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+} from "@std/assert";
 
 async function makeScript(content: string): Promise<string> {
   const dir = await Deno.makeTempDir({ prefix: "fusion-router-test-" });
