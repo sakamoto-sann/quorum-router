@@ -204,13 +204,22 @@ manual verification checklist after applying the migration. `.env.example` keeps
 runtime Supabase audit values empty and documents that service-role credentials
 are migration/admin-only, never router runtime config.
 
-Phase 3 now has a minimal routing-mode parser boundary.
+Phase 3 now has a minimal routing-mode parser and config-loader boundary.
 [`docs/routing-mode-design.md`](docs/routing-mode-design.md) remains the source
-for future runtime work. The implemented slice recognizes `direct` and
-`agent_chat`, resolves mode precedence as request metadata > router config >
-`FUSION_ROUTER_MODE` > default, keeps `direct` on the existing router flow, and
-fails closed before adapter execution for `agent_chat` because the agent-chat
-runtime is intentionally not implemented yet.
+for future runtime work. The implemented slices recognize `direct` and
+`agent_chat`, load an optional `fusion-router.config.json` skeleton with
+`routing.mode`, resolve mode precedence as request metadata > config file >
+`FUSION_ROUTER_MODE` > default, keep `direct` on the existing router flow, and
+fail closed before adapter execution for `agent_chat` because the agent-chat
+runtime is intentionally not implemented yet. Example config:
+
+```json
+{
+  "routing": {
+    "mode": "direct"
+  }
+}
+```
 
 Cancellation is transport-specific:
 

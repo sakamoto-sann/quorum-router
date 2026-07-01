@@ -13,6 +13,7 @@ import {
   FinalSynthesisSchema,
   FusionRouter,
   InMemoryBudgetManager,
+  loadFusionRouterConfig,
   ModelAdapter,
   ModelOutput,
   parseRoutingMode,
@@ -35,6 +36,13 @@ async function makeScript(content: string): Promise<string> {
   const path = `${dir}/script.sh`;
   await Deno.writeTextFile(path, content);
   await Deno.chmod(path, 0o755);
+  return path;
+}
+
+async function writeConfigFile(content: string): Promise<string> {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-config-test-" });
+  const path = `${dir}/fusion-router.config.json`;
+  await Deno.writeTextFile(path, content);
   return path;
 }
 
@@ -182,6 +190,262 @@ function staticOkSynthesis(): StaticSynthesisAdapter {
     sources: ["Fixture/counting"],
   });
 }
+
+Deno.test("missing config file returns empty config with no routing mode", async () => {
+  const dir = await Deno.makeTempDir({
+    prefix: "fusion-router-config-missing-",
+  });
+  const config = await loadFusionRouterConfig(
+    `${dir}/fusion-router.config.json`,
+  );
+
+  assertEquals(config, {});
+  assertEquals(resolveRoutingMode({ configMode: config.routingMode }), {
+    mode: "direct",
+    source: "default",
+  });
+});
+
+Deno.test("valid config direct loads and resolves as config source", async () => {
+  const path = await writeConfigFile(`{
+  "routing": {
+    "mode": "direct"
+  }
+}`);
+  const config = await loadFusionRouterConfig(path);
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: config.routingMode,
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      throw new Error("env provider should not run for valid config mode");
+    },
+  });
+
+  assertEquals(config, { routingMode: "direct" });
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "direct",
+    source: "config",
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("valid config agent_chat loads and route fails closed before adapter execution", async () => {
+  const path = await writeConfigFile(`{
+  "routing": {
+    "mode": "agent_chat"
+  }
+}`);
+  const config = await loadFusionRouterConfig(path);
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: config.routingMode,
+    routingModeEnvProvider: () => "direct",
+  });
+
+  assertEquals(config, { routingMode: "agent_chat" });
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "agent_chat",
+    source: "config",
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("malformed config JSON fails closed with sanitized RouterError", async () => {
+  const leakedValue = ["config", "token", "fixture", "value"].join("-");
+  const path = await writeConfigFile(`{
+  "routing": {
+    "mode": "direct",
+    "token": "${leakedValue}"
+`);
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  const surface = JSON.stringify({
+    message: error.message,
+    details: error.details,
+  });
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_config_json");
+  assert(!surface.includes(leakedValue));
+});
+
+Deno.test("invalid config routing.mode string fails closed", async () => {
+  const invalidMode = "unknown-mode";
+  const path = await writeConfigFile(JSON.stringify({
+    routing: { mode: invalidMode },
+  }));
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  const surface = JSON.stringify({
+    message: error.message,
+    details: error.details,
+  });
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assert(!surface.includes(invalidMode));
+});
+
+Deno.test("empty config routing.mode string fails closed", async () => {
+  const path = await writeConfigFile(JSON.stringify({ routing: { mode: "" } }));
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+});
+
+Deno.test("non-string config routing.mode fails closed", async () => {
+  const path = await writeConfigFile(JSON.stringify({
+    routing: { mode: { nested: "direct" } },
+  }));
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+});
+
+Deno.test("wrong config shape fails closed", async () => {
+  const path = await writeConfigFile(JSON.stringify({ routingMode: "direct" }));
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_config_shape");
+});
+
+Deno.test("request mode overrides loaded config mode", async () => {
+  const path = await writeConfigFile(JSON.stringify({
+    routing: { mode: "agent_chat" },
+  }));
+  const config = await loadFusionRouterConfig(path);
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: config.routingMode,
+    routingModeEnvProvider: () => "agent_chat",
+  });
+
+  assertEquals(
+    router.resolveRoutingModeForRequest({ routingMode: "direct" }),
+    { mode: "direct", source: "request" },
+  );
+
+  const result = await router.route("hello", { routingMode: "direct" });
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("loaded config mode overrides env mode and does not read env", async () => {
+  const path = await writeConfigFile(
+    JSON.stringify({ routing: { mode: "direct" } }),
+  );
+  const config = await loadFusionRouterConfig(path);
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: config.routingMode,
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      return "agent_chat";
+    },
+  });
+
+  assertEquals(router.resolveRoutingModeForRequest(), {
+    mode: "direct",
+    source: "config",
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("invalid config mode fails closed and overrides lower-precedence valid env", async () => {
+  const adapter = new CountingAdapter();
+  let envCalls = 0;
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "not-a-mode",
+    routingModeEnvProvider: () => {
+      envCalls += 1;
+      return "direct";
+    },
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_routing_mode");
+  assertEquals(adapter.calls, 0);
+  assertEquals(envCalls, 0);
+});
+
+Deno.test("invalid loaded config fails before producing router input", async () => {
+  const path = await writeConfigFile(
+    JSON.stringify({ routing: { mode: "auto" } }),
+  );
+
+  const error = await assertRejects(
+    () => loadFusionRouterConfig(path),
+    RouterError,
+  );
+
+  assertEquals(error.code, "invalid_routing_mode");
+});
+
+Deno.test("agent_chat from loaded config does not call adapters", async () => {
+  const path = await writeConfigFile(JSON.stringify({
+    routing: { mode: "agent_chat" },
+  }));
+  const config = await loadFusionRouterConfig(path);
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: config.routingMode,
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
+});
 
 Deno.test("routing mode default is direct", () => {
   assertEquals(resolveRoutingMode(), { mode: "direct", source: "default" });
