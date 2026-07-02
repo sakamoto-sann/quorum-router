@@ -86,6 +86,25 @@ export const SetupAgentBusSchema = z.object({
 }).strict();
 export type SetupAgentBus = z.infer<typeof SetupAgentBusSchema>;
 
+export const CommanderConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  mode: z.enum(["direct_synthesis", "agent_chat_future"]).default(
+    "direct_synthesis",
+  ),
+  selectionStrategy: z.enum([
+    "explicit",
+    "first_eligible_synthesis",
+    "highest_capability_score",
+  ]).default("first_eligible_synthesis"),
+  provider: z.string().min(1).optional(),
+  model: z.string().min(1).optional(),
+  authMode: SetupAuthModeSchema.optional(),
+  transport: SetupTransportSchema.optional(),
+  client: z.string().min(1).optional(),
+  local: z.boolean().default(false),
+}).strict();
+export type SetupCommanderConfig = z.infer<typeof CommanderConfigSchema>;
+
 export const SetupPersistenceSchema = z.object({
   mode: SetupPersistenceModeSchema.default("none"),
 }).strict();
@@ -112,6 +131,12 @@ export const SetupWizardInputSchema = z.object({
     transport: "supabase",
     realtimeWakeup: false,
   }),
+  commander: CommanderConfigSchema.default({
+    enabled: false,
+    mode: "direct_synthesis",
+    selectionStrategy: "first_eligible_synthesis",
+    local: false,
+  }),
 }).strict();
 export type SetupWizardInput = z.input<typeof SetupWizardInputSchema>;
 export type NormalizedSetupWizardInput = z.output<
@@ -128,6 +153,7 @@ export const GeneratedFusionRouterConfigSchema = z.object({
   telemetry: SetupTelemetrySchema,
   adaptiveDirect: SetupAdaptiveDirectSchema,
   agentBus: SetupAgentBusSchema,
+  commander: CommanderConfigSchema,
   setup: z.object({
     generatedBy: z.literal("fusion-router setup"),
     warnings: z.array(z.string()),
@@ -143,6 +169,7 @@ export type SetupReport = {
   configPath: string;
   routingMode: "direct" | "agent_chat";
   providers: SetupProviderSelection[];
+  commander: SetupCommanderConfig;
   envPlaceholders: string[];
   doctorExpectations: string[];
   warnings: string[];

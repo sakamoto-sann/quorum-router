@@ -2,10 +2,12 @@ import { z } from "zod";
 import { failClosed } from "./errors.ts";
 import { parseRoutingMode, type RoutingMode } from "./routing-mode.ts";
 import {
+  CommanderConfigSchema,
   type SetupAdaptiveDirect,
   SetupAdaptiveDirectSchema,
   type SetupAgentBus,
   SetupAgentBusSchema,
+  type SetupCommanderConfig,
   type SetupPersistence,
   SetupPersistenceSchema,
   type SetupProfileName,
@@ -24,6 +26,7 @@ export type FusionRouterConfig = {
   telemetry?: SetupTelemetry;
   adaptiveDirect?: SetupAdaptiveDirect;
   agentBus?: SetupAgentBus;
+  commander?: SetupCommanderConfig;
 };
 
 export const FusionRouterConfigFileSchema = z.object({
@@ -36,6 +39,7 @@ export const FusionRouterConfigFileSchema = z.object({
   telemetry: SetupTelemetrySchema.optional(),
   adaptiveDirect: SetupAdaptiveDirectSchema.optional(),
   agentBus: SetupAgentBusSchema.optional(),
+  commander: CommanderConfigSchema.optional(),
   setup: z.object({
     generatedBy: z.literal("fusion-router setup").optional(),
     warnings: z.array(z.string()).optional(),
@@ -82,6 +86,9 @@ function normalizeFusionRouterConfig(
     ...(parsedConfig.data.agentBus === undefined
       ? {}
       : { agentBus: parsedConfig.data.agentBus }),
+    ...(parsedConfig.data.commander === undefined
+      ? {}
+      : { commander: parsedConfig.data.commander }),
   };
 }
 

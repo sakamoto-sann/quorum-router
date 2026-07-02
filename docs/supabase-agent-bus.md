@@ -29,10 +29,14 @@ agent_bus = durable coordination/message/event plane for agent_chat
 ### agent_chat / bus-backed coordination
 
 - stateful run
-- commander + peer agents
+- Commander role + peer agents
 - messages/events/history in Supabase
 - Realtime may wake workers in future
 - not production-connected yet
+
+Commander is a role, not a fixed provider/model/client. Agent Bus may persist
+future Commander-related messages and events, but it does not choose a model,
+invoke a client, or execute directives in this wave.
 
 ## Config boundary
 
@@ -67,6 +71,8 @@ Rules:
 
 - `agentBus.enabled=false` for direct best-answer examples.
 - `agentBus.enabled=true` only documents future `agent_chat` coordination.
+- Commander config lives under `commander` and remains role/selection metadata;
+  it does not connect Agent Bus to runtime execution.
 - Enabling Agent Bus does not make `agent_chat` production-ready.
 - `FusionRouter.route(..., { routingMode: "agent_chat" })` still fails closed
   before adapter execution.
@@ -198,6 +204,7 @@ This schema wave does not implement:
 - service-role runtime
 - live Supabase writes in tests
 - CLI agent spawn
+- Commander runtime execution
 - external tool execution
 - automatic dependency installation
 - OAuth/API-key setup

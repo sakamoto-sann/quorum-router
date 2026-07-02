@@ -53,6 +53,7 @@ import {
   RouterError,
   ROUTING_MODE_ENV,
   runAgentChatSimulator,
+  selectCommander,
   SynthesisAdapter,
 } from "./router.ts";
 import type { DirectRoutingDecision, ProviderDescriptor } from "./router.ts";
@@ -92,6 +93,13 @@ import type {
   CodexCliAdapterOptions as SmokeCodexCliAdapterOptions,
   CodexSynthesisAdapterOptions as SmokeCodexSynthesisAdapterOptions,
   CoFailureTelemetry as SmokeCoFailureTelemetry,
+  CommanderConfig as SmokeCommanderConfig,
+  CommanderDescriptor as SmokeCommanderDescriptor,
+  CommanderMode as SmokeCommanderMode,
+  CommanderRole as SmokeCommanderRole,
+  CommanderSelectionInput as SmokeCommanderSelectionInput,
+  CommanderSelectionResult as SmokeCommanderSelectionResult,
+  CommanderSelectionStrategy as SmokeCommanderSelectionStrategy,
   DevinCliAdapterOptions as SmokeDevinCliAdapterOptions,
   DirectHttpAdapterOptions as SmokeDirectHttpAdapterOptions,
   DirectHttpExecutionResult as SmokeDirectHttpExecutionResult,
@@ -188,6 +196,13 @@ type PublicExportTypeSmoke = [
   SmokeCodexCliAdapterOptions,
   SmokeCodexSynthesisAdapterOptions,
   SmokeCoFailureTelemetry,
+  SmokeCommanderConfig,
+  SmokeCommanderDescriptor,
+  SmokeCommanderMode,
+  SmokeCommanderRole,
+  SmokeCommanderSelectionInput,
+  SmokeCommanderSelectionResult,
+  SmokeCommanderSelectionStrategy,
   SmokeDevinCliAdapterOptions,
   SmokeDirectHttpAdapterOptions,
   SmokeDirectHttpExecutionResult,
@@ -304,6 +319,14 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "ClineCliAdapterOptions",
   "CoFailureTelemetry",
   "CoFailureTelemetrySchema",
+  "CommanderConfig",
+  "CommanderConfigSchema",
+  "CommanderDescriptor",
+  "CommanderMode",
+  "CommanderRole",
+  "CommanderSelectionInput",
+  "CommanderSelectionResult",
+  "CommanderSelectionStrategy",
   "CodexCliAdapterOptions",
   "CodexStructuredSynthesisAdapter",
   "CodexSynthesisAdapterOptions",
@@ -420,6 +443,7 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "redactAgentChatContent",
   "resolveRoutingMode",
   "runAgentChatSimulator",
+  "selectCommander",
 ] as const;
 
 async function makeScript(content: string): Promise<string> {
@@ -1633,6 +1657,309 @@ Deno.test("generated agent_chat config still fails closed before adapter executi
   assertEquals(adapter.calls, 0);
 });
 
+Deno.test("commander config defaults disabled across generated direct profiles", () => {
+  const profiles = [
+    "minimal-direct",
+    "direct-http-openai",
+    "direct-http-anthropic",
+    "adaptive-direct",
+    "cli-oauth",
+    "supabase-audit",
+  ] as const;
+
+  for (const profile of profiles) {
+    const generated = generateFusionRouterConfig({ profile });
+    assertEquals(generated.commander, {
+      enabled: false,
+      mode: "direct_synthesis",
+      selectionStrategy: "first_eligible_synthesis",
+      local: false,
+    });
+    assertEquals(generated.routing.mode, "direct");
+  }
+});
+
+Deno.test("loading config with commander namespace does not change routing.mode", () => {
+  const loaded = loadFusionRouterConfigValue({
+    routing: { mode: "direct" },
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis",
+      selectionStrategy: "explicit",
+      provider: "OpenAI",
+      model: "gpt-5.5",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "CodexCLI",
+    },
+  });
+
+  assertEquals(loaded.routingMode, "direct");
+  assertEquals(loaded.commander?.enabled, true);
+  assertEquals(loaded.commander?.provider, "OpenAI");
+});
+
+Deno.test("explicit commander descriptor validates against provider registry", () => {
+  const result = selectCommander({
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis",
+      selectionStrategy: "explicit",
+      provider: "OpenAI",
+      model: "gpt-5.5",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "CodexCLI",
+      local: false,
+    },
+    synthesisCandidates: [],
+    providerRegistry: createDefaultProviderCapabilityRegistry(),
+  });
+
+  assertEquals(result.selected, true);
+  assertEquals(result.commander.role, "commander");
+  assertEquals(result.descriptor?.provider, "OpenAI");
+  assertEquals(result.descriptor?.model, "gpt-5.5");
+});
+
+Deno.test("explicit unknown commander descriptor fails closed", () => {
+  const error = assertThrows(
+    () =>
+      selectCommander({
+        commander: {
+          enabled: true,
+          mode: "direct_synthesis",
+          selectionStrategy: "explicit",
+          provider: "UnknownAI",
+          model: "unknown-command-model",
+          authMode: "oauth",
+          transport: "processAdapter",
+          client: "UnknownClient",
+          local: false,
+        },
+        synthesisCandidates: [],
+        providerRegistry: createDefaultProviderCapabilityRegistry(),
+      }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_commander_selection");
+});
+
+Deno.test("local commander placeholder validates only as local/local/localModel", () => {
+  const valid = selectCommander({
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis",
+      selectionStrategy: "explicit",
+      provider: "Local",
+      model: "local-command-model",
+      authMode: "local",
+      transport: "localModel",
+      local: true,
+    },
+    synthesisCandidates: [],
+  });
+
+  assertEquals(valid.selected, true);
+  assertEquals(valid.descriptor, undefined);
+  assertEquals(valid.commander.local, true);
+
+  const error = assertThrows(
+    () =>
+      selectCommander({
+        commander: {
+          enabled: true,
+          mode: "direct_synthesis",
+          selectionStrategy: "explicit",
+          provider: "Local",
+          model: "local-command-model",
+          authMode: "oauth",
+          transport: "localModel",
+          local: true,
+        },
+        synthesisCandidates: [],
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "invalid_commander_local_placeholder");
+
+  const nonExplicitStrategies = [
+    "first_eligible_synthesis",
+    "highest_capability_score",
+  ] as const;
+  const localLikeConfigs = [
+    { name: "provider", provider: "Local" as const },
+    { name: "local flag", local: true },
+    { name: "auth mode", authMode: "local" as const },
+    { name: "transport", transport: "localModel" as const },
+  ] as const;
+
+  for (const selectionStrategy of nonExplicitStrategies) {
+    for (const localLike of localLikeConfigs) {
+      const error = assertThrows(
+        () =>
+          selectCommander({
+            commander: {
+              enabled: true,
+              mode: "direct_synthesis",
+              selectionStrategy,
+              provider: "OpenAI",
+              model: "gpt-5.5",
+              authMode: "oauth",
+              transport: "processAdapter",
+              local: false,
+              ...localLike,
+            },
+            synthesisCandidates: [],
+          }),
+        RouterError,
+        undefined,
+        `${selectionStrategy} accepts invalid local-like ${localLike.name} config`,
+      );
+      assertEquals(error.status, 4400);
+      assertEquals(error.code, "commander_local_requires_explicit_selection");
+    }
+  }
+});
+
+Deno.test("setup validation fails closed for invalid commander combinations", () => {
+  const unknown = assertThrows(
+    () =>
+      generateFusionRouterConfig({
+        profile: "minimal-direct",
+        commander: {
+          enabled: true,
+          mode: "direct_synthesis",
+          selectionStrategy: "explicit",
+          provider: "UnknownAI",
+          model: "unknown-command-model",
+          authMode: "oauth",
+          transport: "processAdapter",
+          client: "UnknownClient",
+        },
+      }),
+    RouterError,
+  );
+  assertEquals(unknown.code, "invalid_setup_commander_combination");
+
+  const invalidLocal = assertThrows(
+    () =>
+      generateFusionRouterConfig({
+        profile: "minimal-direct",
+        commander: {
+          enabled: true,
+          mode: "direct_synthesis",
+          selectionStrategy: "explicit",
+          provider: "Local",
+          model: "local-command-model",
+          authMode: "oauth",
+          transport: "localModel",
+          local: true,
+        },
+      }),
+    RouterError,
+  );
+  assertEquals(invalidLocal.code, "invalid_setup_commander_local_placeholder");
+});
+
+Deno.test("first_eligible_synthesis selects deterministic synthesis-capable candidate", () => {
+  const anthropic: ProviderDescriptor = {
+    provider: "Anthropic",
+    model: "claude-3-5-haiku-latest",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "AnthropicMessagesAPI",
+  };
+  const codex: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-5.5",
+    authMode: "oauth",
+    transport: "processAdapter",
+    client: "CodexCLI",
+  };
+  const openaiDirect: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+  };
+
+  const result = selectCommander({
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis",
+      selectionStrategy: "first_eligible_synthesis",
+      local: false,
+    },
+    synthesisCandidates: [anthropic, codex, openaiDirect],
+    providerRegistry: createDefaultProviderCapabilityRegistry(),
+  });
+
+  assertEquals(result.selected, true);
+  assertEquals(result.descriptor, codex);
+});
+
+Deno.test("highest_capability_score is deterministic and stable", () => {
+  const codex: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-5.5",
+    authMode: "oauth",
+    transport: "processAdapter",
+    client: "CodexCLI",
+  };
+  const openaiDirect: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+  };
+
+  const input = {
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis" as const,
+      selectionStrategy: "highest_capability_score" as const,
+      local: false,
+    },
+    synthesisCandidates: [codex, openaiDirect],
+    providerRegistry: createDefaultProviderCapabilityRegistry(),
+  };
+  const first = selectCommander(input);
+  const second = selectCommander({
+    ...input,
+    synthesisCandidates: [...input.synthesisCandidates].reverse(),
+  });
+
+  assertEquals(first.selected, true);
+  assertEquals(first.descriptor, openaiDirect);
+  assertEquals(second.descriptor, openaiDirect);
+});
+
+Deno.test("agent_chat future commander selection remains future-only", () => {
+  const result = selectCommander({
+    commander: {
+      enabled: true,
+      mode: "agent_chat_future",
+      selectionStrategy: "explicit",
+      provider: "OpenAI",
+      model: "gpt-5.5",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "CodexCLI",
+      local: false,
+    },
+    synthesisCandidates: [],
+  });
+
+  assertEquals(result.selected, false);
+  assertStringIncludes(result.reason, "future-only");
+  assertEquals(result.commander.role, "commander");
+});
+
 Deno.test("direct route works without Agent Bus config", async () => {
   const loaded = loadFusionRouterConfigValue({ routing: { mode: "direct" } });
   const adapter = new CountingAdapter();
@@ -1660,6 +1987,38 @@ Deno.test("generated direct config keeps Agent Bus disabled", () => {
   assertEquals(generated.agentBus.realtimeWakeup, false);
   assertEquals(loaded.routingMode, "direct");
   assertEquals(loaded.agentBus?.enabled, false);
+});
+
+Deno.test("direct route still works with commander config present", async () => {
+  const loaded = loadFusionRouterConfigValue({
+    routing: { mode: "direct" },
+    commander: {
+      enabled: true,
+      mode: "direct_synthesis",
+      selectionStrategy: "explicit",
+      provider: "OpenAI",
+      model: "gpt-5.5",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "CodexCLI",
+    },
+  });
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const result = await router.route(
+    "best-answer direct path with commander config",
+  );
+
+  assertEquals(loaded.commander?.enabled, true);
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
 });
 
 Deno.test("Agent Bus config namespace does not change routing.mode=direct behavior", async () => {
@@ -1702,6 +2061,40 @@ Deno.test("agent_chat with Agent Bus config still fails closed before adapter ex
     RouterError,
     "not implemented",
   );
+  assertEquals(loaded.agentBus?.enabled, true);
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("agent_chat with commander and Agent Bus config still fails closed before adapter execution", async () => {
+  const loaded = loadFusionRouterConfigValue({
+    routing: { mode: "agent_chat" },
+    agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
+    commander: {
+      enabled: true,
+      mode: "agent_chat_future",
+      selectionStrategy: "explicit",
+      provider: "OpenAI",
+      model: "gpt-5.5",
+      authMode: "oauth",
+      transport: "processAdapter",
+      client: "CodexCLI",
+    },
+  });
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  await assertRejects(
+    () => router.route("agent_chat remains unavailable with bus and commander"),
+    RouterError,
+    "not implemented",
+  );
+  assertEquals(loaded.commander?.mode, "agent_chat_future");
   assertEquals(loaded.agentBus?.enabled, true);
   assertEquals(adapter.calls, 0);
 });
@@ -2149,7 +2542,36 @@ Deno.test("public docs mention direct best-answer remains default", async () => 
 
   assertStringIncludes(docs, "direct = best-answer routing path");
   assertStringIncludes(docs, "production-ready baseline");
-  assertStringIncludes(docs, "does not change default direct routing");
+  assertStringIncludes(docs, "do not change default direct routing");
+});
+
+Deno.test("public docs state commander is role not model", async () => {
+  const docs = [
+    await Deno.readTextFile("docs/commander-role.md"),
+    await Deno.readTextFile("README.md"),
+    await Deno.readTextFile("docs/agent-chat-protocol.md"),
+  ].join("\n");
+
+  assertStringIncludes(docs, "Commander is a role, not a model");
+  assertStringIncludes(docs, "commander = role");
+  assertStringIncludes(docs, "provider/model/client = implementation");
+  assertStringIncludes(
+    docs,
+    "does not automatically replace `synthesisAdapter`",
+  );
+});
+
+Deno.test("commander docs and examples contain no raw secrets", async () => {
+  const surface = [
+    await Deno.readTextFile("docs/commander-role.md"),
+    await Deno.readTextFile("README.md"),
+    await Deno.readTextFile("docs/release-v0.1.md"),
+  ].join("\n");
+
+  assert(!/sk-[A-Za-z0-9_-]{8,}/.test(surface));
+  assert(!/api[_-]?key\s*[:=]\s*[A-Za-z0-9_-]{8,}/i.test(surface));
+  assert(!/bearer\s+[A-Za-z0-9._-]{8,}/i.test(surface));
+  assertStringIncludes(surface, "No API-key storage");
 });
 
 Deno.test("generated supabase-audit config emits no service-role placeholders", () => {

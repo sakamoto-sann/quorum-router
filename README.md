@@ -16,8 +16,9 @@ final consensus.
 > has the foundation, Adaptive Direct skeleton, setup generator, standalone
 > AgentChat simulator, and Supabase Agent Bus schema/contract waves integrated
 > behind conservative offline examples and smoke checks. Default direct routing
-> remains the production best-answer path; `agent_chat` remains recognized but
-> not implemented in production routing.
+> remains the production best-answer path. Commander is a configurable role
+> contract, not a fixed model. `agent_chat` remains recognized but not
+> implemented in production routing.
 
 ## v0.1 quickstart
 
@@ -49,6 +50,7 @@ Read the release guide and checklist:
 v0.1 explicit non-goals:
 
 - no real `agent_chat` runtime
+- no commander runtime
 - no hidden fallback
 - no service-role runtime
 - no production Agent Bus runtime connection
@@ -77,7 +79,9 @@ surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md). The
 AgentChat protocol simulator skeleton is documented in
 [`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md). The Supabase Agent
 Bus schema and local contract are documented in
-[`docs/supabase-agent-bus.md`](docs/supabase-agent-bus.md).
+[`docs/supabase-agent-bus.md`](docs/supabase-agent-bus.md). The configurable
+Commander role contract is documented in
+[`docs/commander-role.md`](docs/commander-role.md).
 
 The runtime mode boundary is explicit:
 
@@ -85,10 +89,13 @@ The runtime mode boundary is explicit:
 direct = best-answer routing path
 agent_chat = future multi-agent chat/coordination path
 agent_bus = durable coordination/message/event plane for agent_chat
+commander = role; provider/model/client = implementation
 ```
 
 `routing.mode` remains `direct | agent_chat`; Agent Bus configuration lives
-under `agentBus` and does not change default direct routing.
+under `agentBus` and Commander selection metadata lives under `commander`. Both
+are disabled in generated direct profiles and do not change default direct
+routing. Commander and Agent Bus do not change default direct routing.
 
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
@@ -138,6 +145,9 @@ flowchart TD
 - Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
   deterministic in-memory reference store for future `agent_chat` coordination
   without connecting it to `FusionRouter.route()`
+- configurable Commander role/config/selection semantics for current direct
+  synthesis metadata and future `agent_chat` planning/dispatch/closeout, without
+  invoking a new runtime
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`

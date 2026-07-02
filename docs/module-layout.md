@@ -18,6 +18,8 @@ barrel that re-exports the public contracts from the split modules, including:
 - telemetry and audit sink factories
 - Adaptive Direct provider registry, direct-routing policy, and fallback policy
 - setup schema / generator / dry-run CLI exports through `src/setup/index.ts`
+- Commander role/config/selection contract exports through
+  `src/commander/index.ts`
 - AgentChat protocol / simulator skeleton and Agent Bus contract exports through
   `src/agent-chat/index.ts`
 - schemas and exported types
@@ -56,6 +58,10 @@ src/
     setup-schema.ts                # setup profiles, provider/auth/transport schema
     config-generator.ts            # deterministic config, env guidance, setup report
     cli.ts                         # dry-run setup CLI with optional --write
+  commander/
+    index.ts                       # public Commander export boundary
+    types.ts                       # Commander role, mode, descriptor, selection result
+    selector.ts                    # deterministic no-network Commander selection helper
   agent-chat/
     index.ts                       # public AgentChat + Agent Bus export boundary
     types.ts                       # roles, phases, turns, transcript, decisions, limits
@@ -92,6 +98,9 @@ The split is intended to be behavior-preserving:
 - Supabase audit RPC payload shape is unchanged
 - Supabase Agent Bus is a durable coordination plane for future `agent_chat`,
   not a replacement for direct best-answer routing
+- Commander is a role/config/selection contract, not a fixed provider or model
+- Commander config does not replace the caller-provided `synthesisAdapter` or
+  make `agent_chat` production-ready
 - `routing.mode` remains `direct | agent_chat`; no `agent_bus` routing mode is
   introduced
 - Agent Bus config under `agentBus` does not connect `FusionRouter.route()` to a
@@ -152,7 +161,24 @@ generator, and dry-run CLI. This wave adds:
 
 Setup remains non-interactive and offline. It does not create provider accounts,
 run OAuth, store API keys, validate live credentials, implement local JSONL
-persistence, or change Supabase migrations/RPC payloads.
+persistence, implement Commander runtime, or change Supabase migrations/RPC
+payloads.
+
+## Commander role contract
+
+[`docs/commander-role.md`](commander-role.md) documents the configurable
+Commander role contract. The contract keeps the distinction explicit:
+
+```text
+commander = role
+provider/model/client = implementation
+```
+
+Direct mode may use Commander metadata to identify the synthesis/closeout role,
+but the production best-answer path still uses `modelAdapters` plus the provided
+`synthesisAdapter`. Future `agent_chat` may use Commander as planner,
+dispatcher, and closeout agent, with Agent Bus as durable coordination state.
+This wave does not connect that runtime.
 
 ## AgentChat protocol and simulator skeleton
 
@@ -169,6 +195,7 @@ This layout does not add:
 
 - `agent_chat` runtime
 - planner / coder / reviewer / red-team / closeout execution
+- Commander runtime execution
 - agmsg protocol
 - interactive installer wizard
 - local JSONL audit store

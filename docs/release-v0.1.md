@@ -20,12 +20,15 @@ runtime capabilities.
   skeletons.
 - Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
   deterministic in-memory reference store for future `agent_chat` coordination.
+- Commander role/config/selection contract for configurable synthesis/closeout
+  metadata and future planner/dispatcher/closeout semantics.
 - Bounded telemetry and audit primitives with explicit, distinct semantics.
 - v0.1 offline examples and smoke test.
 
 ## What v0.1 does not include
 
 - No real `agent_chat` production runtime.
+- No Commander runtime.
 - No planner/coder/reviewer LLM calls.
 - No external tool execution path in examples or smoke.
 - No GitHub, Gmail, Calendar, or other product connectors.
@@ -121,6 +124,15 @@ agent_bus = durable coordination/message/event plane for agent_chat
 under `agentBus`, is disabled for direct examples, and does not make
 `agent_chat` production-ready.
 
+## Commander role boundary
+
+Commander is a role, not a model. Provider/model/client/local choices are
+implementation details selected through config/selector metadata. Direct mode
+remains the production best-answer route and still uses the caller-provided
+`synthesisAdapter`; Commander config does not automatically invoke a model or
+replace that adapter. Future `agent_chat` may use Commander as planner,
+dispatcher, and closeout agent, but that runtime is not connected in v0.1.
+
 ## AgentChat simulator boundary
 
 `agent_chat` is recognized by schemas and setup, but production route execution
@@ -161,6 +173,7 @@ keys are forbidden and make doctor fail.
 ## Known limitations
 
 - `agent_chat` has no runtime integration.
+- Commander has no runtime integration.
 - Adaptive Direct is a selection policy skeleton, not a live health checker.
 - Setup profiles generate guidance/config only; they do not log into providers
   or store credentials.

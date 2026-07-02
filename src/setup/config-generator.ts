@@ -4,6 +4,7 @@ import {
   providerDescriptorKey,
 } from "../policy/provider-registry.ts";
 import type { ProviderDescriptor } from "../schemas.ts";
+import type { SetupCommanderConfig } from "./setup-schema.ts";
 import {
   type GeneratedFusionRouterConfig,
   GeneratedFusionRouterConfigSchema,
@@ -26,6 +27,7 @@ const NON_GOALS = [
   "no live credential validation",
   "no local JSONL audit store implementation",
   "no Supabase migration or audit RPC payload changes",
+  "no commander runtime",
   "no automatic remote health checks",
   "no hidden fallback behavior",
   "no default direct behavior change",
@@ -199,6 +201,7 @@ function mergeProfile(input: SetupWizardInput): SetupWizardInput {
     telemetry: { ...defaults.telemetry, ...input.telemetry },
     adaptiveDirect: { ...defaults.adaptiveDirect, ...input.adaptiveDirect },
     agentBus: { ...input.agentBus },
+    commander: { ...input.commander },
     providers: input.providers ?? defaults.providers,
   };
 }
@@ -300,6 +303,134 @@ function assertProviderCombinations(input: NormalizedSetupWizardInput): void {
   }
 }
 
+function commanderLocalPlaceholderAllowed(
+  commander: SetupCommanderConfig,
+): boolean {
+  return commander.local === true && commander.provider === "Local" &&
+    commander.authMode === "local" && commander.transport === "localModel";
+}
+
+function commanderDescriptorFromConfig(
+  commander: SetupCommanderConfig,
+): ProviderDescriptor | undefined {
+  if (!commander.enabled || commander.selectionStrategy !== "explicit") {
+    return undefined;
+  }
+  if (commanderLocalPlaceholderAllowed(commander)) {
+    return undefined;
+  }
+  if (commander.authMode === "local" || commander.transport === "localModel") {
+    failClosed(
+      4400,
+      "invalid_setup_commander_local_placeholder",
+      "Local commander placeholder must use provider=Local, authMode=local, transport=localModel, and local=true.",
+      {
+        provider: commander.provider,
+        model: commander.model,
+        authMode: commander.authMode,
+        transport: commander.transport,
+        local: commander.local,
+      },
+    );
+  }
+  const missing = [
+    ["provider", commander.provider],
+    ["model", commander.model],
+    ["authMode", commander.authMode],
+    ["transport", commander.transport],
+    ["client", commander.client],
+  ].filter(([, value]) => value === undefined || value === "").map(([key]) =>
+    key
+  );
+  if (missing.length > 0) {
+    failClosed(
+      4400,
+      "invalid_setup_commander_combination",
+      "Explicit commander config requires provider, model, authMode, transport, and client unless it is a local placeholder.",
+      { missing },
+    );
+  }
+  return {
+    provider: commander.provider!,
+    model: commander.model!,
+    authMode: commander.authMode as ProviderDescriptor["authMode"],
+    transport: commander.transport as ProviderDescriptor["transport"],
+    client: commander.client!,
+  };
+}
+
+function assertCommanderCombination(input: NormalizedSetupWizardInput): void {
+  if (!input.commander.enabled) {
+    return;
+  }
+  if (
+    input.commander.local || input.commander.authMode === "local" ||
+    input.commander.transport === "localModel"
+  ) {
+    if (input.commander.selectionStrategy !== "explicit") {
+      failClosed(
+        4400,
+        "invalid_setup_commander_local_placeholder",
+        "Local commander placeholder requires explicit selection.",
+        { selectionStrategy: input.commander.selectionStrategy },
+      );
+    }
+    if (commanderLocalPlaceholderAllowed(input.commander)) {
+      return;
+    }
+    failClosed(
+      4400,
+      "invalid_setup_commander_local_placeholder",
+      "Local commander placeholder must use provider=Local, authMode=local, transport=localModel, and local=true.",
+      {
+        provider: input.commander.provider,
+        model: input.commander.model,
+        authMode: input.commander.authMode,
+        transport: input.commander.transport,
+        local: input.commander.local,
+      },
+    );
+  }
+
+  const descriptor = commanderDescriptorFromConfig(input.commander);
+  if (!descriptor) {
+    return;
+  }
+  const registry = createDefaultProviderCapabilityRegistry();
+  const capability = registry.get(descriptor);
+  if (!capability) {
+    failClosed(
+      4400,
+      "invalid_setup_commander_combination",
+      "Explicit commander provider/auth/transport combination is not registered.",
+      {
+        provider: descriptor.provider,
+        model: descriptor.model,
+        authMode: descriptor.authMode,
+        transport: descriptor.transport,
+        client: descriptor.client,
+        key: providerDescriptorKey(descriptor),
+      },
+    );
+  }
+  if (
+    input.commander.mode === "direct_synthesis" &&
+    (!capability.enabled || !capability.supportsSynthesis)
+  ) {
+    failClosed(
+      4401,
+      "invalid_setup_commander_combination",
+      "direct_synthesis commander requires an enabled synthesis-capable provider descriptor.",
+      {
+        provider: descriptor.provider,
+        model: descriptor.model,
+        enabled: capability.enabled,
+        supportsSynthesis: capability.supportsSynthesis,
+      },
+    );
+  }
+}
+
 function warningsFor(input: NormalizedSetupWizardInput): string[] {
   const warnings: string[] = [];
   if (input.routingMode === "agent_chat") {
@@ -325,6 +456,11 @@ function warningsFor(input: NormalizedSetupWizardInput): string[] {
   if (input.agentBus.enabled) {
     warnings.push(
       "Agent Bus is a future coordination plane for agent_chat and does not make agent_chat production-ready.",
+    );
+  }
+  if (input.commander.enabled) {
+    warnings.push(
+      "Commander config identifies a role/selection contract only; it does not replace the synthesis adapter or start agent_chat runtime.",
     );
   }
   return warnings;
@@ -387,6 +523,11 @@ function doctorExpectationsFor(input: NormalizedSetupWizardInput): string[] {
       "agent_bus_config is coordination-only and does not change routing.mode",
     );
   }
+  if (input.commander.enabled) {
+    expectations.push(
+      "commander_config is metadata/selection-only and does not change routing.mode",
+    );
+  }
   return expectations;
 }
 
@@ -401,6 +542,7 @@ function buildConfig(
     telemetry: input.telemetry,
     adaptiveDirect: input.adaptiveDirect,
     agentBus: input.agentBus,
+    commander: input.commander,
     setup: {
       generatedBy: "fusion-router setup" as const,
       warnings: warningsFor(input),
@@ -417,6 +559,7 @@ export function generateFusionRouterConfig(
   const normalized = normalizeInput(input);
   assertAgentChatExplicit(normalized);
   assertProviderCombinations(normalized);
+  assertCommanderCombination(normalized);
   return buildConfig(normalized);
 }
 
@@ -430,6 +573,7 @@ export function generateEnvExample(input: SetupWizardInput = {}): string {
   const normalized = normalizeInput(input);
   assertAgentChatExplicit(normalized);
   assertProviderCombinations(normalized);
+  assertCommanderCombination(normalized);
   const placeholders = envPlaceholdersFor(normalized);
   const lines = [
     "# fusion-router setup placeholders",
@@ -448,11 +592,13 @@ export function generateSetupReport(
   const normalized = normalizeInput(input);
   assertAgentChatExplicit(normalized);
   assertProviderCombinations(normalized);
+  assertCommanderCombination(normalized);
   return {
     profile: normalized.profile ?? "minimal-direct",
     configPath,
     routingMode: normalized.routingMode,
     providers: normalized.providers,
+    commander: normalized.commander,
     envPlaceholders: envPlaceholdersFor(normalized),
     doctorExpectations: doctorExpectationsFor(normalized),
     warnings: warningsFor(normalized),

@@ -13,7 +13,14 @@ Routing boundary:
 direct = best-answer routing path
 agent_chat = future multi-agent chat/coordination path
 agent_bus = durable coordination/message/event plane for agent_chat
+commander = future planner/dispatcher/closeout role, not a fixed model
 ```
+
+Commander is a role, not a provider/model/client. In direct mode, Commander
+metadata can identify the selected synthesis/closeout role while the router
+still uses the caller-provided `synthesisAdapter`. In future `agent_chat`,
+Commander may become the planner/dispatcher/closeout agent. This protocol wave
+does not connect that runtime.
 
 ## Roles and phases
 
@@ -111,6 +118,8 @@ Preserved behavior:
 - `direct` remains the default runtime route.
 - `agent_chat` remains recognized but not implemented.
 - `agent_chat` route execution fails closed before adapter execution.
+- Commander config does not invoke a model, spawn workers, or replace
+  `synthesisAdapter`.
 - audit remains must-accept / fail-closed.
 - telemetry remains best-effort / drop-oldest.
 - service-role runtime credentials remain banned.
@@ -131,6 +140,7 @@ This wave does not implement:
 
 - real `agent_chat` runtime;
 - real planner/coder/reviewer/red-team LLM calls;
+- production Commander runtime;
 - external tool execution;
 - GitHub/Gmail/Calendar connectors;
 - network calls;
