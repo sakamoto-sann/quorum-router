@@ -23,9 +23,11 @@ final consensus.
 ## Architecture at a glance
 
 The public entrypoint remains `router.ts`, but implementation modules now live
-in [`src/`](docs/module-layout.md) so future provider registry, installer,
-`agent_chat`, and persistence work can move independently. Existing imports from
-`./router.ts` are preserved by the compatibility barrel.
+in [`src/`](docs/module-layout.md) so provider registry, Adaptive Direct policy,
+installer, `agent_chat`, and persistence work can move independently. Existing
+imports from `./router.ts` are preserved by the compatibility barrel. Adaptive
+Direct is documented in
+[`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md).
 
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
@@ -66,6 +68,8 @@ flowchart TD
 - auth/session readiness checks plus optional refresh hooks per adapter
 - retry policy with backoff for transient failures / rate limiting
 - estimated spend budget guardrails per lane
+- Adaptive Direct policy scaffolding for capability, readiness, budget, and safe
+  fallback decisions without changing default fan-out behavior
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`
@@ -223,6 +227,19 @@ the existing router flow, and fail closed before adapter execution for
 yet. `deno task doctor` reports config/env routing status, config-vs-env
 precedence, effective mode readiness, and the recognized-but-not-implemented
 `agent_chat` status without printing raw invalid values or config contents.
+
+Adaptive Direct adds a safe policy skeleton on top of `direct` mode without
+changing default behavior. `ProviderCapabilityRegistry` describes provider /
+model auth, transport, structured JSON, synthesis, cost, latency, reliability,
+and enablement metadata. `DirectRoutingPolicy` can reject disabled, unready, or
+over-budget candidates and returns selected adapters, rejection reasons, a
+synthesis candidate, a budget estimate, and an explicit fallback-policy label.
+Fallback remains a policy classification, not silent success: validation
+mismatch, malformed provider responses, consensus validation failure, invalid
+routing modes, `agent_chat` not implemented, audit failure, and provider
+identity mismatches never fall back to an unsafe provider. See
+[`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md).
+
 Example config:
 
 ```json

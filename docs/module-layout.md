@@ -1,9 +1,9 @@
 # Foundation module layout
 
 This repository keeps `router.ts` as the public compatibility entrypoint, but
-the implementation now lives under `src/` so future provider registry,
-installer, `agent_chat`, and persistence work can proceed in parallel without
-editing one large file.
+the implementation now lives under `src/` so provider registry, Adaptive Direct
+policy, installer, `agent_chat`, and persistence work can proceed in parallel
+without editing one large file.
 
 ## Public compatibility contract
 
@@ -16,6 +16,7 @@ barrel that re-exports the public contracts from the split modules, including:
 - config loader exports
 - process and direct-HTTP adapter factories
 - telemetry and audit sink factories
+- Adaptive Direct provider registry, direct-routing policy, and fallback policy
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -42,6 +43,10 @@ src/
     buffered-batch-sink.ts        # generic bounded buffer + OTLP/telemetry helpers
   audit/
     supabase-audit.ts             # Supabase audit RPC handler/sink
+  policy/
+    provider-registry.ts          # provider/model capability metadata
+    direct-routing-policy.ts      # Adaptive Direct candidate selection decision
+    fallback-policy.ts            # safe fallback reason classifier skeleton
   adapters/
     process.ts                    # CLI/process adapters and structured synthesis
     direct-http.ts                # OpenAI/Anthropic direct HTTP adapters
@@ -65,6 +70,18 @@ The split is intended to be behavior-preserving:
 - Supabase service-role credentials remain forbidden at runtime
 - Supabase audit RPC payload shape is unchanged
 - `BufferedBatchSink` delivery semantics are unchanged
+- Adaptive Direct is opt-in; without `directRoutingPolicy`, direct mode still
+  invokes every configured adapter as before
+- fallback remains policy classification, not silent fallback success
+
+## Adaptive Direct policy skeleton
+
+[`docs/adaptive-direct-routing.md`](adaptive-direct-routing.md) documents the
+new policy modules. The current wave adds capability metadata,
+budget-estimate-aware selection, readiness hint rejection, synthesis candidate
+selection, and a safe fallback reason classifier. It does **not** implement live
+provider health, installer integration, `agent_chat`, or unsafe fallback after
+validation / consensus failures.
 
 ## Doctor setup checks
 
@@ -90,8 +107,6 @@ This layout does not add:
 - `agent_chat` runtime
 - planner / coder / reviewer / red-team / closeout execution
 - agmsg protocol
-- provider capability registry
-- fallback policy engine
 - installer wizard
 - local JSONL audit store
 - Supabase migration changes

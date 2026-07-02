@@ -1,3 +1,4 @@
+import type { BudgetManager } from "./budget/budget.ts";
 import {
   type CoFailureTelemetry,
   type FinalSynthesis,
@@ -9,6 +10,13 @@ import type {
   SynthesisAdapter,
   TelemetrySink,
 } from "./contracts.ts";
+import type { ProviderDescriptor } from "./schemas.ts";
+import type {
+  DirectRoutingDecision,
+  DirectRoutingPolicy,
+  DirectRoutingPolicyInput,
+} from "./policy/direct-routing-policy.ts";
+import type { ProviderCapabilityRegistry } from "./policy/provider-registry.ts";
 import { errorMessage, failClosed } from "./errors.ts";
 import {
   assertImplementedRoutingMode,
@@ -40,6 +48,18 @@ async function publishTelemetryBestEffort(
   }
 }
 
+function providerDescriptorSelectionKey(
+  descriptor: ProviderDescriptor,
+): string {
+  return [
+    descriptor.provider,
+    descriptor.model,
+    descriptor.authMode,
+    descriptor.transport,
+    descriptor.client ?? "",
+  ].map((part) => part.toLowerCase()).join("\u0000");
+}
+
 export type FusionRouterOptions = {
   modelAdapters: ModelAdapter[];
   synthesisAdapter: SynthesisAdapter;
@@ -48,10 +68,16 @@ export type FusionRouterOptions = {
   telemetrySink?: TelemetrySink;
   routingMode?: unknown;
   routingModeEnvProvider?: () => unknown;
+  directRoutingPolicy?: DirectRoutingPolicy;
+  providerRegistry?: ProviderCapabilityRegistry;
+  providerReadinessHints?: DirectRoutingPolicyInput["readinessHints"];
+  directRoutingBudgetManager?: BudgetManager;
 };
 
 export type FusionRouterRouteOptions = {
   routingMode?: unknown;
+  providerReadinessHints?: DirectRoutingPolicyInput["readinessHints"];
+  directRoutingBudgetManager?: BudgetManager;
 };
 
 export class FusionRouter {
@@ -62,6 +88,11 @@ export class FusionRouter {
   private readonly telemetrySink?: TelemetrySink;
   private readonly routingModeConfig?: unknown;
   private readonly routingModeEnvProvider: () => unknown;
+  private readonly directRoutingPolicy?: DirectRoutingPolicy;
+  private readonly providerRegistry?: ProviderCapabilityRegistry;
+  private readonly providerReadinessHints?:
+    DirectRoutingPolicyInput["readinessHints"];
+  private readonly directRoutingBudgetManager?: BudgetManager;
 
   constructor(options: FusionRouterOptions) {
     if (options.modelAdapters.length === 0) {
@@ -96,6 +127,10 @@ export class FusionRouter {
     this.routingModeConfig = options.routingMode;
     this.routingModeEnvProvider = options.routingModeEnvProvider ??
       readRoutingModeEnv;
+    this.directRoutingPolicy = options.directRoutingPolicy;
+    this.providerRegistry = options.providerRegistry;
+    this.providerReadinessHints = options.providerReadinessHints;
+    this.directRoutingBudgetManager = options.directRoutingBudgetManager;
   }
 
   resolveRoutingModeForRequest(
@@ -123,6 +158,35 @@ export class FusionRouter {
     await closeTelemetrySink(this.telemetrySink, options);
   }
 
+  private resolveDirectRoutingDecision(
+    options: FusionRouterRouteOptions = {},
+  ): DirectRoutingDecision | undefined {
+    return this.directRoutingPolicy?.decide({
+      candidates: this.modelAdapters.map((adapter) => adapter.descriptor),
+      synthesisCandidates: [this.synthesisAdapter.descriptor],
+      providerRegistry: this.providerRegistry,
+      readinessHints: options.providerReadinessHints ??
+        this.providerReadinessHints,
+      budgetManager: options.directRoutingBudgetManager ??
+        this.directRoutingBudgetManager,
+    });
+  }
+
+  private selectAdaptersForDecision(
+    decision: DirectRoutingDecision | undefined,
+  ): ModelAdapter[] {
+    if (!decision) {
+      return this.modelAdapters;
+    }
+
+    const selectedKeys = new Set(
+      decision.selectedAdapters.map(providerDescriptorSelectionKey),
+    );
+    return this.modelAdapters.filter((adapter) =>
+      selectedKeys.has(providerDescriptorSelectionKey(adapter.descriptor))
+    );
+  }
+
   async route(
     prompt: string,
     options: FusionRouterRouteOptions = {},
@@ -135,14 +199,35 @@ export class FusionRouter {
 
     try {
       console.log("Starting parallel model execution...");
+      const directRoutingDecision = this.resolveDirectRoutingDecision(options);
+      const executionAdapters = this.selectAdaptersForDecision(
+        directRoutingDecision,
+      );
+      const effectiveMinSuccessfulAdapters = Math.min(
+        this.minSuccessfulAdapters,
+        executionAdapters.length,
+      );
+      if (effectiveMinSuccessfulAdapters < 1) {
+        failClosed(
+          4401,
+          "consensus_insufficient",
+          "Validated quorum not met: direct routing policy selected no executable adapters.",
+          {
+            routingMode,
+            directRoutingDecision,
+            configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
+            effectiveMinSuccessfulAdapters,
+          },
+        );
+      }
 
       const settled = await Promise.allSettled(
-        this.modelAdapters.map((adapter) =>
+        executionAdapters.map((adapter) =>
           adapter.invoke(prompt, controller.signal)
         ),
       );
 
-      const telemetry = buildCoFailureTelemetry(this.modelAdapters, settled);
+      const telemetry = buildCoFailureTelemetry(executionAdapters, settled);
       if (telemetry.failedAdapters > 0) {
         void publishTelemetryBestEffort(this.telemetrySink, telemetry);
       }
@@ -153,14 +238,17 @@ export class FusionRouter {
         )
         .map((result) => result.value);
 
-      if (successfulOutputs.length < this.minSuccessfulAdapters) {
+      if (successfulOutputs.length < effectiveMinSuccessfulAdapters) {
         failClosed(
           4401,
           "consensus_insufficient",
-          `Validated quorum not met: required ${this.minSuccessfulAdapters}, got ${successfulOutputs.length}.`,
+          `Validated quorum not met: required ${effectiveMinSuccessfulAdapters}, got ${successfulOutputs.length}.`,
           {
             routingMode,
             telemetry,
+            directRoutingDecision,
+            configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
+            effectiveMinSuccessfulAdapters,
           },
         );
       }
@@ -185,6 +273,7 @@ export class FusionRouter {
             cause: errorMessage(error),
             routingMode,
             telemetry,
+            directRoutingDecision,
           },
         );
       }

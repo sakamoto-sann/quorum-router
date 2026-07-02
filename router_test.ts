@@ -4,28 +4,43 @@ import {
   createAnthropicDirectAdapter,
   createBufferedBatchSink,
   createBufferedTelemetrySink,
+  createCapabilityDirectRoutingPolicy,
+  createClaudeCodeAdapter,
+  createClineCliAdapter,
+  createCodexCliAdapter,
+  createCodexStructuredSynthesisAdapter,
+  createDefaultProviderCapabilityRegistry,
+  createDevinCliAdapter,
+  createGeminiCliAdapter,
+  createGrokCliAdapter,
   createOpenAIDirectAdapter,
   createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
   createProcessAdapter,
+  createSafeProviderUnavailableFallbackPolicy,
   createSupabaseAuditHandler,
   createSupabaseAuditSink,
+  createZcodeGlmAdapter,
   describeRoutingModeDecision,
+  fallbackReasonFromError,
   FinalSynthesis,
   FinalSynthesisSchema,
   FusionRouter,
   InMemoryBudgetManager,
+  isFallbackAllowed,
   loadFusionRouterConfig,
   ModelAdapter,
   ModelOutput,
   parseRoutingMode,
   ProcessExecutionError,
+  ProviderCapabilityRegistry,
   redactSecrets,
   resolveRoutingMode,
   RouterError,
   ROUTING_MODE_ENV,
   SynthesisAdapter,
 } from "./router.ts";
+import type { DirectRoutingDecision, ProviderDescriptor } from "./router.ts";
 import type {
   AnthropicDirectAdapterOptions as SmokeAnthropicDirectAdapterOptions,
   AuthStrategy as SmokeAuthStrategy,
@@ -49,7 +64,13 @@ import type {
   DirectHttpExecutionResult as SmokeDirectHttpExecutionResult,
   DirectHttpRequest as SmokeDirectHttpRequest,
   DirectHttpResponseParser as SmokeDirectHttpResponseParser,
+  DirectRoutingDecision as SmokeDirectRoutingDecision,
+  DirectRoutingPolicy as SmokeDirectRoutingPolicy,
   ExplicitRoutingModeSource as SmokeExplicitRoutingModeSource,
+  FallbackPolicy as SmokeFallbackPolicy,
+  FallbackPolicyDecision as SmokeFallbackPolicyDecision,
+  FallbackReason as SmokeFallbackReason,
+  FallbackReasonContext as SmokeFallbackReasonContext,
   FetchLike as SmokeFetchLike,
   FinalSynthesis as SmokeFinalSynthesis,
   FlushableTelemetrySink as SmokeFlushableTelemetrySink,
@@ -68,7 +89,9 @@ import type {
   ProcessExecutionResult as SmokeProcessExecutionResult,
   ProcessInvocation as SmokeProcessInvocation,
   ProcessModelAdapterOptions as SmokeProcessModelAdapterOptions,
+  ProviderCapability as SmokeProviderCapability,
   ProviderDescriptor as SmokeProviderDescriptor,
+  ProviderReadinessHint as SmokeProviderReadinessHint,
   RetryPolicy as SmokeRetryPolicy,
   RoutingMode as SmokeRoutingMode,
   RoutingModeDecision as SmokeRoutingModeDecision,
@@ -89,6 +112,7 @@ import {
   assertEquals,
   assertRejects,
   assertStringIncludes,
+  assertThrows,
 } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 
@@ -113,12 +137,18 @@ type PublicExportTypeSmoke = [
   SmokeDevinCliAdapterOptions,
   SmokeDirectHttpAdapterOptions,
   SmokeDirectHttpExecutionResult,
+  SmokeDirectRoutingDecision,
+  SmokeDirectRoutingPolicy,
   SmokeDirectHttpRequest,
   SmokeDirectHttpResponseParser,
   SmokeExplicitRoutingModeSource,
   SmokeFetchLike,
   SmokeFinalSynthesis,
   SmokeFlushableTelemetrySink,
+  SmokeFallbackPolicy,
+  SmokeFallbackPolicyDecision,
+  SmokeFallbackReason,
+  SmokeFallbackReasonContext,
   SmokeFusionRouterConfig,
   SmokeFusionRouterOptions,
   SmokeFusionRouterRouteOptions,
@@ -130,6 +160,8 @@ type PublicExportTypeSmoke = [
   SmokeOpenAIDirectAdapterOptions,
   SmokeOpenAIDirectSynthesisAdapterOptions,
   SmokeOtlpTelemetrySinkOptions,
+  SmokeProviderCapability,
+  SmokeProviderReadinessHint,
   SmokeProcessExecutionResult,
   SmokeProcessInvocation,
   SmokeProcessModelAdapterOptions,
@@ -176,11 +208,17 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "CodexStructuredSynthesisAdapter",
   "CodexSynthesisAdapterOptions",
   "DevinCliAdapterOptions",
+  "DirectRoutingDecision",
+  "DirectRoutingPolicy",
   "DirectHttpAdapterOptions",
   "DirectHttpExecutionResult",
   "DirectHttpRequest",
   "DirectHttpResponseParser",
   "ExplicitRoutingModeSource",
+  "FallbackPolicy",
+  "FallbackPolicyDecision",
+  "FallbackReason",
+  "FallbackReasonContext",
   "FetchLike",
   "FinalSynthesis",
   "FinalSynthesisSchema",
@@ -207,6 +245,9 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "ProcessModelAdapterOptions",
   "ProviderDescriptor",
   "ProviderDescriptorSchema",
+  "ProviderCapability",
+  "ProviderCapabilityRegistry",
+  "ProviderReadinessHint",
   "ROUTING_MODE_ENV",
   "RetryPolicy",
   "RouterError",
@@ -229,6 +270,9 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "createAnthropicDirectAdapter",
   "createBufferedBatchSink",
   "createBufferedTelemetrySink",
+  "createCapabilityDirectRoutingPolicy",
+  "createDefaultProviderCapabilityRegistry",
+  "createSafeProviderUnavailableFallbackPolicy",
   "createClaudeCodeAdapter",
   "createClineCliAdapter",
   "createCodexCliAdapter",
@@ -246,8 +290,10 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "createSupabaseAuditHandler",
   "createSupabaseAuditSink",
   "createZcodeGlmAdapter",
+  "fallbackReasonFromError",
   "describeRoutingModeDecision",
   "flushTelemetrySink",
+  "isFallbackAllowed",
   "isRoutingModeImplemented",
   "loadFusionRouterConfig",
   "parseRoutingMode",
@@ -413,6 +459,508 @@ function staticOkSynthesis(): StaticSynthesisAdapter {
     sources: ["Fixture/counting"],
   });
 }
+
+function fixtureDescriptor(
+  provider: string,
+  model: string,
+  client = "FixtureCLI",
+) {
+  return {
+    provider,
+    model,
+    authMode: "session",
+    transport: "processAdapter",
+    client,
+  } as const;
+}
+
+Deno.test("provider registry validates known providers", () => {
+  const registry = createDefaultProviderCapabilityRegistry();
+  const descriptors = [
+    createCodexCliAdapter().descriptor,
+    createClaudeCodeAdapter().descriptor,
+    createGeminiCliAdapter().descriptor,
+    createGrokCliAdapter().descriptor,
+    createDevinCliAdapter().descriptor,
+    createClineCliAdapter().descriptor,
+    createZcodeGlmAdapter().descriptor,
+    createOpenAIDirectAdapter().descriptor,
+    createAnthropicDirectAdapter().descriptor,
+    createCodexStructuredSynthesisAdapter().descriptor,
+    createOpenAIDirectSynthesisAdapter().descriptor,
+  ];
+
+  for (const descriptor of descriptors) {
+    const capability = registry.require(descriptor);
+    assertEquals(capability.authMode, descriptor.authMode);
+    assertEquals(capability.transport, descriptor.transport);
+    assertEquals(capability.client, descriptor.client);
+  }
+
+  const openAiDirect = registry.require({
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+  });
+  assertEquals(openAiDirect.supportsSynthesis, true);
+  assertEquals(openAiDirect.supportsStructuredJson, true);
+  assertEquals(openAiDirect.enabled, true);
+});
+
+Deno.test("provider registry protects lookup state and separates auth modes", () => {
+  const oauth = {
+    provider: "Fixture",
+    model: "same-model",
+    authMode: "oauth",
+    transport: "processAdapter",
+    client: "FixtureCLI",
+    supportsSynthesis: false,
+    supportsStructuredJson: false,
+    estimatedCostUsd: 0.01,
+    enabled: true,
+    tags: ["oauth"] as string[],
+  } as const;
+  const apiKey = {
+    ...oauth,
+    authMode: "apiKey",
+    estimatedCostUsd: 0.02,
+    tags: ["api-key"] as string[],
+  } as const;
+  const registry = new ProviderCapabilityRegistry([oauth, apiKey]);
+
+  const oauthLookup = registry.require(oauth);
+  oauthLookup.enabled = false;
+  oauthLookup.tags?.push("mutated");
+
+  assertEquals(registry.require(oauth).enabled, true);
+  assertEquals(registry.require(oauth).tags, ["oauth"]);
+  assertEquals(registry.require(apiKey).estimatedCostUsd, 0.02);
+});
+
+Deno.test("provider registry rejects invalid estimated cost", () => {
+  const descriptor = fixtureDescriptor("Fixture", "invalid-cost");
+  assertThrows(
+    () =>
+      new ProviderCapabilityRegistry([
+        {
+          ...descriptor,
+          supportsSynthesis: false,
+          supportsStructuredJson: false,
+          estimatedCostUsd: Number.NaN,
+          enabled: true,
+        },
+      ]),
+    Error,
+    "estimatedCostUsd must be a finite number >= 0",
+  );
+  assertThrows(
+    () =>
+      new ProviderCapabilityRegistry([
+        {
+          ...descriptor,
+          supportsSynthesis: false,
+          supportsStructuredJson: false,
+          estimatedCostUsd: -0.01,
+          enabled: true,
+        },
+      ]),
+    Error,
+    "estimatedCostUsd must be a finite number >= 0",
+  );
+});
+
+Deno.test("disabled provider is rejected by direct routing policy", () => {
+  const descriptor = fixtureDescriptor("Fixture", "disabled-provider");
+  const synthesis = fixtureDescriptor("Fixture", "synth", "SynthCLI");
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...descriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: false,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+  ]);
+
+  const decision = createCapabilityDirectRoutingPolicy().decide({
+    candidates: [descriptor],
+    synthesisCandidates: [synthesis],
+    providerRegistry: registry,
+  });
+
+  assertEquals(decision.selectedAdapters, []);
+  assertEquals(
+    decision.rejectedAdapters[0].reason,
+    "provider disabled for Fixture/disabled-provider",
+  );
+});
+
+Deno.test("missing auth/readiness hint is rejected by direct routing policy", () => {
+  const descriptor = fixtureDescriptor("Fixture", "missing-auth");
+  const synthesis = fixtureDescriptor("Fixture", "synth", "SynthCLI");
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...descriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+  ]);
+
+  const decision = createCapabilityDirectRoutingPolicy().decide({
+    candidates: [descriptor],
+    synthesisCandidates: [synthesis],
+    providerRegistry: registry,
+    readinessHints: {
+      "Fixture/missing-auth": { authReady: false, reason: "auth missing" },
+    },
+  });
+
+  assertEquals(decision.selectedAdapters, []);
+  assertEquals(decision.rejectedAdapters[0].reason, "auth missing");
+});
+
+Deno.test("budget estimate is included in direct routing decision", () => {
+  const cheap = fixtureDescriptor("Fixture", "cheap");
+  const expensive = fixtureDescriptor("Fixture", "expensive");
+  const synthesis = fixtureDescriptor("Fixture", "synth", "SynthCLI");
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...cheap,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...expensive,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.2,
+      enabled: true,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.02,
+      enabled: true,
+    },
+  ]);
+
+  const decision = createCapabilityDirectRoutingPolicy().decide({
+    candidates: [cheap, expensive],
+    synthesisCandidates: [synthesis],
+    providerRegistry: registry,
+    budgetManager: new InMemoryBudgetManager(0.05),
+  });
+
+  assertEquals(decision.selectedAdapters, [cheap]);
+  assertEquals(decision.budgetEstimatedUsd, 0.03);
+  assertStringIncludes(
+    decision.rejectedAdapters[0].reason,
+    "budget estimate exceeds remaining budget",
+  );
+});
+
+Deno.test("synthesis candidate over budget fails closed in direct routing policy", () => {
+  const candidate = fixtureDescriptor("Fixture", "candidate");
+  const synthesis = fixtureDescriptor("Fixture", "expensive-synth", "SynthCLI");
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...candidate,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.2,
+      enabled: true,
+    },
+  ]);
+
+  assertThrows(
+    () =>
+      createCapabilityDirectRoutingPolicy().decide({
+        candidates: [candidate],
+        synthesisCandidates: [synthesis],
+        providerRegistry: registry,
+        budgetManager: new InMemoryBudgetManager(0.05),
+      }),
+    Error,
+    "synthesis candidate exceeds remaining budget",
+  );
+});
+
+Deno.test("missing eligible synthesis candidate fails closed", () => {
+  const candidate = fixtureDescriptor("Fixture", "candidate");
+  const synthesis = fixtureDescriptor("Fixture", "disabled-synth", "SynthCLI");
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...candidate,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: false,
+    },
+  ]);
+
+  assertThrows(
+    () =>
+      createCapabilityDirectRoutingPolicy().decide({
+        candidates: [candidate],
+        synthesisCandidates: [synthesis],
+        providerRegistry: registry,
+      }),
+    Error,
+    "requires an enabled synthesis candidate",
+  );
+});
+
+Deno.test("fallback policy allows provider_unavailable only from safe set", () => {
+  const policy = createSafeProviderUnavailableFallbackPolicy();
+
+  assertEquals(policy.decide("provider_unavailable"), {
+    allowed: true,
+    reason: "provider_unavailable",
+  });
+  assertEquals(isFallbackAllowed("auth_missing"), true);
+  assertEquals(isFallbackAllowed("timeout_before_model_output"), true);
+});
+
+Deno.test("fallback policy rejects validation mismatch", () => {
+  const policy = createSafeProviderUnavailableFallbackPolicy();
+
+  assertEquals(policy.decide("validation_mismatch"), {
+    allowed: false,
+    reason: "validation_mismatch",
+  });
+  assertEquals(isFallbackAllowed("malformed_provider_response"), false);
+  assertEquals(isFallbackAllowed("consensus_validation_failure"), false);
+});
+
+Deno.test("fallback reason mapping keeps audit failures unsafe", () => {
+  const auditError = new ProcessExecutionError(
+    "auth_failed",
+    "audit sink auth failed",
+  );
+
+  assertEquals(fallbackReasonFromError(auditError), "unknown");
+  assertEquals(
+    fallbackReasonFromError(auditError, { boundary: "audit" }),
+    "audit_failure",
+  );
+  assertEquals(isFallbackAllowed("audit_failure"), false);
+});
+
+Deno.test("fallback reason mapping classifies explicit unsafe origins", () => {
+  assertEquals(
+    fallbackReasonFromError(
+      new ProcessExecutionError(
+        "provider_identity_mismatch",
+        "provider identity changed",
+      ),
+      { boundary: "provider" },
+    ),
+    "provider_identity_mismatch",
+  );
+  assertEquals(
+    fallbackReasonFromError(new RouterError(4401, "validation_mismatch", "no")),
+    "validation_mismatch",
+  );
+  assertEquals(
+    fallbackReasonFromError(new RouterError(4401, "audit_failure", "no")),
+    "audit_failure",
+  );
+  assertEquals(
+    fallbackReasonFromError(new RouterError(4401, "budget_exhausted", "no")),
+    "budget_exhausted",
+  );
+});
+
+Deno.test("default behavior remains unchanged without policy", async () => {
+  const first = new CountingAdapter({
+    provider: "Fixture",
+    model: "first",
+    content: "first validated output",
+    latencyMs: 1,
+  });
+  const second = new CountingAdapter({
+    provider: "Fixture",
+    model: "second",
+    content: "second validated output",
+    latencyMs: 1,
+  });
+  const router = new FusionRouter({
+    modelAdapters: [first, second],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 2,
+    timeoutMs: 10_000,
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(first.calls, 1);
+  assertEquals(second.calls, 1);
+});
+
+Deno.test("adaptive direct wiring passes readiness and budget and recalculates quorum", async () => {
+  const synthesisAdapter = staticOkSynthesis();
+  const notReadyDescriptor = fixtureDescriptor(
+    "Fixture",
+    "not-ready",
+    "NotReadyCLI",
+  );
+  const expensiveDescriptor = fixtureDescriptor(
+    "Fixture",
+    "expensive",
+    "ExpensiveCLI",
+  );
+  const cheapDescriptor = fixtureDescriptor("Fixture", "cheap", "CheapCLI");
+  const makeAdapter = (
+    descriptor: ProviderDescriptor,
+  ): ModelAdapter & { calls: number } => ({
+    descriptor,
+    calls: 0,
+    invoke(_prompt: string, _signal: AbortSignal) {
+      this.calls += 1;
+      return Promise.resolve({
+        provider: descriptor.provider,
+        model: descriptor.model,
+        content: `${descriptor.model} output`,
+        latencyMs: 1,
+      });
+    },
+  });
+  const notReady = makeAdapter(notReadyDescriptor);
+  const expensive = makeAdapter(expensiveDescriptor);
+  const cheap = makeAdapter(cheapDescriptor);
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...notReadyDescriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...expensiveDescriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.05,
+      enabled: true,
+    },
+    {
+      ...cheapDescriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesisAdapter.descriptor,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+  ]);
+  const router = new FusionRouter({
+    modelAdapters: [notReady, expensive, cheap],
+    synthesisAdapter,
+    timeoutMs: 10_000,
+    directRoutingPolicy: createCapabilityDirectRoutingPolicy(),
+    providerRegistry: registry,
+    providerReadinessHints: {
+      "Fixture/not-ready": { authReady: false, reason: "fixture auth down" },
+    },
+    directRoutingBudgetManager: new InMemoryBudgetManager(0.025),
+  });
+
+  const result = await router.route("hello");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(notReady.calls, 0);
+  assertEquals(expensive.calls, 0);
+  assertEquals(cheap.calls, 1);
+});
+
+Deno.test("direct routing rejection details are included in quorum failures", async () => {
+  const synthesisAdapter = staticOkSynthesis();
+  const descriptor = fixtureDescriptor(
+    "Fixture",
+    "selected-fail",
+    "SelectedFailCLI",
+  );
+  const adapter: ModelAdapter = {
+    descriptor,
+    invoke: () => Promise.reject(new Error("fixture failure")),
+  };
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...descriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesisAdapter.descriptor,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+  ]);
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter,
+    timeoutMs: 10_000,
+    directRoutingPolicy: createCapabilityDirectRoutingPolicy(),
+    providerRegistry: registry,
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+  const details = error.details as {
+    directRoutingDecision?: DirectRoutingDecision;
+    effectiveMinSuccessfulAdapters?: number;
+  };
+  assertEquals(error.code, "consensus_insufficient");
+  assertEquals(details.effectiveMinSuccessfulAdapters, 1);
+  assertEquals(details.directRoutingDecision?.selectedAdapters, [descriptor]);
+});
 
 Deno.test("direct routing decision reports implemented true", () => {
   assertEquals(
@@ -1135,11 +1683,67 @@ printf ''
     buildInvocation: () => ({ command: script }),
   });
 
-  await assertRejects(
+  const error = await assertRejects(
     () => adapter.invoke("hello", new AbortController().signal),
-    Error,
+    ProcessExecutionError,
     "returned empty stdout",
   );
+  const fallbackReason = fallbackReasonFromError(error, {
+    boundary: "provider",
+  });
+  assertEquals(fallbackReason, "malformed_provider_response");
+  assertEquals(isFallbackAllowed(fallbackReason), false);
+});
+
+Deno.test("malformed provider response does not become fallback success", async () => {
+  const script = await makeScript(`#!/usr/bin/env bash
+printf ''
+`);
+
+  const descriptor = {
+    provider: "Fixture",
+    model: "empty-stdout",
+    authMode: "session",
+    transport: "processAdapter",
+    client: "FixtureCLI",
+  } as const;
+  const synthesisAdapter = staticOkSynthesis();
+  const synthesis = synthesisAdapter.descriptor;
+  const adapter = createProcessAdapter({
+    descriptor,
+    buildInvocation: () => ({ command: script }),
+  });
+  const registry = new ProviderCapabilityRegistry([
+    {
+      ...descriptor,
+      supportsSynthesis: false,
+      supportsStructuredJson: false,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+    {
+      ...synthesis,
+      supportsSynthesis: true,
+      supportsStructuredJson: true,
+      estimatedCostUsd: 0.01,
+      enabled: true,
+    },
+  ]);
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter,
+    minSuccessfulAdapters: 1,
+    timeoutMs: 10_000,
+    directRoutingPolicy: createCapabilityDirectRoutingPolicy(),
+    providerRegistry: registry,
+  });
+
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+
+  assertEquals(error.code, "consensus_insufficient");
 });
 
 Deno.test("quorum failure returns RouterError 4401", async () => {
@@ -2370,6 +2974,9 @@ Deno.test("public compatibility barrel preserves core exports", async () => {
       "createZcodeGlmAdapter",
       "createOpenAIDirectAdapter",
       "createAnthropicDirectAdapter",
+      "createCapabilityDirectRoutingPolicy",
+      "createDefaultProviderCapabilityRegistry",
+      "createSafeProviderUnavailableFallbackPolicy",
       "createBufferedBatchSink",
       "createBufferedTelemetrySink",
       "createOtlpHttpTelemetrySink",
@@ -2378,6 +2985,9 @@ Deno.test("public compatibility barrel preserves core exports", async () => {
       "ModelOutputSchema",
       "FinalSynthesisSchema",
       "CoFailureTelemetrySchema",
+      "ProviderCapabilityRegistry",
+      "fallbackReasonFromError",
+      "isFallbackAllowed",
       "InMemoryBudgetManager",
     ]
   ) {
