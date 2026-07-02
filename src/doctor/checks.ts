@@ -4,8 +4,14 @@ import {
   resolveRoutingMode,
   ROUTING_MODE_ENV,
 } from "../routing-mode.ts";
-import { loadFusionRouterConfig } from "../config.ts";
+import { type FusionRouterConfig, loadFusionRouterConfig } from "../config.ts";
 import { RouterError } from "../errors.ts";
+import {
+  createDefaultProviderCapabilityRegistry,
+  providerDescriptorKey,
+} from "../policy/provider-registry.ts";
+import type { ProviderDescriptor } from "../schemas.ts";
+import type { SetupProviderSelection } from "../setup/setup-schema.ts";
 import {
   TELEMETRY_MAX_BATCH_SIZE,
   TELEMETRY_MAX_DRAIN_MS,
@@ -71,9 +77,19 @@ async function commandAvailable(command: string): Promise<boolean> {
   }
 }
 
+const FORBIDDEN_SUPABASE_PRIVILEGE_ENV_KEYS = new Set([
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_SERVICE_KEY",
+  "FUSION_ROUTER_SUPABASE_SERVICE_KEY",
+  "SUPABASE_ADMIN_KEY",
+  "FUSION_ROUTER_SUPABASE_ADMIN_KEY",
+]);
+
 function serviceRoleEnvKeys(): string[] {
   return Object.keys(Deno.env.toObject()).filter((key) =>
-    /SUPABASE.*SERVICE.*ROLE/i.test(key)
+    FORBIDDEN_SUPABASE_PRIVILEGE_ENV_KEYS.has(key.toUpperCase()) ||
+    /SUPABASE.*(SERVICE.*ROLE|SERVICE.*KEY|ADMIN.*KEY|JWT.*SECRET)/i.test(key)
   );
 }
 
@@ -91,6 +107,149 @@ function safeRoutingConfigError(error: unknown): string {
   }
 
   return "config_check_failed";
+}
+
+function setupProviderToDescriptor(
+  provider: SetupProviderSelection,
+): ProviderDescriptor | undefined {
+  if (provider.authMode === "local" || provider.transport === "localModel") {
+    return undefined;
+  }
+  return {
+    provider: provider.provider,
+    model: provider.model,
+    authMode: provider.authMode,
+    transport: provider.transport,
+    client: provider.client,
+  } as ProviderDescriptor;
+}
+
+function isLocalModelPlaceholder(provider: SetupProviderSelection): boolean {
+  return provider.provider === "Local" && provider.authMode === "local" &&
+    provider.transport === "localModel";
+}
+
+function pushSetupConfigChecks(
+  checks: DoctorCheck[],
+  config: FusionRouterConfig | undefined,
+): void {
+  if (!config) {
+    checks.push({
+      name: "setup_profile",
+      ok: true,
+      detail: "not configured",
+      severity: "info",
+    });
+    return;
+  }
+
+  checks.push({
+    name: "setup_profile",
+    ok: true,
+    detail: config.setupProfile
+      ? `known profile: ${config.setupProfile}`
+      : "not configured",
+    severity: "info",
+  });
+
+  const providers = config.providers ?? [];
+  const registry = createDefaultProviderCapabilityRegistry();
+  const missing: string[] = [];
+  const placeholders: string[] = [];
+  for (const provider of providers) {
+    if (!provider.enabled) {
+      continue;
+    }
+    if (isLocalModelPlaceholder(provider)) {
+      placeholders.push(`${provider.provider}/${provider.model}`);
+      continue;
+    }
+    const descriptor = setupProviderToDescriptor(provider);
+    if (!descriptor || !registry.get(descriptor)) {
+      missing.push(
+        `${provider.provider}/${provider.model}/${provider.authMode}/${provider.transport}`,
+      );
+    }
+  }
+
+  checks.push({
+    name: "setup_provider_capabilities",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? providers.length === 0
+        ? "no setup providers selected"
+        : `registered providers: ${providers.length}`
+      : `unregistered provider selections: ${missing.join(", ")}`,
+    severity: missing.length === 0 ? "info" : "error",
+  });
+
+  checks.push({
+    name: "setup_auth_transport_match",
+    ok: missing.length === 0,
+    detail: missing.length === 0
+      ? "selected auth/transport combinations match capability registry or explicit placeholders"
+      : "one or more selected auth/transport combinations do not match capability registry",
+    severity: missing.length === 0 ? "info" : "error",
+  });
+
+  if (placeholders.length > 0) {
+    checks.push({
+      name: "setup_local_model_placeholder",
+      ok: true,
+      detail: `placeholder only, not implemented: ${placeholders.join(", ")}`,
+      severity: "warn",
+    });
+  }
+
+  const persistenceMode = config.persistence?.mode ?? "none";
+  checks.push({
+    name: "setup_persistence",
+    ok: true,
+    detail: persistenceMode === "localJsonl"
+      ? "local JSONL persistence is a placeholder and not implemented"
+      : persistenceMode === "supabaseAuditRpc"
+      ? "Supabase audit RPC selected; runtime must use anon key plus user/session JWT only"
+      : "none",
+    severity: persistenceMode === "localJsonl" ? "warn" : "info",
+  });
+
+  checks.push({
+    name: "setup_supabase_audit_auth",
+    ok: true,
+    detail: persistenceMode === "supabaseAuditRpc"
+      ? "anon/session pattern only; service-role env is checked separately"
+      : "not selected",
+    severity: "info",
+  });
+
+  const adaptive = config.adaptiveDirect;
+  checks.push({
+    name: "setup_adaptive_direct",
+    ok: !adaptive?.enabled ||
+      adaptive.fallbackPolicy === "safe_provider_unavailable_only",
+    detail: adaptive?.enabled
+      ? `enabled with fallbackPolicy=${adaptive.fallbackPolicy}`
+      : "disabled",
+    severity: !adaptive?.enabled ||
+        adaptive.fallbackPolicy === "safe_provider_unavailable_only"
+      ? "info"
+      : "error",
+  });
+
+  const registryKeys = providers
+    .map(setupProviderToDescriptor)
+    .filter((descriptor): descriptor is ProviderDescriptor =>
+      Boolean(descriptor)
+    )
+    .map(providerDescriptorKey);
+  if (registryKeys.length > 0) {
+    checks.push({
+      name: "setup_provider_registry_keys",
+      ok: true,
+      detail: `${registryKeys.length} provider descriptor key(s) resolved`,
+      severity: "info",
+    });
+  }
 }
 
 function pushRoutingEnvCheck(
@@ -196,8 +355,10 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
 
   const path = configPath();
   let configMode: string | undefined;
+  let loadedConfig: FusionRouterConfig | undefined;
   try {
     const config = await loadFusionRouterConfig(path);
+    loadedConfig = config;
     configMode = config.routingMode;
     checks.push({
       name: "routing_config_file",
@@ -217,6 +378,8 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
       severity: "error",
     });
   }
+
+  pushSetupConfigChecks(checks, loadedConfig);
 
   const envMode = Deno.env.get(ROUTING_MODE_ENV);
   pushRoutingEnvCheck(checks, envMode);

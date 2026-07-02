@@ -1,14 +1,41 @@
 import { z } from "zod";
 import { failClosed } from "./errors.ts";
 import { parseRoutingMode, type RoutingMode } from "./routing-mode.ts";
+import {
+  type SetupAdaptiveDirect,
+  SetupAdaptiveDirectSchema,
+  type SetupPersistence,
+  SetupPersistenceSchema,
+  type SetupProfileName,
+  SetupProfileNameSchema,
+  type SetupProviderSelection,
+  SetupProviderSelectionSchema,
+  type SetupTelemetry,
+  SetupTelemetrySchema,
+} from "./setup/setup-schema.ts";
 
 export type FusionRouterConfig = {
   routingMode?: RoutingMode;
+  setupProfile?: SetupProfileName;
+  providers?: SetupProviderSelection[];
+  persistence?: SetupPersistence;
+  telemetry?: SetupTelemetry;
+  adaptiveDirect?: SetupAdaptiveDirect;
 };
 
 export const FusionRouterConfigFileSchema = z.object({
+  profile: SetupProfileNameSchema.optional(),
   routing: z.object({
     mode: z.unknown().optional(),
+  }).strict().optional(),
+  providers: z.array(SetupProviderSelectionSchema).optional(),
+  persistence: SetupPersistenceSchema.optional(),
+  telemetry: SetupTelemetrySchema.optional(),
+  adaptiveDirect: SetupAdaptiveDirectSchema.optional(),
+  setup: z.object({
+    generatedBy: z.literal("fusion-router setup").optional(),
+    warnings: z.array(z.string()).optional(),
+    nonGoals: z.array(z.string()).optional(),
   }).strict().optional(),
 }).strict();
 
@@ -48,7 +75,7 @@ export async function loadFusionRouterConfig(
     failClosed(
       4400,
       "invalid_config_shape",
-      'Fusion router config must match { routing?: { mode?: "direct" | "agent_chat" } }.',
+      "Fusion router config has an invalid shape; raw contents hidden.",
       { path },
     );
   }
@@ -58,5 +85,22 @@ export async function loadFusionRouterConfig(
     "config",
   )?.mode;
 
-  return routingMode === undefined ? {} : { routingMode };
+  return {
+    ...(routingMode === undefined ? {} : { routingMode }),
+    ...(parsedConfig.data.profile === undefined
+      ? {}
+      : { setupProfile: parsedConfig.data.profile }),
+    ...(parsedConfig.data.providers === undefined
+      ? {}
+      : { providers: parsedConfig.data.providers }),
+    ...(parsedConfig.data.persistence === undefined
+      ? {}
+      : { persistence: parsedConfig.data.persistence }),
+    ...(parsedConfig.data.telemetry === undefined
+      ? {}
+      : { telemetry: parsedConfig.data.telemetry }),
+    ...(parsedConfig.data.adaptiveDirect === undefined
+      ? {}
+      : { adaptiveDirect: parsedConfig.data.adaptiveDirect }),
+  };
 }

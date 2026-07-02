@@ -26,6 +26,9 @@ import {
   FinalSynthesis,
   FinalSynthesisSchema,
   FusionRouter,
+  generateEnvExample,
+  generateFusionRouterConfig,
+  generateSetupReport,
   InMemoryBudgetManager,
   isFallbackAllowed,
   loadFusionRouterConfig,
@@ -78,6 +81,7 @@ import type {
   FusionRouterOptions as SmokeFusionRouterOptions,
   FusionRouterRouteOptions as SmokeFusionRouterRouteOptions,
   GeminiCliAdapterOptions as SmokeGeminiCliAdapterOptions,
+  GeneratedFusionRouterConfig as SmokeGeneratedFusionRouterConfig,
   GrokCliAdapterOptions as SmokeGrokCliAdapterOptions,
   ModelAdapter as SmokeModelAdapter,
   ModelOutput as SmokeModelOutput,
@@ -98,6 +102,8 @@ import type {
   RoutingModeResolution as SmokeRoutingModeResolution,
   RoutingModeResolveInput as SmokeRoutingModeResolveInput,
   RoutingModeSource as SmokeRoutingModeSource,
+  SetupReport as SmokeSetupReport,
+  SetupWizardInput as SmokeSetupWizardInput,
   SupabaseAuditHandlerOptions as SmokeSupabaseAuditHandlerOptions,
   SupabaseAuditRecord as SmokeSupabaseAuditRecord,
   SupabaseAuditSinkOptions as SmokeSupabaseAuditSinkOptions,
@@ -154,6 +160,7 @@ type PublicExportTypeSmoke = [
   SmokeFusionRouterRouteOptions,
   SmokeGeminiCliAdapterOptions,
   SmokeGrokCliAdapterOptions,
+  SmokeGeneratedFusionRouterConfig,
   SmokeModelAdapter,
   SmokeModelOutput,
   SmokeModelOutputParser,
@@ -172,6 +179,8 @@ type PublicExportTypeSmoke = [
   SmokeRoutingModeResolution,
   SmokeRoutingModeResolveInput,
   SmokeRoutingModeSource,
+  SmokeSetupReport,
+  SmokeSetupWizardInput,
   SmokeSupabaseAuditHandlerOptions,
   SmokeSupabaseAuditRecord,
   SmokeSupabaseAuditSinkOptions,
@@ -229,6 +238,8 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "FusionRouterOptions",
   "FusionRouterRouteOptions",
   "GeminiCliAdapterOptions",
+  "GeneratedFusionRouterConfig",
+  "GeneratedFusionRouterConfigSchema",
   "GrokCliAdapterOptions",
   "InMemoryBudgetManager",
   "ModelAdapter",
@@ -291,6 +302,14 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "createSupabaseAuditSink",
   "createZcodeGlmAdapter",
   "fallbackReasonFromError",
+  "generateEnvExample",
+  "generateFusionRouterConfig",
+  "generateSetupReport",
+  "profileInput",
+  "runSetupCli",
+  "SetupProfileNameSchema",
+  "SetupWizardInputSchema",
+  "stringifyGeneratedFusionRouterConfig",
   "describeRoutingModeDecision",
   "flushTelemetrySink",
   "isFallbackAllowed",
@@ -1056,6 +1075,246 @@ Deno.test("missing config file returns empty config with no routing mode", async
     mode: "direct",
     source: "default",
   });
+});
+
+Deno.test("minimal-direct profile generates valid config", async () => {
+  const config = generateFusionRouterConfig({ profile: "minimal-direct" });
+  assertEquals(config.profile, "minimal-direct");
+  assertEquals(config.routing.mode, "direct");
+  assertEquals(config.providers, []);
+  assertEquals(config.persistence.mode, "none");
+  assertEquals(config.adaptiveDirect.enabled, false);
+
+  const path = await writeConfigFile(JSON.stringify(config));
+  const loaded = await loadFusionRouterConfig(path);
+  assertEquals(loaded.routingMode, "direct");
+  assertEquals(loaded.setupProfile, "minimal-direct");
+});
+
+Deno.test("direct-http-openai profile emits only placeholders, not raw secrets", () => {
+  const config = generateFusionRouterConfig({ profile: "direct-http-openai" });
+  const envExample = generateEnvExample({ profile: "direct-http-openai" });
+  const serialized = JSON.stringify(config) + envExample;
+
+  assertEquals(config.providers[0], {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+    enabled: true,
+  });
+  assertStringIncludes(envExample, "OPENAI_API_KEY=");
+  assert(!serialized.includes("sk-"));
+  assert(!serialized.includes("fixture-secret-value"));
+  assert(!JSON.stringify(config).includes("OPENAI_API_KEY"));
+});
+
+Deno.test("supabase-audit profile never emits service-role key", () => {
+  const config = generateFusionRouterConfig({ profile: "supabase-audit" });
+  const envExample = generateEnvExample({ profile: "supabase-audit" });
+  const report = generateSetupReport({ profile: "supabase-audit" });
+  const surface = JSON.stringify({ config, envExample, report });
+
+  assertEquals(config.persistence.mode, "supabaseAuditRpc");
+  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_URL=");
+  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_ANON_KEY=");
+  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_SESSION_JWT=");
+  assert(!surface.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  assert(!surface.includes("FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY"));
+});
+
+Deno.test("adaptive-direct profile enables policy config safely", () => {
+  const config = generateFusionRouterConfig({ profile: "adaptive-direct" });
+  assertEquals(config.adaptiveDirect.enabled, true);
+  assertEquals(
+    config.adaptiveDirect.fallbackPolicy,
+    "safe_provider_unavailable_only",
+  );
+  assertEquals(config.adaptiveDirect.budgetLimitUsd, 0.25);
+  assert(config.providers.length >= 2);
+});
+
+Deno.test("unknown setup profile fails closed", () => {
+  const error = assertThrows(
+    () => generateFusionRouterConfig({ profile: "unknown" as never }),
+    RouterError,
+  );
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "unknown_setup_profile");
+});
+
+Deno.test("invalid provider/auth/transport setup combo fails closed", () => {
+  const error = assertThrows(
+    () =>
+      generateFusionRouterConfig({
+        profile: "minimal-direct",
+        providers: [
+          {
+            provider: "OpenAI",
+            model: "gpt-4o-mini",
+            authMode: "oauth",
+            transport: "directHttp",
+            client: "OpenAIChatCompletions",
+            enabled: true,
+          },
+        ],
+      }),
+    RouterError,
+  );
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_setup_provider_combination");
+});
+
+Deno.test("setup output is deterministic", () => {
+  const first = JSON.stringify(
+    generateFusionRouterConfig({ profile: "adaptive-direct" }),
+  );
+  const second = JSON.stringify(
+    generateFusionRouterConfig({ profile: "adaptive-direct" }),
+  );
+  assertEquals(first, second);
+  assertEquals(
+    generateEnvExample({ profile: "adaptive-direct" }),
+    generateEnvExample({ profile: "adaptive-direct" }),
+  );
+});
+
+Deno.test("setup CLI --help advertises canonical setup entrypoint", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      `${Deno.cwd()}/setup.ts`,
+      "--help",
+    ],
+    clearEnv: true,
+    env: { PATH: Deno.env.get("PATH") ?? "" },
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  assertStringIncludes(text, "deno task setup -- [--profile NAME]");
+  assertStringIncludes(text, "deno run --allow-read --allow-write setup.ts");
+  assert(!text.includes("src/setup/cli.ts"));
+});
+
+Deno.test("setup CLI dry-run does not write files", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-setup-dryrun-" });
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      `${Deno.cwd()}/setup.ts`,
+      "--profile",
+      "minimal-direct",
+    ],
+    cwd: dir,
+    clearEnv: true,
+    env: { PATH: Deno.env.get("PATH") ?? "" },
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  assertStringIncludes(text, "Dry-run only: no files written");
+  await assertRejects(
+    () => Deno.stat(`${dir}/fusion-router.config.json`),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("setup CLI --write writes config only to requested path", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-setup-write-" });
+  const requestedPath = `${dir}/generated/fusion-router.config.json`;
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-read",
+      "--allow-write",
+      `${Deno.cwd()}/setup.ts`,
+      "--profile=direct-http-openai",
+      `--write=${requestedPath}`,
+    ],
+    cwd: dir,
+    clearEnv: true,
+    env: { PATH: Deno.env.get("PATH") ?? "" },
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const written = JSON.parse(await Deno.readTextFile(requestedPath));
+  assertEquals(written.profile, "direct-http-openai");
+  await assertRejects(
+    () => Deno.stat(`${dir}/fusion-router.config.json`),
+    Deno.errors.NotFound,
+  );
+});
+
+Deno.test("doctor accepts generated minimal config", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-setup-" });
+  await Deno.writeTextFile(
+    `${dir}/fusion-router.config.json`,
+    JSON.stringify(generateFusionRouterConfig({ profile: "minimal-direct" })),
+  );
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
+    cwd: dir,
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const setupProfile = report.checks.find((item: { name: string }) =>
+    item.name === "setup_profile"
+  );
+  assertEquals(setupProfile.detail, "known profile: minimal-direct");
+  assertEquals(report.ok, true);
+});
+
+Deno.test("doctor warns on generated agent_chat config while route still fails closed", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-agent-" });
+  const config = generateFusionRouterConfig({
+    profile: "minimal-direct",
+    routingMode: "agent_chat",
+    experimentalAgentChat: true,
+  });
+  await Deno.writeTextFile(
+    `${dir}/fusion-router.config.json`,
+    JSON.stringify(config),
+  );
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
+    cwd: dir,
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const modeCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_effective_mode"
+  );
+  assertEquals(modeCheck.severity, "warn");
+  assertEquals(modeCheck.detail, "agent_chat from config; implemented=false");
+
+  const loaded = await loadFusionRouterConfig(
+    `${dir}/fusion-router.config.json`,
+  );
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: loaded.routingMode,
+  });
+  const error = await assertRejects(
+    () => router.route("hello"),
+    RouterError,
+  );
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
 });
 
 Deno.test("valid config direct loads and resolves as config source", async () => {
@@ -3109,6 +3368,24 @@ Deno.test("doctor fails closed when Supabase service-role env is present", async
   assert(!output.success, text);
   assertStringIncludes(text, "supabase_service_role_absent");
   assertStringIncludes(text, "FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY");
+  assert(!text.includes(credentialFixture));
+});
+
+Deno.test("doctor fails closed on common Supabase admin/service key aliases", async () => {
+  const credentialFixture = ["runtime", "admin", "fixture"].join("-");
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(),
+    clearEnv: true,
+    env: isolatedDoctorEnv({
+      SUPABASE_ADMIN_KEY: credentialFixture,
+    }),
+  }).output();
+
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(!output.success, text);
+  assertStringIncludes(text, "supabase_service_role_absent");
+  assertStringIncludes(text, "SUPABASE_ADMIN_KEY");
   assert(!text.includes(credentialFixture));
 });
 
