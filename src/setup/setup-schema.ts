@@ -79,6 +79,13 @@ export const SetupAdaptiveDirectSchema = z.object({
 }).strict();
 export type SetupAdaptiveDirect = z.infer<typeof SetupAdaptiveDirectSchema>;
 
+export const SetupAgentBusSchema = z.object({
+  enabled: z.boolean().default(false),
+  transport: z.literal("supabase").default("supabase"),
+  realtimeWakeup: z.boolean().default(false),
+}).strict();
+export type SetupAgentBus = z.infer<typeof SetupAgentBusSchema>;
+
 export const SetupPersistenceSchema = z.object({
   mode: SetupPersistenceModeSchema.default("none"),
 }).strict();
@@ -100,6 +107,11 @@ export const SetupWizardInputSchema = z.object({
     enabled: false,
     fallbackPolicy: "safe_provider_unavailable_only",
   }),
+  agentBus: SetupAgentBusSchema.default({
+    enabled: false,
+    transport: "supabase",
+    realtimeWakeup: false,
+  }),
 }).strict();
 export type SetupWizardInput = z.input<typeof SetupWizardInputSchema>;
 export type NormalizedSetupWizardInput = z.output<
@@ -115,6 +127,7 @@ export const GeneratedFusionRouterConfigSchema = z.object({
   persistence: SetupPersistenceSchema,
   telemetry: SetupTelemetrySchema,
   adaptiveDirect: SetupAdaptiveDirectSchema,
+  agentBus: SetupAgentBusSchema,
   setup: z.object({
     generatedBy: z.literal("fusion-router setup"),
     warnings: z.array(z.string()),

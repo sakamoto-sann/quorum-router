@@ -1,9 +1,19 @@
 # AgentChat protocol and simulator skeleton
 
 This wave defines a safe `agent_chat` protocol skeleton and deterministic
-standalone simulator. It does **not** connect `agent_chat` to production
-routing. `FusionRouter.route(..., { routingMode: "agent_chat" })` remains
-recognized but not implemented and fails closed before adapter execution.
+standalone simulator. The Supabase Agent Bus schema wave adds a durable
+coordination/message/event contract for future `agent_chat` runs. Neither wave
+connects `agent_chat` to production routing.
+`FusionRouter.route(..., { routingMode: "agent_chat" })` remains recognized but
+not implemented and fails closed before adapter execution.
+
+Routing boundary:
+
+```text
+direct = best-answer routing path
+agent_chat = future multi-agent chat/coordination path
+agent_bus = durable coordination/message/event plane for agent_chat
+```
 
 ## Roles and phases
 
@@ -54,8 +64,9 @@ surfaces from leaking raw credentials.
 
 ## Audit milestone taxonomy
 
-This PR defines taxonomy plus an in-memory test helper only. It does not change
-Supabase migrations or the Supabase audit RPC payload.
+This PR defines taxonomy plus an in-memory test helper. Supabase Agent Bus adds
+separate message/event tables for future coordination, while the existing
+Supabase audit RPC payload remains unchanged.
 
 Milestones:
 
@@ -123,8 +134,8 @@ This wave does not implement:
 - external tool execution;
 - GitHub/Gmail/Calendar connectors;
 - network calls;
-- Supabase migration changes;
 - Supabase audit RPC payload changes;
+- production Agent Bus runtime connection;
 - local JSONL audit store;
 - hidden fallback behavior;
 - default direct-route behavior changes;

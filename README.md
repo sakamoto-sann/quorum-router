@@ -12,11 +12,12 @@ final consensus.
 
 ## Status
 
-> **v0.1 Safe Direct Router integration branch.** The repository now has the
-> foundation, Adaptive Direct skeleton, setup generator, and standalone
-> AgentChat simulator waves integrated behind conservative offline examples and
-> smoke checks. Default direct routing remains compatible; `agent_chat` remains
-> recognized but not implemented in production routing.
+> **v0.1 Safe Direct Router + Agent Bus schema baseline.** The repository now
+> has the foundation, Adaptive Direct skeleton, setup generator, standalone
+> AgentChat simulator, and Supabase Agent Bus schema/contract waves integrated
+> behind conservative offline examples and smoke checks. Default direct routing
+> remains the production best-answer path; `agent_chat` remains recognized but
+> not implemented in production routing.
 
 ## v0.1 quickstart
 
@@ -49,8 +50,8 @@ v0.1 explicit non-goals:
 
 - no real `agent_chat` runtime
 - no hidden fallback
-- no Supabase migration changes
 - no service-role runtime
+- no production Agent Bus runtime connection
 - no automatic OAuth/API key setup
 - no networked examples by default
 
@@ -74,7 +75,20 @@ Direct is documented in
 [`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md). The setup
 surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md). The
 AgentChat protocol simulator skeleton is documented in
-[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md).
+[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md). The Supabase Agent
+Bus schema and local contract are documented in
+[`docs/supabase-agent-bus.md`](docs/supabase-agent-bus.md).
+
+The runtime mode boundary is explicit:
+
+```text
+direct = best-answer routing path
+agent_chat = future multi-agent chat/coordination path
+agent_bus = durable coordination/message/event plane for agent_chat
+```
+
+`routing.mode` remains `direct | agent_chat`; Agent Bus configuration lives
+under `agentBus` and does not change default direct routing.
 
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
@@ -121,6 +135,9 @@ flowchart TD
   transport, routing, persistence, telemetry, and doctor readiness
 - standalone AgentChat protocol / simulator skeleton defining roles, limits,
   redaction, and audit milestones without production route integration
+- Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
+  deterministic in-memory reference store for future `agent_chat` coordination
+  without connecting it to `FusionRouter.route()`
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`

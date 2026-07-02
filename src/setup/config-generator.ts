@@ -198,6 +198,7 @@ function mergeProfile(input: SetupWizardInput): SetupWizardInput {
     persistence: { ...defaults.persistence, ...input.persistence },
     telemetry: { ...defaults.telemetry, ...input.telemetry },
     adaptiveDirect: { ...defaults.adaptiveDirect, ...input.adaptiveDirect },
+    agentBus: { ...input.agentBus },
     providers: input.providers ?? defaults.providers,
   };
 }
@@ -321,6 +322,11 @@ function warningsFor(input: NormalizedSetupWizardInput): string[] {
       "Adaptive Direct uses safe_provider_unavailable_only fallback classification and does not perform hidden fallback success.",
     );
   }
+  if (input.agentBus.enabled) {
+    warnings.push(
+      "Agent Bus is a future coordination plane for agent_chat and does not make agent_chat production-ready.",
+    );
+  }
   return warnings;
 }
 
@@ -376,6 +382,11 @@ function doctorExpectationsFor(input: NormalizedSetupWizardInput): string[] {
   if (input.adaptiveDirect.enabled) {
     expectations.push("adaptive_direct_config safe fallback only");
   }
+  if (input.agentBus.enabled) {
+    expectations.push(
+      "agent_bus_config is coordination-only and does not change routing.mode",
+    );
+  }
   return expectations;
 }
 
@@ -389,6 +400,7 @@ function buildConfig(
     persistence: input.persistence,
     telemetry: input.telemetry,
     adaptiveDirect: input.adaptiveDirect,
+    agentBus: input.agentBus,
     setup: {
       generatedBy: "fusion-router setup" as const,
       warnings: warningsFor(input),
