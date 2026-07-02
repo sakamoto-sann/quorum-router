@@ -3,9 +3,11 @@
 Phase 3 design pass for the fusion router routing-mode switch. This document is
 the contract for future runtime work. Implementation slices 1-3 add the safe
 parser/resolver boundary, config-loader skeleton, and sanitized routing decision
-summary: `direct` is active on the existing router flow, and
-`agent_chat` is recognized but fails closed before adapter execution because the
-agent-chat runtime is intentionally not implemented yet.
+summary: `direct` is active on the existing router flow, and `agent_chat` is
+recognized but fails closed before adapter execution because the agent-chat
+runtime is intentionally not implemented yet. The Foundation Wave moves
+routing/config/doctor contracts into `src/` modules while preserving the root
+`router.ts` public export surface.
 
 ## Goals
 
@@ -32,6 +34,15 @@ The current implementation intentionally does not add:
 - runtime audit-code changes;
 - `BufferedBatchSink` changes;
 - service-role runtime path.
+
+## Foundation module layout
+
+Routing-mode implementation now lives in `src/routing-mode.ts`; config loading
+lives in `src/config.ts`; doctor setup checks live in `src/doctor/checks.ts`;
+and the router core lives in `src/router.ts`. The root `router.ts` remains the
+public compatibility barrel and CLI entrypoint. See
+[`docs/module-layout.md`](module-layout.md) for the complete module map and
+export-preservation contract.
 
 ## Routing modes
 
@@ -370,6 +381,12 @@ Implemented in slices 1-3:
 - `direct` connected to the existing router flow;
 - `agent_chat` recognized but not implemented, with fail-closed behavior before
   adapter execution and a sanitized decision in `RouterError.details`.
+
+Foundation Wave also preserves these contracts after the module split and adds
+operator-facing doctor checks for config-file validity, `FUSION_ROUTER_MODE`
+validity, config-over-env precedence, effective routing decision, `agent_chat`
+implementation status, and direct-mode readiness. These checks report only
+bounded enum/status information and hide raw invalid values or config contents.
 
 Still future work:
 

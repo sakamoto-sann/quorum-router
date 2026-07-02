@@ -22,6 +22,11 @@ final consensus.
 
 ## Architecture at a glance
 
+The public entrypoint remains `router.ts`, but implementation modules now live
+in [`src/`](docs/module-layout.md) so future provider registry, installer,
+`agent_chat`, and persistence work can move independently. Existing imports from
+`./router.ts` are preserved by the compatibility barrel.
+
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
 
@@ -207,13 +212,18 @@ are migration/admin-only, never router runtime config.
 Phase 3 now has a minimal routing-mode parser, config-loader boundary, and
 sanitized routing decision summary.
 [`docs/routing-mode-design.md`](docs/routing-mode-design.md) remains the source
-for future runtime work. The implemented slices recognize `direct` and
-`agent_chat`, load an optional `fusion-router.config.json` skeleton with
-`routing.mode`, resolve mode precedence as request metadata > config file >
-`FUSION_ROUTER_MODE` > default, expose a safe `{ mode, source, implemented }`
-decision summary, keep `direct` on the existing router flow, and fail closed
-before adapter execution for `agent_chat` because the agent-chat runtime is
-intentionally not implemented yet. Example config:
+for future runtime work; [`docs/module-layout.md`](docs/module-layout.md)
+documents the Foundation Wave module split and public export preservation. The
+implemented routing slices recognize `direct` and `agent_chat`, load an optional
+`fusion-router.config.json` skeleton with `routing.mode`, resolve mode
+precedence as request metadata > config file > `FUSION_ROUTER_MODE` > default,
+expose a safe `{ mode, source, implemented }` decision summary, keep `direct` on
+the existing router flow, and fail closed before adapter execution for
+`agent_chat` because the agent-chat runtime is intentionally not implemented
+yet. `deno task doctor` reports config/env routing status, config-vs-env
+precedence, effective mode readiness, and the recognized-but-not-implemented
+`agent_chat` status without printing raw invalid values or config contents.
+Example config:
 
 ```json
 {
