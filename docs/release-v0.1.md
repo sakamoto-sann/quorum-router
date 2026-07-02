@@ -24,6 +24,9 @@ runtime capabilities.
   metadata and future planner/dispatcher/closeout semantics.
 - Bounded telemetry and audit primitives with explicit, distinct semantics.
 - v0.1 offline examples and smoke test.
+- MIT project license.
+- GitHub Actions CI jobs for Deno lock/check/lint/test/doctor/smoke and optional
+  secret scanning.
 
 ## What v0.1 does not include
 
@@ -180,6 +183,21 @@ keys are forbidden and make doctor fail.
 - Supabase audit persistence requires separate backend setup and is not
   exercised by offline smoke.
 - Google/xAI direct HTTP lanes remain follow-up work.
+
+## CI and license
+
+The project is licensed under MIT. The GitHub Actions `ci` workflow runs on pull
+requests and pushes to `main` with two jobs:
+
+- `deno-checks`: runs `deno task lock:check`, `deno task check`,
+  `deno task lint`, `deno task test`, `deno task doctor`, and
+  `deno task smoke:v0.1`.
+- `optional-secret-scan`: checks out full git history and runs
+  `gitleaks git --redact --no-banner` when `gitleaks` is available.
+
+The CI secret scan is intentionally optional when the runner lacks `gitleaks`:
+in that case it prints an explicit skip message. Local release verification
+still requires the gitleaks range scan below to pass.
 
 ## Verification checklist
 

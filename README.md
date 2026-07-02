@@ -57,6 +57,10 @@ v0.1 explicit non-goals:
 - no automatic OAuth/API key setup
 - no networked examples by default
 
+## License
+
+MIT
+
 ## Current PoC status
 
 > **PoC, but no longer mock-only.** This repository ships repo-local OAuth
