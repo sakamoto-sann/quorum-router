@@ -12,13 +12,14 @@ final consensus.
 
 ## Status
 
-> **v0.1 Safe Direct Router + Agent Bus schema baseline.** The repository now
-> has the foundation, Adaptive Direct skeleton, setup generator, standalone
-> AgentChat simulator, and Supabase Agent Bus schema/contract waves integrated
-> behind conservative offline examples and smoke checks. Default direct routing
-> remains the production best-answer path. Commander is a configurable role
-> contract, not a fixed model. `agent_chat` remains recognized but not
-> implemented in production routing.
+> **v0.1.1 AgentRuntime threshold.** The repository now has the foundation,
+> Adaptive Direct skeleton, setup generator, standalone AgentChat simulator,
+> Supabase Agent Bus contract, and an explicit opt-in experimental AgentRuntime.
+> Default direct routing remains the production best-answer path. Commander is a
+> configurable role contract, not a fixed model. `agent_chat` runs only when a
+> caller supplies an experimental AgentRuntime config and passes
+> `experimentalAgentRuntime: true`; otherwise it fails closed before adapter
+> execution.
 
 ## v0.1 quickstart
 
@@ -40,6 +41,8 @@ Try the offline examples:
 deno run examples/basic-direct.ts
 deno run examples/adaptive-direct.ts
 deno run examples/setup-generated-config.ts
+deno run examples/agent-runtime-basic.ts
+deno run examples/agent-runtime-fail-closed.ts
 ```
 
 Read the release guide and checklist:
@@ -49,8 +52,8 @@ Read the release guide and checklist:
 
 v0.1 explicit non-goals:
 
-- no real `agent_chat` runtime
-- no commander runtime
+- no production `agent_chat` runtime
+- no worker spawning or Realtime subscriber
 - no hidden fallback
 - no service-role runtime
 - no production Agent Bus runtime connection
@@ -81,8 +84,9 @@ Direct is documented in
 [`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md). The setup
 surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md). The
 AgentChat protocol simulator skeleton is documented in
-[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md). The Supabase Agent
-Bus schema and local contract are documented in
+[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md). The experimental
+AgentRuntime is documented in [`docs/agent-runtime.md`](docs/agent-runtime.md).
+The Supabase Agent Bus schema and local contract are documented in
 [`docs/supabase-agent-bus.md`](docs/supabase-agent-bus.md). The configurable
 Commander role contract is documented in
 [`docs/commander-role.md`](docs/commander-role.md).
@@ -91,7 +95,7 @@ The runtime mode boundary is explicit:
 
 ```text
 direct = best-answer routing path
-agent_chat = future multi-agent chat/coordination path
+agent_chat = explicit opt-in experimental multi-role runtime, otherwise fail-closed
 agent_bus = durable coordination/message/event plane for agent_chat
 commander = role; provider/model/client = implementation
 ```
@@ -144,14 +148,16 @@ flowchart TD
   fallback decisions without changing default fan-out behavior
 - deterministic setup profiles and config/env guidance for provider, auth,
   transport, routing, persistence, telemetry, and doctor readiness
-- standalone AgentChat protocol / simulator skeleton defining roles, limits,
-  redaction, and audit milestones without production route integration
+- standalone AgentChat protocol / simulator defining roles, limits, redaction,
+  and audit milestones for offline deterministic checks
+- explicit opt-in experimental AgentRuntime for `agent_chat`, using
+  commander/coder/reviewer/red_team/closeout role adapters in-process
 - Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
-  deterministic in-memory reference store for future `agent_chat` coordination
-  without connecting it to `FusionRouter.route()`
+  deterministic in-memory reference store used by the experimental runtime
+  without live Supabase writes
 - configurable Commander role/config/selection semantics for current direct
-  synthesis metadata and future `agent_chat` planning/dispatch/closeout, without
-  invoking a new runtime
+  synthesis metadata and experimental `agent_chat` planning, without turning
+  Commander into a fixed model
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`
@@ -312,10 +318,11 @@ implemented routing slices recognize `direct` and `agent_chat`, load an optional
 precedence as request metadata > config file > `FUSION_ROUTER_MODE` > default,
 expose a safe `{ mode, source, implemented }` decision summary, keep `direct` on
 the existing router flow, and fail closed before adapter execution for
-`agent_chat` because the agent-chat runtime is intentionally not implemented
-yet. `deno task doctor` reports config/env routing status, config-vs-env
-precedence, effective mode readiness, and the recognized-but-not-implemented
-`agent_chat` status without printing raw invalid values or config contents.
+`agent_chat` unless the caller supplies `experimentalAgentRuntime: true` and a
+enabled experimental AgentRuntime config. `deno task doctor` reports config/env
+routing status, config-vs-env precedence, effective mode readiness, and the
+explicitly gated `agent_chat` status without printing raw invalid values or
+config contents.
 
 Adaptive Direct adds a safe policy skeleton on top of `direct` mode without
 changing default behavior. `ProviderCapabilityRegistry` describes provider /
@@ -325,7 +332,7 @@ over-budget candidates and returns selected adapters, rejection reasons, a
 synthesis candidate, a budget estimate, and an explicit fallback-policy label.
 Fallback remains a policy classification, not silent success: validation
 mismatch, malformed provider responses, consensus validation failure, invalid
-routing modes, `agent_chat` not implemented, audit failure, and provider
+routing modes, `agent_chat` runtime gate failures, audit failure, and provider
 identity mismatches never fall back to an unsafe provider. See
 [`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md).
 
@@ -339,17 +346,19 @@ Supabase audit RPC. Setup never runs OAuth login, validates live credentials,
 stores API keys, emits service-role keys, or implements local JSONL persistence.
 See [`docs/setup-wizard.md`](docs/setup-wizard.md).
 
-The AgentChat skeleton now defines protocol roles, limits, transcript redaction,
-and audit milestone taxonomy, plus a deterministic standalone simulator:
+AgentChat now has both the deterministic standalone simulator and an explicit
+opt-in experimental in-process AgentRuntime:
 
 ```bash
 deno run examples/agent-chat-simulator.ts
+deno run examples/agent-runtime-basic.ts
+deno run examples/agent-runtime-fail-closed.ts
 ```
 
-This is not production routing. `agent_chat` remains recognized but not
-implemented in `FusionRouter.route()` and still fails closed before adapter
-execution. The simulator makes no LLM, network, process, tool, persistence, or
-Supabase calls. See
+This is not a fully autonomous production runtime. `agent_chat` remains
+fail-closed without explicit `experimentalAgentRuntime: true` plus a configured
+experimental runtime. The simulator and examples make no network, process, tool,
+or live Supabase calls. See
 [`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md).
 
 Example config:

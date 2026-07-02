@@ -1,12 +1,11 @@
-# Fusion Router v0.1 Safe Direct Router Release
+# Fusion Router v0.1.1 Experimental AgentRuntime Release
 
-v0.1 packages the merged foundation, Adaptive Direct, setup, and AgentChat
-skeleton waves into a conservative **Safe Direct Router** baseline. The release
-is intentionally integration-heavy: examples, smoke coverage, setup-to-runtime
-wiring, and release verification are the deliverables. It does not add new live
-runtime capabilities.
+v0.1.1 is the first real AgentRuntime threshold for Fusion Router. It builds on
+the earlier v0.1 Safe Direct Router baseline without silently retargeting the
+existing v0.1.0 tag/release. Direct remains the production-ready best-answer
+routing path; `agent_chat` becomes an **explicit opt-in experimental runtime**.
 
-## What v0.1 includes
+## What v0.1.1 includes
 
 - Default-compatible `FusionRouter` direct routing with fixture-friendly adapter
   and synthesis contracts.
@@ -17,37 +16,46 @@ runtime capabilities.
 - Setup profiles that generate deterministic config/env guidance.
 - Config loaders for file-backed, text-backed, and in-memory generated configs.
 - Standalone AgentChat protocol simulator with role/limit/redaction/audit
-  skeletons.
+  coverage.
+- Experimental in-process AgentRuntime for `agent_chat`, gated by both runtime
+  config and per-request opt-in.
+- Strict role-output JSON parser and deterministic role prompts.
+- Five-turn commander/coder/reviewer/red_team/closeout loop that returns
+  transcript, Agent Bus messages, Agent Bus events, closeout decision, and final
+  answer.
 - Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
-  deterministic in-memory reference store for future `agent_chat` coordination.
+  deterministic in-memory reference store. Live Supabase runtime writes remain
+  future work.
 - Commander role/config/selection contract for configurable synthesis/closeout
-  metadata and future planner/dispatcher/closeout semantics.
+  metadata and experimental runtime planning.
 - Bounded telemetry and audit primitives with explicit, distinct semantics.
-- v0.1 offline examples and smoke test.
+- v0.1/v0.1.1 offline examples and smoke test, including AgentRuntime success.
 - MIT project license.
 - GitHub Actions CI jobs for Deno lock/check/lint/test/doctor/smoke and optional
   secret scanning.
 
-## What v0.1 does not include
+## What v0.1.1 does not include
 
 - No real `agent_chat` production runtime.
-- No Commander runtime.
-- No planner/coder/reviewer LLM calls.
-- No external tool execution path in examples or smoke.
-- No GitHub, Gmail, Calendar, or other product connectors.
+- No fully autonomous worker process spawning.
+- No Supabase Realtime subscriber.
+- No live Supabase Agent Bus runtime client/writes.
+- No Edge Function gateway.
+- No external tool execution path in examples, smoke, or AgentRuntime.
+- No GitHub, Gmail, Calendar, browser, or other product connectors.
 - No live provider health checks.
 - No OAuth login flow or automatic API-key setup.
 - No API-key storage.
 - No local JSONL audit store implementation.
 - No Supabase audit RPC payload changes in this wave.
-- No production Agent Bus runtime connection.
+- No service-role runtime.
 - No hidden fallback behavior.
 - No default direct route behavior change.
 - No networked examples by default.
 
 ## Quickstart
 
-Run the v0.1 offline smoke:
+Run the offline smoke:
 
 ```bash
 deno task smoke:v0.1
@@ -72,85 +80,78 @@ deno task smoke:v0.1
 gitleaks git --log-opts "$(git merge-base origin/main HEAD)..HEAD" --redact --no-banner
 ```
 
-## Setup profile flow
+## AgentRuntime opt-in behavior
 
-The setup generator produces a config object plus env placeholders and doctor
-expectations. v0.1 supports loading that generated object directly via
-`loadFusionRouterConfigValue()` or from JSON text via
-`loadFusionRouterConfigText()`. File loading remains available with
-`loadFusionRouterConfig(path)`.
+`agent_chat` is no longer only a skeleton when all runtime gates are present.
+The route runs only when:
 
-The `minimal-direct` profile is the safest starter: no providers, no
-persistence, console telemetry, and direct routing.
+1. `routingMode` resolves to `agent_chat`;
+2. route options include `experimentalAgentRuntime: true`;
+3. `FusionRouterOptions.agentRuntime` exists;
+4. `agentRuntime.enabled === true`;
+5. `agentRuntime.experimental === true`;
+6. all required role bindings are present exactly once.
 
-## Basic direct example
+Without those gates, `agent_chat` fails closed before adapter execution. Direct
+routing behavior is unchanged with or without an AgentRuntime config.
 
-[`examples/basic-direct.ts`](../examples/basic-direct.ts) constructs a router
-from deterministic fixture adapters and returns a validated synthesis. It
-performs no network calls, process execution, credential reads, or writes.
+## Runtime loop
 
-```bash
-deno run examples/basic-direct.ts
+The experimental runtime is in-process and adapter-based:
+
+```text
+commander -> coder -> reviewer -> red_team -> closeout
 ```
 
-## Adaptive Direct safe skeleton
+The supplied role adapters must return strict JSON. Malformed JSON, missing
+required role output, missing required roles, duplicate role bindings, adapter
+exceptions, max-turn violations, timeout, budget exhaustion, unsafe objections,
+and closeout `ready` without a final answer fail closed. There is no hidden
+fallback to another role, model, tool, or provider.
 
-[`examples/adaptive-direct.ts`](../examples/adaptive-direct.ts) demonstrates a
-provider registry, capability policy, selected candidates, rejected candidates,
-and selected synthesis lane. It uses fixture descriptors and readiness hints,
-not live provider probing.
-
-Adaptive Direct remains conservative:
-
-- policy decisions are explicit;
-- rejected candidates include reasons;
-- fallback policy is `safe_provider_unavailable_only`;
-- no hidden fallback turns a failed request into a fake success.
-
-## Setup-generated config example
-
-[`examples/setup-generated-config.ts`](../examples/setup-generated-config.ts)
-generates `minimal-direct`, loads it through the runtime config boundary, and
-passes the resolved routing mode into a fixture `FusionRouter`.
+Reviewer or red-team objections block closeout readiness. Closeout becomes ready
+only after reviewer and red-team both pass.
 
 ## Agent Bus boundary
 
-The Supabase Agent Bus schema wave is coordination-plane only:
+The runtime records messages and events through the `AgentBusStore` interface.
+Tests and examples use `InMemoryAgentBusStore`. Supabase Agent Bus remains the
+durable coordination-plane contract; live Supabase writes and Realtime worker
+wake-up are future work.
 
-```text
-direct = best-answer routing path
-agent_chat = future multi-agent chat/coordination path
-agent_bus = durable coordination/message/event plane for agent_chat
+## Examples
+
+Offline deterministic examples:
+
+```bash
+deno run examples/basic-direct.ts
+deno run examples/adaptive-direct.ts
+deno run examples/setup-generated-config.ts
+deno run examples/agent-runtime-basic.ts
+deno run examples/agent-runtime-fail-closed.ts
 ```
 
-`routing.mode` remains `direct | agent_chat`. Agent Bus configuration lives
-under `agentBus`, is disabled for direct examples, and does not make
-`agent_chat` production-ready.
+These examples do not require `--allow-net` and do not store credentials.
 
-## Commander role boundary
+## Setup profile flow
 
-Commander is a role, not a model. Provider/model/client/local choices are
-implementation details selected through config/selector metadata. Direct mode
-remains the production best-answer route and still uses the caller-provided
-`synthesisAdapter`; Commander config does not automatically invoke a model or
-replace that adapter. Future `agent_chat` may use Commander as planner,
-dispatcher, and closeout agent, but that runtime is not connected in v0.1.
+The setup generator produces a config object plus env placeholders and doctor
+expectations. Generated direct configs keep AgentRuntime disabled:
 
-## AgentChat simulator boundary
-
-`agent_chat` is recognized by schemas and setup, but production route execution
-still fails closed before adapter execution. The only executable AgentChat path
-in v0.1 is the standalone deterministic simulator in
-[`examples/agent-chat-simulator.ts`](../examples/agent-chat-simulator.ts) and
-the v0.1 smoke test.
-
-Required invariant:
-
-```ts
-await router.route("...", { routingMode: "agent_chat" }); // RouterError 4401
+```json
+{
+  "agentRuntime": {
+    "enabled": false,
+    "experimental": false,
+    "transport": "inMemory"
+  }
+}
 ```
 
-No adapter should be called on that path.
+Enabling AgentRuntime config does not change `routing.mode`.
+`routing.mode =
+agent_chat` still requires explicit experimental runtime route
+opt-in.
 
 ## Audit / telemetry guarantees
 
@@ -172,17 +173,6 @@ keys are forbidden and make doctor fail.
 - Service-role-like Supabase env vars are fatal in doctor.
 - Direct HTTP adapters keep injectable fetch boundaries and do not require live
   calls in tests/examples.
-
-## Known limitations
-
-- `agent_chat` has no runtime integration.
-- Commander has no runtime integration.
-- Adaptive Direct is a selection policy skeleton, not a live health checker.
-- Setup profiles generate guidance/config only; they do not log into providers
-  or store credentials.
-- Supabase audit persistence requires separate backend setup and is not
-  exercised by offline smoke.
-- Google/xAI direct HTTP lanes remain follow-up work.
 
 ## CI and license
 

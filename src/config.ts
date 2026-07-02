@@ -7,6 +7,8 @@ import {
   SetupAdaptiveDirectSchema,
   type SetupAgentBus,
   SetupAgentBusSchema,
+  type SetupAgentRuntime,
+  SetupAgentRuntimeSchema,
   type SetupCommanderConfig,
   type SetupPersistence,
   SetupPersistenceSchema,
@@ -26,6 +28,7 @@ export type FusionRouterConfig = {
   telemetry?: SetupTelemetry;
   adaptiveDirect?: SetupAdaptiveDirect;
   agentBus?: SetupAgentBus;
+  agentRuntime?: SetupAgentRuntime;
   commander?: SetupCommanderConfig;
 };
 
@@ -39,6 +42,7 @@ export const FusionRouterConfigFileSchema = z.object({
   telemetry: SetupTelemetrySchema.optional(),
   adaptiveDirect: SetupAdaptiveDirectSchema.optional(),
   agentBus: SetupAgentBusSchema.optional(),
+  agentRuntime: SetupAgentRuntimeSchema.optional(),
   commander: CommanderConfigSchema.optional(),
   setup: z.object({
     generatedBy: z.literal("fusion-router setup").optional(),
@@ -86,6 +90,9 @@ function normalizeFusionRouterConfig(
     ...(parsedConfig.data.agentBus === undefined
       ? {}
       : { agentBus: parsedConfig.data.agentBus }),
+    ...(parsedConfig.data.agentRuntime === undefined
+      ? {}
+      : { agentRuntime: parsedConfig.data.agentRuntime }),
     ...(parsedConfig.data.commander === undefined
       ? {}
       : { commander: parsedConfig.data.commander }),

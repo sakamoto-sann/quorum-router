@@ -9,9 +9,10 @@ the default runtime behavior compatible.
 
 This wave is intentionally small:
 
-- `direct` remains the only implemented runtime mode.
-- `agent_chat` is still recognized but not implemented and fails closed before
-  adapter execution.
+- `direct` remains the production-ready implemented runtime mode.
+- `agent_chat` is an explicit opt-in experimental runtime and fails closed
+  before adapter execution unless runtime config and per-request opt-in are
+  present.
 - Without an explicit `directRoutingPolicy`, `FusionRouter` still invokes every
   configured model adapter and uses the configured synthesis adapter exactly as
   before.
@@ -101,7 +102,7 @@ Not allowed:
 - malformed provider response
 - consensus validation failure
 - invalid routing mode
-- `agent_chat` not implemented
+- `agent_chat` runtime gate failure
 - audit failure
 - provider / quote / identity mismatch style failures
 - budget exhaustion

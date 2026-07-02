@@ -22,6 +22,7 @@ export * from "./src/policy/fallback-policy.ts";
 export * from "./src/setup/index.ts";
 export * from "./src/commander/index.ts";
 export * from "./src/agent-chat/index.ts";
+export * from "./src/agent-runtime/index.ts";
 export * from "./src/router.ts";
 export * from "./src/runtime.ts";
 

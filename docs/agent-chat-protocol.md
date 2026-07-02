@@ -1,26 +1,27 @@
 # AgentChat protocol and simulator skeleton
 
-This wave defines a safe `agent_chat` protocol skeleton and deterministic
-standalone simulator. The Supabase Agent Bus schema wave adds a durable
-coordination/message/event contract for future `agent_chat` runs. Neither wave
-connects `agent_chat` to production routing.
-`FusionRouter.route(..., { routingMode: "agent_chat" })` remains recognized but
-not implemented and fails closed before adapter execution.
+This document defines the safe `agent_chat` protocol, deterministic standalone
+simulator, and the boundary used by the experimental AgentRuntime. The Supabase
+Agent Bus schema adds a durable coordination/message/event contract for future
+and in-process experimental `agent_chat` runs.
+`FusionRouter.route(..., { routingMode: "agent_chat" })` fails closed before
+adapter execution unless the caller supplies `experimentalAgentRuntime: true`
+and an enabled experimental AgentRuntime config.
 
 Routing boundary:
 
 ```text
 direct = best-answer routing path
-agent_chat = future multi-agent chat/coordination path
+agent_chat = explicit opt-in experimental multi-role runtime, otherwise fail-closed
 agent_bus = durable coordination/message/event plane for agent_chat
 commander = future planner/dispatcher/closeout role, not a fixed model
 ```
 
 Commander is a role, not a provider/model/client. In direct mode, Commander
 metadata can identify the selected synthesis/closeout role while the router
-still uses the caller-provided `synthesisAdapter`. In future `agent_chat`,
-Commander may become the planner/dispatcher/closeout agent. This protocol wave
-does not connect that runtime.
+still uses the caller-provided `synthesisAdapter`. In experimental `agent_chat`,
+Commander can act as the experimental runtime planner, but remains a role bound
+to an explicit adapter; it is not a fixed provider/model.
 
 ## Roles and phases
 
@@ -110,14 +111,16 @@ deno run examples/agent-chat-simulator.ts
 
 ## Router integration boundary
 
-This skeleton is intentionally exported for standalone experimentation, but it
-is not connected to `FusionRouter.route()`.
+The simulator remains exported for standalone experimentation. The experimental
+AgentRuntime is connected to `FusionRouter.route()` only behind explicit opt-in.
 
 Preserved behavior:
 
 - `direct` remains the default runtime route.
-- `agent_chat` remains recognized but not implemented.
-- `agent_chat` route execution fails closed before adapter execution.
+- `agent_chat` without explicit runtime opt-in fails closed before adapter
+  execution.
+- `agent_chat` with `experimentalAgentRuntime: true` and a configured runtime
+  can run the in-process role loop.
 - Commander config does not invoke a model, spawn workers, or replace
   `synthesisAdapter`.
 - audit remains must-accept / fail-closed.
@@ -138,9 +141,9 @@ telemetry timers do not keep the process alive.
 
 This wave does not implement:
 
-- real `agent_chat` runtime;
-- real planner/coder/reviewer/red-team LLM calls;
-- production Commander runtime;
+- fully autonomous production `agent_chat` runtime;
+- automatic planner/coder/reviewer/red-team worker spawn;
+- production Commander service runtime;
 - external tool execution;
 - GitHub/Gmail/Calendar connectors;
 - network calls;

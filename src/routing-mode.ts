@@ -104,7 +104,7 @@ export function assertImplementedRoutingMode(
     failClosed(
       4401,
       "routing_mode_not_implemented",
-      "Routing mode agent_chat is recognized but not implemented.",
+      "Routing mode agent_chat requires explicit experimental AgentRuntime opt-in.",
       { routingMode: decision },
     );
   }
