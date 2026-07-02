@@ -9,11 +9,12 @@
     "check": "deno check router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts src/**/*.ts",
     "fmt": "deno fmt router.ts router_test.ts doctor.ts setup.ts examples src README.md docs deno.json",
     "lint": "deno lint router.ts router_test.ts doctor.ts setup.ts examples src",
+    "smoke:v0.1": "deno run --allow-read --allow-env examples/v0_1_smoke.ts",
     "test": "deno test -A router_test.ts",
     "run": "deno run --allow-run --allow-read --allow-write --allow-env --allow-net router.ts",
     "setup": "deno run --allow-read --allow-write setup.ts",
     "doctor": "deno run --allow-env --allow-run --allow-read doctor.ts",
-    "lock": "deno cache --lock=deno.lock router.ts router_test.ts doctor.ts setup.ts examples/agent-chat-simulator.ts",
-    "lock:check": "deno cache --lock=deno.lock --frozen router.ts router_test.ts doctor.ts setup.ts examples/agent-chat-simulator.ts"
+    "lock": "deno cache --lock=deno.lock router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts",
+    "lock:check": "deno cache --lock=deno.lock --frozen router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts"
   }
 }

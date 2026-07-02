@@ -12,6 +12,50 @@ final consensus.
 
 ## Status
 
+> **v0.1 Safe Direct Router integration branch.** The repository now has the
+> foundation, Adaptive Direct skeleton, setup generator, and standalone
+> AgentChat simulator waves integrated behind conservative offline examples and
+> smoke checks. Default direct routing remains compatible; `agent_chat` remains
+> recognized but not implemented in production routing.
+
+## v0.1 quickstart
+
+Run the deterministic offline smoke:
+
+```bash
+deno task smoke:v0.1
+```
+
+Generate the minimal safe-direct setup profile:
+
+```bash
+deno task setup -- --profile minimal-direct
+```
+
+Try the offline examples:
+
+```bash
+deno run examples/basic-direct.ts
+deno run examples/adaptive-direct.ts
+deno run examples/setup-generated-config.ts
+```
+
+Read the release guide and checklist:
+
+- [`docs/release-v0.1.md`](docs/release-v0.1.md)
+- [`docs/release-checklist-v0.1.md`](docs/release-checklist-v0.1.md)
+
+v0.1 explicit non-goals:
+
+- no real `agent_chat` runtime
+- no hidden fallback
+- no Supabase migration changes
+- no service-role runtime
+- no automatic OAuth/API key setup
+- no networked examples by default
+
+## Current PoC status
+
 > **PoC, but no longer mock-only.** This repository ships repo-local OAuth
 > wrapper launchers for Codex CLI, Claude Code, Gemini CLI, Grok CLI, plus a
 > repo-local `bin/zcode-headless` wrapper lane for GLM. Devin CLI and Cline

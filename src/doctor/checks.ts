@@ -31,6 +31,10 @@ export type DoctorReport = {
   checks: DoctorCheck[];
 };
 
+export type DoctorRunOptions = {
+  checkCliCommands?: boolean;
+};
+
 const DEFAULT_CONFIG_PATH = "fusion-router.config.json";
 const CONFIG_PATH_ENV = "FUSION_ROUTER_CONFIG";
 
@@ -289,7 +293,9 @@ function pushRoutingEnvCheck(
   }
 }
 
-export async function runDoctorChecks(): Promise<DoctorReport> {
+export async function runDoctorChecks(
+  options: DoctorRunOptions = {},
+): Promise<DoctorReport> {
   const checks: DoctorCheck[] = [];
 
   checks.push({
@@ -425,6 +431,16 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
         : "direct mode ready; current effective mode is not implemented",
       severity: "info",
     });
+    checks.push({
+      name: "v0_1_readiness",
+      ok: decision.mode === "direct" && decision.implemented,
+      detail: decision.mode === "direct" && decision.implemented
+        ? "safe direct router ready; agent_chat remains simulator-only"
+        : "safe direct router ready, but current effective mode is not production-implemented",
+      severity: decision.mode === "direct" && decision.implemented
+        ? "info"
+        : "warn",
+    });
   } catch {
     checks.push({
       name: "routing_effective_mode",
@@ -434,13 +450,22 @@ export async function runDoctorChecks(): Promise<DoctorReport> {
     });
   }
 
-  for (const command of ["codex", "claude", "gemini", "zcode", "cline"]) {
-    const available = await commandAvailable(command);
+  if (options.checkCliCommands ?? true) {
+    for (const command of ["codex", "claude", "gemini", "zcode", "cline"]) {
+      const available = await commandAvailable(command);
+      checks.push({
+        name: `cli_${command}`,
+        ok: available,
+        detail: available ? "available" : "not found",
+        severity: "warn",
+      });
+    }
+  } else {
     checks.push({
-      name: `cli_${command}`,
-      ok: available,
-      detail: available ? "available" : "not found",
-      severity: "warn",
+      name: "cli_commands",
+      ok: true,
+      detail: "skipped by caller; no process execution requested",
+      severity: "info",
     });
   }
 

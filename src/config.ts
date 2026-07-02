@@ -39,37 +39,10 @@ export const FusionRouterConfigFileSchema = z.object({
   }).strict().optional(),
 }).strict();
 
-export async function loadFusionRouterConfig(
+function normalizeFusionRouterConfig(
+  parsedJson: unknown,
   path: string,
-): Promise<FusionRouterConfig> {
-  let rawConfig: string;
-  try {
-    rawConfig = await Deno.readTextFile(path);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return {};
-    }
-
-    failClosed(
-      4400,
-      "config_load_failed",
-      "Fusion router config could not be loaded.",
-      { path },
-    );
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(rawConfig);
-  } catch {
-    failClosed(
-      4400,
-      "invalid_config_json",
-      "Fusion router config contains malformed JSON.",
-      { path },
-    );
-  }
-
+): FusionRouterConfig {
   const parsedConfig = FusionRouterConfigFileSchema.safeParse(parsedJson);
   if (!parsedConfig.success) {
     failClosed(
@@ -103,4 +76,51 @@ export async function loadFusionRouterConfig(
       ? {}
       : { adaptiveDirect: parsedConfig.data.adaptiveDirect }),
   };
+}
+
+export function loadFusionRouterConfigValue(
+  parsedJson: unknown,
+  path = "<memory>",
+): FusionRouterConfig {
+  return normalizeFusionRouterConfig(parsedJson, path);
+}
+
+export function loadFusionRouterConfigText(
+  rawConfig: string,
+  path = "<memory>",
+): FusionRouterConfig {
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(rawConfig);
+  } catch {
+    failClosed(
+      4400,
+      "invalid_config_json",
+      "Fusion router config contains malformed JSON.",
+      { path },
+    );
+  }
+  return normalizeFusionRouterConfig(parsedJson, path);
+}
+
+export async function loadFusionRouterConfig(
+  path: string,
+): Promise<FusionRouterConfig> {
+  let rawConfig: string;
+  try {
+    rawConfig = await Deno.readTextFile(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return {};
+    }
+
+    failClosed(
+      4400,
+      "config_load_failed",
+      "Fusion router config could not be loaded.",
+      { path },
+    );
+  }
+
+  return loadFusionRouterConfigText(rawConfig, path);
 }

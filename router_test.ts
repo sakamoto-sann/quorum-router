@@ -37,6 +37,8 @@ import {
   InMemoryBudgetManager,
   isFallbackAllowed,
   loadFusionRouterConfig,
+  loadFusionRouterConfigText,
+  loadFusionRouterConfigValue,
   ModelAdapter,
   ModelOutput,
   normalizeAgentChatLimits,
@@ -351,6 +353,8 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "isFallbackAllowed",
   "isRoutingModeImplemented",
   "loadFusionRouterConfig",
+  "loadFusionRouterConfigText",
+  "loadFusionRouterConfigValue",
   "normalizeAgentChatLimits",
   "parseRoutingMode",
   "redactAgentChatContent",
@@ -466,6 +470,42 @@ class CountingAdapter implements ModelAdapter {
   invoke(_prompt: string, _signal: AbortSignal): Promise<ModelOutput> {
     this.calls += 1;
     return Promise.resolve(this.response);
+  }
+}
+
+class DescriptorFixtureAdapter implements ModelAdapter {
+  calls = 0;
+
+  constructor(readonly descriptor: ProviderDescriptor) {}
+
+  invoke(prompt: string, _signal: AbortSignal): Promise<ModelOutput> {
+    this.calls += 1;
+    return Promise.resolve({
+      provider: this.descriptor.provider,
+      model: this.descriptor.model,
+      content: `fixture output for ${prompt}`,
+      latencyMs: 1,
+    });
+  }
+}
+
+class DescriptorSynthesisAdapter implements SynthesisAdapter {
+  calls = 0;
+
+  constructor(readonly descriptor: ProviderDescriptor) {}
+
+  synthesize(
+    prompt: string,
+    outputs: ModelOutput[],
+    _signal: AbortSignal,
+  ): Promise<FinalSynthesis> {
+    this.calls += 1;
+    return Promise.resolve(FinalSynthesisSchema.parse({
+      synthesis: `fixture synthesis for ${prompt}`,
+      reasoning: `combined ${outputs.length} fixture output(s)`,
+      consensusModel: `${this.descriptor.provider}/${this.descriptor.model}`,
+      sources: outputs.map((output) => `${output.provider}/${output.model}`),
+    }));
   }
 }
 
@@ -1385,6 +1425,105 @@ Deno.test("adaptive-direct profile enables policy config safely", () => {
   assert(config.providers.length >= 2);
 });
 
+Deno.test("generated config value and text loaders match file loader", async () => {
+  const generated = generateFusionRouterConfig({ profile: "minimal-direct" });
+  const fromValue = loadFusionRouterConfigValue(generated);
+  const fromText = loadFusionRouterConfigText(JSON.stringify(generated));
+  const fromFile = await loadFusionRouterConfig(
+    await writeConfigFile(JSON.stringify(generated)),
+  );
+
+  assertEquals(fromValue, fromText);
+  assertEquals(fromValue, fromFile);
+  assertEquals(fromValue.routingMode, "direct");
+  assertEquals(fromValue.setupProfile, "minimal-direct");
+});
+
+Deno.test("generated minimal-direct config can construct fixture router", async () => {
+  const loaded = loadFusionRouterConfigValue(
+    generateFusionRouterConfig({ profile: "minimal-direct" }),
+  );
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const result = await router.route("generated minimal direct");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("generated adaptive-direct config wires registry and fixture adapters", async () => {
+  const generated = generateFusionRouterConfig({ profile: "adaptive-direct" });
+  const loaded = loadFusionRouterConfigValue(generated);
+  const descriptors = generated.providers.map((provider) =>
+    provider as ProviderDescriptor
+  );
+  const adapters = descriptors.map((provider) =>
+    new DescriptorFixtureAdapter(provider)
+  );
+  const synthesisProvider =
+    descriptors.find((provider) =>
+      provider.provider === "OpenAI" && provider.model === "gpt-5.5"
+    ) ?? descriptors[0];
+  const synthesis = new DescriptorSynthesisAdapter(synthesisProvider);
+  const router = new FusionRouter({
+    modelAdapters: adapters,
+    synthesisAdapter: synthesis,
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    providerRegistry: createDefaultProviderCapabilityRegistry(),
+    directRoutingPolicy: createCapabilityDirectRoutingPolicy({
+      fallbackPolicy: loaded.adaptiveDirect?.fallbackPolicy,
+    }),
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const result = await router.route("generated adaptive direct");
+
+  assertEquals(result.consensusModel, "OpenAI/gpt-5.5");
+  assertEquals(synthesis.calls, 1);
+  assert(adapters.some((adapter) => adapter.calls === 1));
+});
+
+Deno.test("generated agent_chat config still fails closed before adapter execution", async () => {
+  const loaded = loadFusionRouterConfigValue(generateFusionRouterConfig({
+    profile: "minimal-direct",
+    routingMode: "agent_chat",
+    experimentalAgentChat: true,
+  }));
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  await assertRejects(
+    () => router.route("agent_chat stays unavailable"),
+    RouterError,
+    "not implemented",
+  );
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("generated supabase-audit config emits no service-role placeholders", () => {
+  const generated = generateFusionRouterConfig({ profile: "supabase-audit" });
+  const envExample = generateEnvExample({ profile: "supabase-audit" });
+  const surface = JSON.stringify(generated) + envExample;
+
+  assert(!/SERVICE_ROLE|SERVICE_KEY|ADMIN_KEY|JWT_SECRET/i.test(surface));
+  assertStringIncludes(surface, "FUSION_ROUTER_SUPABASE_ANON_KEY=");
+  assertStringIncludes(surface, "FUSION_ROUTER_SUPABASE_SESSION_JWT=");
+});
+
 Deno.test("unknown setup profile fails closed", () => {
   const error = assertThrows(
     () => generateFusionRouterConfig({ profile: "unknown" as never }),
@@ -1473,6 +1612,75 @@ Deno.test("setup CLI dry-run does not write files", async () => {
     () => Deno.stat(`${dir}/fusion-router.config.json`),
     Deno.errors.NotFound,
   );
+});
+
+Deno.test("v0.1 offline examples and smoke run without network permissions", async () => {
+  const commands = [
+    ["run", "examples/basic-direct.ts"],
+    ["run", "examples/adaptive-direct.ts"],
+    ["run", "examples/setup-generated-config.ts"],
+    ["run", "--allow-read", "--allow-env", "examples/v0_1_smoke.ts"],
+    ["task", "smoke:v0.1"],
+  ];
+
+  for (const args of commands) {
+    const output = await new Deno.Command(Deno.execPath(), {
+      args,
+      clearEnv: true,
+      env: { PATH: Deno.env.get("PATH") ?? "" },
+    }).output();
+    const text = new TextDecoder().decode(output.stdout) +
+      new TextDecoder().decode(output.stderr);
+    assert(output.success, `${args.join(" ")}\n${text}`);
+    assertStringIncludes(text, '"ok": true');
+  }
+});
+
+Deno.test("v0.1 fixture capability uses descriptor values, not object identity", async () => {
+  const module = await import("./examples/v0_1_fixtures.ts");
+  const reconstructed = { ...module.FIXTURE_SYNTHESIS_DESCRIPTOR };
+  assertEquals(module.fixtureCapability(reconstructed).supportsSynthesis, true);
+});
+
+Deno.test("v0.1 examples do not contain raw credential patterns", async () => {
+  const files = [
+    "examples/basic-direct.ts",
+    "examples/adaptive-direct.ts",
+    "examples/setup-generated-config.ts",
+    "examples/v0_1_smoke.ts",
+    "examples/v0_1_fixtures.ts",
+  ];
+  const rawSecretPattern =
+    /(sk-[A-Za-z0-9_-]{8,}|gh[opsu]_[A-Za-z0-9_]{8,}|Bearer\s+[A-Za-z0-9._-]{8,}|Basic\s+[A-Za-z0-9+/=]{8,}|(?:api[_-]?key|token|password|secret)\s*[:=]\s*["'][^"'\s]{4,}["'])/i;
+
+  for (const file of files) {
+    const source = await Deno.readTextFile(file);
+    assert(!rawSecretPattern.test(source), file);
+    assert(!source.includes("--allow-net"), file);
+  }
+});
+
+Deno.test("v0.1 release docs mention explicit non-goals and verification", async () => {
+  const release = await Deno.readTextFile("docs/release-v0.1.md");
+  const checklist = await Deno.readTextFile("docs/release-checklist-v0.1.md");
+
+  for (
+    const required of [
+      "No real `agent_chat` production runtime",
+      "No hidden fallback behavior",
+      "No Supabase migration changes",
+      "No OAuth login flow or automatic API-key setup",
+      "deno task smoke:v0.1",
+      "gitleaks git --log-opts",
+    ]
+  ) {
+    assertStringIncludes(release, required);
+  }
+  assertStringIncludes(
+    checklist,
+    "no GitHub checks are not reported".replace("no ", ""),
+  );
+  assertStringIncludes(checklist, "feature branch deleted after merge");
 });
 
 Deno.test("setup CLI --write writes config only to requested path", async () => {
