@@ -18,7 +18,7 @@ barrel that re-exports the public contracts from the split modules, including:
 - telemetry and audit sink factories
 - Adaptive Direct provider registry, direct-routing policy, and fallback policy
 - setup schema / generator / dry-run CLI exports through `src/setup/index.ts`
-- AgentChat protocol / simulator skeleton exports through
+- AgentChat protocol / simulator skeleton and Agent Bus contract exports through
   `src/agent-chat/index.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
@@ -57,12 +57,17 @@ src/
     config-generator.ts            # deterministic config, env guidance, setup report
     cli.ts                         # dry-run setup CLI with optional --write
   agent-chat/
-    index.ts                       # public AgentChat skeleton export boundary
+    index.ts                       # public AgentChat + Agent Bus export boundary
     types.ts                       # roles, phases, turns, transcript, decisions, limits
     protocol.ts                    # default limits and fail-closed limit validation
     redaction.ts                   # transcript/metadata redaction helpers
     audit.ts                       # in-memory milestone taxonomy helpers
     simulator.ts                   # deterministic standalone no-network simulator
+    bus/
+      index.ts                     # public Agent Bus export boundary
+      types.ts                     # durable coordination domain types and store interface
+      supabase-contract.ts         # RPC names, row mappers, config defaults
+      in-memory-agent-bus.ts       # deterministic offline reference store
   adapters/
     process.ts                    # CLI/process adapters and structured synthesis
     direct-http.ts                # OpenAI/Anthropic direct HTTP adapters
@@ -85,6 +90,12 @@ The split is intended to be behavior-preserving:
 - telemetry sinks remain best-effort / drop-oldest
 - Supabase service-role credentials remain forbidden at runtime
 - Supabase audit RPC payload shape is unchanged
+- Supabase Agent Bus is a durable coordination plane for future `agent_chat`,
+  not a replacement for direct best-answer routing
+- `routing.mode` remains `direct | agent_chat`; no `agent_bus` routing mode is
+  introduced
+- Agent Bus config under `agentBus` does not connect `FusionRouter.route()` to a
+  production `agent_chat` runtime
 - `BufferedBatchSink` delivery semantics are unchanged
   - concurrent sink calls are serialized through flush chaining to prevent flush
     / RPC storms

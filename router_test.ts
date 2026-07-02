@@ -1,4 +1,5 @@
 import {
+  AGENT_BUS_MESSAGE_TYPES,
   AGENT_CHAT_ROLES,
   AgentChatAuditMilestone,
   AgentChatObjectionSchema,
@@ -34,6 +35,7 @@ import {
   generateEnvExample,
   generateFusionRouterConfig,
   generateSetupReport,
+  InMemoryAgentBusStore,
   InMemoryBudgetManager,
   isFallbackAllowed,
   loadFusionRouterConfig,
@@ -55,6 +57,18 @@ import {
 } from "./router.ts";
 import type { DirectRoutingDecision, ProviderDescriptor } from "./router.ts";
 import type {
+  AgentBusConfig as SmokeAgentBusConfig,
+  AgentBusDirective as SmokeAgentBusDirective,
+  AgentBusEvent as SmokeAgentBusEvent,
+  AgentBusHistoryQuery as SmokeAgentBusHistoryQuery,
+  AgentBusIdentity as SmokeAgentBusIdentity,
+  AgentBusMessage as SmokeAgentBusMessage,
+  AgentBusMessageType as SmokeAgentBusMessageType,
+  AgentBusRecordEventInput as SmokeAgentBusRecordEventInput,
+  AgentBusSendMessageInput as SmokeAgentBusSendMessageInput,
+  AgentBusStore as SmokeAgentBusStore,
+  AgentBusTeam as SmokeAgentBusTeam,
+  AgentBusUnreadQuery as SmokeAgentBusUnreadQuery,
   AgentChatDecision as SmokeAgentChatDecision,
   AgentChatLimits as SmokeAgentChatLimits,
   AgentChatMessage as SmokeAgentChatMessage,
@@ -139,6 +153,18 @@ import {
 import { FakeTime } from "@std/testing/time";
 
 type PublicExportTypeSmoke = [
+  SmokeAgentBusConfig,
+  SmokeAgentBusDirective,
+  SmokeAgentBusEvent,
+  SmokeAgentBusHistoryQuery,
+  SmokeAgentBusIdentity,
+  SmokeAgentBusMessage,
+  SmokeAgentBusMessageType,
+  SmokeAgentBusRecordEventInput,
+  SmokeAgentBusSendMessageInput,
+  SmokeAgentBusStore,
+  SmokeAgentBusTeam,
+  SmokeAgentBusUnreadQuery,
   SmokeAgentChatDecision,
   SmokeAgentChatLimits,
   SmokeAgentChatMessage,
@@ -216,7 +242,35 @@ type PublicExportTypeSmoke = [
 function assertPublicTypeSmoke(_value?: PublicExportTypeSmoke): void {
 }
 
+const _customDirectiveTypeSmoke: SmokeAgentBusDirective = {
+  type: "custom.needs_policy_gate",
+  reason: "custom directives must use a non-overlapping namespace",
+};
+
 const LEGACY_PUBLIC_EXPORT_NAMES = [
+  "AGENT_BUS_MESSAGE_TYPES",
+  "AGENT_BUS_RPC",
+  "AgentBusConfig",
+  "AgentBusDirective",
+  "AgentBusEvent",
+  "AgentBusEventType",
+  "AgentBusHistoryQuery",
+  "AgentBusIdentity",
+  "AgentBusIdentityStatus",
+  "AgentBusJsonPrimitive",
+  "AgentBusJsonValue",
+  "AgentBusMember",
+  "AgentBusMemberRole",
+  "AgentBusMessage",
+  "AgentBusMessageType",
+  "AgentBusMetadata",
+  "AgentBusRecordEventInput",
+  "AgentBusRun",
+  "AgentBusRunStatus",
+  "AgentBusSendMessageInput",
+  "AgentBusStore",
+  "AgentBusTeam",
+  "AgentBusUnreadQuery",
   "AGENT_CHAT_PHASE_BY_ROLE",
   "AGENT_CHAT_ROLES",
   "AgentChatAuditMilestone",
@@ -260,6 +314,7 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "DirectHttpExecutionResult",
   "DirectHttpRequest",
   "DirectHttpResponseParser",
+  "DEFAULT_AGENT_BUS_CONFIG",
   "ExplicitRoutingModeSource",
   "FallbackPolicy",
   "FallbackPolicyDecision",
@@ -278,6 +333,7 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "GeneratedFusionRouterConfig",
   "GeneratedFusionRouterConfigSchema",
   "GrokCliAdapterOptions",
+  "InMemoryAgentBusStore",
   "InMemoryBudgetManager",
   "ModelAdapter",
   "ModelOutput",
@@ -340,6 +396,8 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "createSupabaseAuditSink",
   "createZcodeGlmAdapter",
   "fallbackReasonFromError",
+  "fromSupabaseEventRow",
+  "fromSupabaseMessageRow",
   "generateEnvExample",
   "generateFusionRouterConfig",
   "generateSetupReport",
@@ -357,6 +415,8 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "loadFusionRouterConfigValue",
   "normalizeAgentChatLimits",
   "parseRoutingMode",
+  "toSupabaseRecordEventRpcArgs",
+  "toSupabaseSendMessageRpcArgs",
   "redactAgentChatContent",
   "resolveRoutingMode",
   "runAgentChatSimulator",
@@ -375,6 +435,65 @@ async function writeConfigFile(content: string): Promise<string> {
   const path = `${dir}/fusion-router.config.json`;
   await Deno.writeTextFile(path, content);
   return path;
+}
+
+function makeAgentBusStore(): InMemoryAgentBusStore {
+  return new InMemoryAgentBusStore({
+    teams: [
+      {
+        id: "team-a",
+        ownerUserId: "user-a",
+        name: "primary",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "team-b",
+        ownerUserId: "user-b",
+        name: "secondary",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    identities: [
+      {
+        id: "agent-a",
+        teamId: "team-a",
+        agentName: "commander",
+        agentRole: "commander",
+        runtimeType: "manual",
+        status: "idle",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "agent-b",
+        teamId: "team-a",
+        agentName: "reviewer",
+        agentRole: "reviewer",
+        runtimeType: "manual",
+        status: "idle",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "agent-x",
+        teamId: "team-b",
+        agentName: "other",
+        agentRole: "reviewer",
+        runtimeType: "manual",
+        status: "idle",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    runs: [
+      {
+        id: "run-a",
+        teamId: "team-a",
+        commanderAgentId: "agent-a",
+        routingMode: "agent_chat",
+        status: "running",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        metadata: {},
+      },
+    ],
+  });
 }
 
 class StaticSynthesisAdapter implements SynthesisAdapter {
@@ -1514,6 +1633,525 @@ Deno.test("generated agent_chat config still fails closed before adapter executi
   assertEquals(adapter.calls, 0);
 });
 
+Deno.test("direct route works without Agent Bus config", async () => {
+  const loaded = loadFusionRouterConfigValue({ routing: { mode: "direct" } });
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const result = await router.route("best-answer direct path");
+
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("generated direct config keeps Agent Bus disabled", () => {
+  const generated = generateFusionRouterConfig({ profile: "minimal-direct" });
+  const loaded = loadFusionRouterConfigValue(generated);
+
+  assertEquals(generated.routing.mode, "direct");
+  assertEquals(generated.agentBus.enabled, false);
+  assertEquals(generated.agentBus.transport, "supabase");
+  assertEquals(generated.agentBus.realtimeWakeup, false);
+  assertEquals(loaded.routingMode, "direct");
+  assertEquals(loaded.agentBus?.enabled, false);
+});
+
+Deno.test("Agent Bus config namespace does not change routing.mode=direct behavior", async () => {
+  const loaded = loadFusionRouterConfigValue({
+    routing: { mode: "direct" },
+    agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
+  });
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  const result = await router.route("direct with coordination config present");
+
+  assertEquals(loaded.agentBus?.enabled, true);
+  assertEquals(result.synthesis, "ok");
+  assertEquals(adapter.calls, 1);
+});
+
+Deno.test("agent_chat with Agent Bus config still fails closed before adapter execution", async () => {
+  const loaded = loadFusionRouterConfigValue({
+    routing: { mode: "agent_chat" },
+    agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
+  });
+  const adapter = new CountingAdapter();
+  const router = new FusionRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+    routingMode: loaded.routingMode,
+    routingModeEnvProvider: () => undefined,
+  });
+
+  await assertRejects(
+    () => router.route("agent_chat remains unavailable with bus config"),
+    RouterError,
+    "not implemented",
+  );
+  assertEquals(loaded.agentBus?.enabled, true);
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("in-memory Agent Bus send unread markRead and history are deterministic", async () => {
+  const bus = makeAgentBusStore();
+  const first = await bus.sendMessage({
+    teamId: "team-a",
+    runId: "run-a",
+    fromAgentId: "agent-a",
+    toAgentId: "agent-b",
+    messageType: "task",
+    body: "review this",
+  });
+  const second = await bus.sendMessage({
+    teamId: "team-a",
+    runId: "run-a",
+    fromAgentId: "agent-b",
+    toAgentId: "agent-a",
+    messageType: "result",
+    body: "ready",
+  });
+
+  assertEquals(first.id, "message-000001");
+  assertEquals(second.id, "message-000002");
+  assertEquals(
+    (await bus.unread({ teamId: "team-a", agentId: "agent-b" })).map((
+      message,
+    ) => message.id),
+    [first.id],
+  );
+  await bus.markRead(first.id);
+  assertEquals(await bus.unread({ teamId: "team-a", agentId: "agent-b" }), []);
+  assertEquals(
+    (await bus.history({ teamId: "team-a", runId: "run-a" })).map((message) =>
+      message.id
+    ),
+    [first.id, second.id],
+  );
+});
+
+Deno.test("in-memory Agent Bus seeded generated IDs do not collide", async () => {
+  const bus = new InMemoryAgentBusStore({
+    teams: [
+      {
+        id: "team-a",
+        ownerUserId: "user-a",
+        name: "primary",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    identities: [
+      {
+        id: "agent-a",
+        teamId: "team-a",
+        agentName: "commander",
+        agentRole: "commander",
+        runtimeType: "manual",
+        status: "idle",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    messages: [
+      {
+        id: "message-000003",
+        teamId: "team-a",
+        fromAgentId: "agent-a",
+        messageType: "text",
+        body: "seeded",
+        metadata: {},
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    events: [
+      {
+        id: "event-000004",
+        teamId: "team-a",
+        eventType: "seeded",
+        payload: {},
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+  });
+
+  const message = await bus.sendMessage({
+    teamId: "team-a",
+    fromAgentId: "agent-a",
+    body: "new",
+  });
+  const event = await bus.recordEvent({
+    teamId: "team-a",
+    eventType: "new",
+  });
+
+  assertEquals(message.id, "message-000005");
+  assertEquals(event.id, "event-000006");
+});
+
+Deno.test("in-memory Agent Bus enforces same-team invariants", async () => {
+  const bus = makeAgentBusStore();
+
+  await assertRejects(
+    () =>
+      bus.sendMessage({
+        teamId: "team-a",
+        runId: "run-a",
+        fromAgentId: "agent-x",
+        toAgentId: "agent-b",
+        body: "cross-team sender",
+      }),
+    RouterError,
+    "Agent bus contract validation failed.",
+  );
+  await assertRejects(
+    () =>
+      bus.recordEvent({
+        teamId: "team-a",
+        runId: "run-a",
+        agentId: "agent-x",
+        eventType: "agent_chat.blocked",
+      }),
+    RouterError,
+    "Agent bus contract validation failed.",
+  );
+});
+
+Deno.test("in-memory Agent Bus rejects unknown message types", async () => {
+  const bus = makeAgentBusStore();
+
+  await assertRejects(
+    () =>
+      bus.sendMessage({
+        teamId: "team-a",
+        runId: "run-a",
+        fromAgentId: "agent-a",
+        toAgentId: "agent-b",
+        messageType: "unknown" as never,
+        body: "bad type",
+      }),
+    RouterError,
+    "Agent bus contract validation failed.",
+  );
+  assert(!AGENT_BUS_MESSAGE_TYPES.includes("unknown" as never));
+});
+
+Deno.test("directive records are stored but not executed", async () => {
+  const bus = makeAgentBusStore();
+  const customDirective: SmokeAgentBusDirective = {
+    type: "custom.operator_note",
+    reason: "custom directive records are allowed but never executed here",
+  };
+  const directive = await bus.sendMessage({
+    teamId: "team-a",
+    runId: "run-a",
+    fromAgentId: "agent-a",
+    toAgentId: "agent-b",
+    messageType: "directive",
+    body: JSON.stringify({
+      type: "missing_dependency",
+      dependency: "supabase_realtime",
+      reason: "subscriber not enabled",
+    }),
+    metadata: { directive: { type: "start_monitor", teamId: "team-a" } },
+  });
+
+  assertEquals(directive.messageType, "directive");
+  assertEquals(customDirective.type, "custom.operator_note");
+  assertEquals(bus.snapshotEvents(), []);
+  assertEquals(
+    (await bus.history({ teamId: "team-a", runId: "run-a" }))[0].id,
+    directive.id,
+  );
+});
+
+Deno.test("Agent Bus metadata is sanitized and redacted", async () => {
+  const bus = makeAgentBusStore();
+  const credentialKey = ["to", "ken"].join("");
+  const nestedCredentialKey = ["pass", "word"].join("");
+  const message = await bus.sendMessage({
+    teamId: "team-a",
+    runId: "run-a",
+    fromAgentId: "agent-a",
+    toAgentId: "agent-b",
+    body: "authorization=abc123 keep summary",
+    metadata: {
+      [credentialKey]: "abc123",
+      nested: { [nestedCredentialKey]: "abc123", count: 2 },
+      unsafe: () => "nope",
+    },
+  });
+
+  assertStringIncludes(message.body, "authorization=[REDACTED]");
+  assertEquals(message.metadata[credentialKey], "[REDACTED]");
+  assertEquals(message.metadata.nested, {
+    [nestedCredentialKey]: "[REDACTED]",
+    count: 2,
+  });
+  assertEquals(message.metadata.unsafe, "[SANITIZED]");
+});
+
+Deno.test("Agent Bus returned message metadata is deeply cloned", async () => {
+  const bus = makeAgentBusStore();
+  const message = await bus.sendMessage({
+    teamId: "team-a",
+    runId: "run-a",
+    fromAgentId: "agent-a",
+    body: "nested clone",
+    metadata: { nested: { ok: true }, list: [{ value: "stored" }] },
+  });
+
+  (message.metadata.nested as Record<string, unknown>).ok = false;
+  ((message.metadata.list as unknown[])[0] as Record<string, unknown>).value =
+    "mutated";
+
+  const [stored] = await bus.history({ teamId: "team-a", runId: "run-a" });
+  assertEquals(stored?.metadata.nested, { ok: true });
+  assertEquals(stored?.metadata.list, [{ value: "stored" }]);
+});
+
+Deno.test("Agent Bus event log is append-only and cloned on read", async () => {
+  const bus = makeAgentBusStore();
+  const first = await bus.recordEvent({
+    teamId: "team-a",
+    runId: "run-a",
+    agentId: "agent-a",
+    eventType: "agent_chat.started",
+    payload: { ok: true },
+  });
+  const before = bus.snapshotEvents();
+  await bus.recordEvent({
+    teamId: "team-a",
+    runId: "run-a",
+    agentId: "agent-b",
+    eventType: "agent_chat.closeout_ready",
+    payload: { ready: true },
+  });
+
+  assertEquals(before.map((event) => event.id), [first.id]);
+  assertEquals(bus.snapshotEvents().map((event) => event.eventType), [
+    "agent_chat.started",
+    "agent_chat.closeout_ready",
+  ]);
+
+  (first.payload as Record<string, unknown>).ok = false;
+  (before[0]?.payload as Record<string, unknown>).ok = false;
+  assertEquals(bus.snapshotEvents()[0]?.payload, { ok: true });
+});
+
+Deno.test("Supabase Agent Bus migration declares RLS for all tables", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+  for (
+    const table of [
+      "fusion_agent_teams",
+      "fusion_agent_members",
+      "fusion_agent_identities",
+      "fusion_agent_runs",
+      "fusion_agent_messages",
+      "fusion_agent_events",
+    ]
+  ) {
+    assertStringIncludes(
+      sql,
+      `alter table public.${table} enable row level security;`,
+    );
+  }
+});
+
+Deno.test("Supabase Agent Bus migration avoids privileged runtime policy requirements", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  assert(!/service[_-]?role/i.test(sql));
+  assertStringIncludes(sql, "to authenticated");
+  assertStringIncludes(sql, "auth.uid()");
+});
+
+Deno.test("Supabase Agent Bus migration revokes direct table endpoint privileges", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  for (
+    const table of [
+      "fusion_agent_teams",
+      "fusion_agent_members",
+      "fusion_agent_identities",
+      "fusion_agent_runs",
+      "fusion_agent_messages",
+      "fusion_agent_events",
+    ]
+  ) {
+    assertStringIncludes(
+      sql,
+      `revoke all privileges on table public.${table} from public, anon, authenticated;`,
+    );
+  }
+});
+
+Deno.test("Supabase Agent Bus RPC execute grants are authenticated only", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  for (
+    const signature of [
+      "public.fusion_agent_send_message(uuid, uuid, uuid, uuid, text, text, jsonb)",
+      "public.fusion_agent_mark_message_read(uuid)",
+      "public.fusion_agent_unread_messages(uuid, uuid, integer)",
+      "public.fusion_agent_history(uuid, uuid, integer)",
+      "public.fusion_agent_record_event(uuid, uuid, uuid, text, jsonb)",
+    ]
+  ) {
+    const revoke = `revoke execute on function ${signature} from public, anon;`;
+    const grant = `grant execute on function ${signature} to authenticated;`;
+    assertStringIncludes(sql, revoke);
+    assertStringIncludes(sql, grant);
+    assert(sql.indexOf(revoke) < sql.indexOf(grant));
+  }
+  assert(!sql.includes("security invoker"));
+});
+
+Deno.test("Supabase Agent Bus RPC functions validate team agent and run relations", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  for (
+    const fn of [
+      "fusion_agent_send_message",
+      "fusion_agent_mark_message_read",
+      "fusion_agent_unread_messages",
+      "fusion_agent_history",
+      "fusion_agent_record_event",
+    ]
+  ) {
+    assertStringIncludes(sql, `function public.${fn}`);
+  }
+  assertStringIncludes(sql, "fusion_agent_is_team_member(p_team_id)");
+  assertStringIncludes(sql, "fusion_agent_is_team_operator(p_team_id)");
+  assertStringIncludes(
+    sql,
+    "fusion_agent_identity_in_team(p_from_agent_id, p_team_id)",
+  );
+  assertStringIncludes(
+    sql,
+    "fusion_agent_identity_in_team(p_to_agent_id, p_team_id)",
+  );
+  assertStringIncludes(sql, "fusion_agent_run_in_team(p_run_id, p_team_id)");
+  assertStringIncludes(sql, "least(greatest(coalesce(p_limit, 50), 1), 100)");
+  assertStringIncludes(sql, "least(greatest(coalesce(p_limit, 100), 1), 500)");
+});
+
+Deno.test("Supabase Agent Bus migration requires non-null direct message sender", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+  const policyStart = sql.indexOf(
+    "create policy fusion_agent_messages_operator_insert",
+  );
+  const policyEnd = sql.indexOf(";", policyStart);
+  assert(policyStart >= 0);
+  const policy = sql.slice(policyStart, policyEnd);
+
+  assertStringIncludes(policy, "from_agent_id is not null");
+  assertStringIncludes(
+    policy,
+    "public.fusion_agent_identity_in_team(from_agent_id, team_id)",
+  );
+});
+
+Deno.test("Supabase Agent Bus migration removes broad direct message update policy", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  assertStringIncludes(
+    sql,
+    "drop policy if exists fusion_agent_messages_member_update_read on public.fusion_agent_messages;",
+  );
+  assert(
+    !sql.includes("create policy fusion_agent_messages_member_update_read"),
+  );
+});
+
+Deno.test("Supabase Agent Bus mark-read RPC is the only read-state mutation path", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+  const functionStart = sql.indexOf(
+    "create or replace function public.fusion_agent_mark_message_read",
+  );
+  const functionEnd = sql.indexOf("$$;", functionStart);
+  assert(functionStart >= 0);
+  assert(functionEnd > functionStart);
+  const markReadFunction = sql.slice(functionStart, functionEnd);
+
+  assertStringIncludes(markReadFunction, "security definer");
+  assertStringIncludes(
+    markReadFunction,
+    "not public.fusion_agent_is_team_member(v_team_id)",
+  );
+  assertStringIncludes(
+    markReadFunction,
+    "set read_at = coalesce(read_at, now())",
+  );
+  assertEquals(
+    (sql.match(/set read_at = coalesce\(read_at, now\(\)\)/g) ?? []).length,
+    1,
+  );
+  assert(!/create policy fusion_agent_messages_[\s\S]*for update/i.test(sql));
+});
+
+Deno.test("Supabase Agent Bus migration has inbox history and event indexes", async () => {
+  const sql = await Deno.readTextFile(
+    "supabase/migrations/20260702194000_fusion_agent_bus.sql",
+  );
+
+  assertStringIncludes(
+    sql,
+    "fusion_agent_messages(team_id, run_id, created_at desc)",
+  );
+  assertStringIncludes(
+    sql,
+    "fusion_agent_messages(team_id, to_agent_id, read_at, created_at desc)",
+  );
+  assertStringIncludes(
+    sql,
+    "fusion_agent_events(team_id, run_id, created_at desc)",
+  );
+  assertStringIncludes(
+    sql,
+    "fusion_agent_events(team_id, event_type, created_at desc)",
+  );
+});
+
+Deno.test("public docs mention direct best-answer remains default", async () => {
+  const docs = [
+    await Deno.readTextFile("README.md"),
+    await Deno.readTextFile("docs/supabase-agent-bus.md"),
+    await Deno.readTextFile("docs/release-v0.1.md"),
+  ].join("\n");
+
+  assertStringIncludes(docs, "direct = best-answer routing path");
+  assertStringIncludes(docs, "production-ready baseline");
+  assertStringIncludes(docs, "does not change default direct routing");
+});
+
 Deno.test("generated supabase-audit config emits no service-role placeholders", () => {
   const generated = generateFusionRouterConfig({ profile: "supabase-audit" });
   const envExample = generateEnvExample({ profile: "supabase-audit" });
@@ -1668,7 +2306,7 @@ Deno.test("v0.1 release docs mention explicit non-goals and verification", async
     const required of [
       "No real `agent_chat` production runtime",
       "No hidden fallback behavior",
-      "No Supabase migration changes",
+      "No production Agent Bus runtime connection",
       "No OAuth login flow or automatic API-key setup",
       "deno task smoke:v0.1",
       "gitleaks git --log-opts",

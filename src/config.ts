@@ -4,6 +4,8 @@ import { parseRoutingMode, type RoutingMode } from "./routing-mode.ts";
 import {
   type SetupAdaptiveDirect,
   SetupAdaptiveDirectSchema,
+  type SetupAgentBus,
+  SetupAgentBusSchema,
   type SetupPersistence,
   SetupPersistenceSchema,
   type SetupProfileName,
@@ -21,6 +23,7 @@ export type FusionRouterConfig = {
   persistence?: SetupPersistence;
   telemetry?: SetupTelemetry;
   adaptiveDirect?: SetupAdaptiveDirect;
+  agentBus?: SetupAgentBus;
 };
 
 export const FusionRouterConfigFileSchema = z.object({
@@ -32,6 +35,7 @@ export const FusionRouterConfigFileSchema = z.object({
   persistence: SetupPersistenceSchema.optional(),
   telemetry: SetupTelemetrySchema.optional(),
   adaptiveDirect: SetupAdaptiveDirectSchema.optional(),
+  agentBus: SetupAgentBusSchema.optional(),
   setup: z.object({
     generatedBy: z.literal("fusion-router setup").optional(),
     warnings: z.array(z.string()).optional(),
@@ -75,6 +79,9 @@ function normalizeFusionRouterConfig(
     ...(parsedConfig.data.adaptiveDirect === undefined
       ? {}
       : { adaptiveDirect: parsedConfig.data.adaptiveDirect }),
+    ...(parsedConfig.data.agentBus === undefined
+      ? {}
+      : { agentBus: parsedConfig.data.agentBus }),
   };
 }
 

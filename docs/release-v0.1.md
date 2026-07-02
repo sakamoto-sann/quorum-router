@@ -18,6 +18,8 @@ runtime capabilities.
 - Config loaders for file-backed, text-backed, and in-memory generated configs.
 - Standalone AgentChat protocol simulator with role/limit/redaction/audit
   skeletons.
+- Supabase Agent Bus schema, RLS/RPC contract, TypeScript contract, and
+  deterministic in-memory reference store for future `agent_chat` coordination.
 - Bounded telemetry and audit primitives with explicit, distinct semantics.
 - v0.1 offline examples and smoke test.
 
@@ -31,8 +33,8 @@ runtime capabilities.
 - No OAuth login flow or automatic API-key setup.
 - No API-key storage.
 - No local JSONL audit store implementation.
-- No Supabase migration changes in this wave.
 - No Supabase audit RPC payload changes in this wave.
+- No production Agent Bus runtime connection.
 - No hidden fallback behavior.
 - No default direct route behavior change.
 - No networked examples by default.
@@ -105,6 +107,20 @@ Adaptive Direct remains conservative:
 generates `minimal-direct`, loads it through the runtime config boundary, and
 passes the resolved routing mode into a fixture `FusionRouter`.
 
+## Agent Bus boundary
+
+The Supabase Agent Bus schema wave is coordination-plane only:
+
+```text
+direct = best-answer routing path
+agent_chat = future multi-agent chat/coordination path
+agent_bus = durable coordination/message/event plane for agent_chat
+```
+
+`routing.mode` remains `direct | agent_chat`. Agent Bus configuration lives
+under `agentBus`, is disabled for direct examples, and does not make
+`agent_chat` production-ready.
+
 ## AgentChat simulator boundary
 
 `agent_chat` is recognized by schemas and setup, but production route execution
@@ -148,7 +164,7 @@ keys are forbidden and make doctor fail.
 - Adaptive Direct is a selection policy skeleton, not a live health checker.
 - Setup profiles generate guidance/config only; they do not log into providers
   or store credentials.
-- Supabase audit persistence requires external project setup and is not
+- Supabase audit persistence requires separate backend setup and is not
   exercised by offline smoke.
 - Google/xAI direct HTTP lanes remain follow-up work.
 
