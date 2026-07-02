@@ -18,6 +18,8 @@ barrel that re-exports the public contracts from the split modules, including:
 - telemetry and audit sink factories
 - Adaptive Direct provider registry, direct-routing policy, and fallback policy
 - setup schema / generator / dry-run CLI exports through `src/setup/index.ts`
+- AgentChat protocol / simulator skeleton exports through
+  `src/agent-chat/index.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -54,6 +56,13 @@ src/
     setup-schema.ts                # setup profiles, provider/auth/transport schema
     config-generator.ts            # deterministic config, env guidance, setup report
     cli.ts                         # dry-run setup CLI with optional --write
+  agent-chat/
+    index.ts                       # public AgentChat skeleton export boundary
+    types.ts                       # roles, phases, turns, transcript, decisions, limits
+    protocol.ts                    # default limits and fail-closed limit validation
+    redaction.ts                   # transcript/metadata redaction helpers
+    audit.ts                       # in-memory milestone taxonomy helpers
+    simulator.ts                   # deterministic standalone no-network simulator
   adapters/
     process.ts                    # CLI/process adapters and structured synthesis
     direct-http.ts                # OpenAI/Anthropic direct HTTP adapters
@@ -77,6 +86,15 @@ The split is intended to be behavior-preserving:
 - Supabase service-role credentials remain forbidden at runtime
 - Supabase audit RPC payload shape is unchanged
 - `BufferedBatchSink` delivery semantics are unchanged
+  - concurrent sink calls are serialized through flush chaining to prevent flush
+    / RPC storms
+  - `must_accept` failures propagate to the caller and do not silently degrade
+    into best-effort delivery
+  - normal enqueue and overflow bookkeeping paths are O(1); normal batch
+    selection and rollback/requeue/rebuild recovery paths are bounded O(N) over
+    `maxQueueSize`
+  - timers are unref'ed best-effort so telemetry timers do not keep the process
+    alive
 - Adaptive Direct is opt-in; without `directRoutingPolicy`, direct mode still
   invokes every configured adapter as before
 - fallback remains policy classification, not silent fallback success
@@ -124,6 +142,15 @@ generator, and dry-run CLI. This wave adds:
 Setup remains non-interactive and offline. It does not create provider accounts,
 run OAuth, store API keys, validate live credentials, implement local JSONL
 persistence, or change Supabase migrations/RPC payloads.
+
+## AgentChat protocol and simulator skeleton
+
+[`docs/agent-chat-protocol.md`](agent-chat-protocol.md) documents the standalone
+AgentChat skeleton. This wave adds protocol roles, bounded run limits,
+transcript redaction, in-memory audit milestone taxonomy, and a deterministic
+simulator for planner → coder → reviewer → red-team → closeout. The simulator
+performs no LLM, network, process, tool, persistence, or Supabase work and is
+not connected to `FusionRouter.route()`.
 
 ## Non-goals for this foundation wave
 

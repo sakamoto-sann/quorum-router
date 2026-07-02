@@ -28,7 +28,9 @@ installer, `agent_chat`, and persistence work can move independently. Existing
 imports from `./router.ts` are preserved by the compatibility barrel. Adaptive
 Direct is documented in
 [`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md). The setup
-surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md).
+surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md). The
+AgentChat protocol simulator skeleton is documented in
+[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md).
 
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
@@ -73,6 +75,8 @@ flowchart TD
   fallback decisions without changing default fan-out behavior
 - deterministic setup profiles and config/env guidance for provider, auth,
   transport, routing, persistence, telemetry, and doctor readiness
+- standalone AgentChat protocol / simulator skeleton defining roles, limits,
+  redaction, and audit milestones without production route integration
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`
@@ -161,8 +165,15 @@ forwarded to OpenTelemetry-compatible backends.
 
 The buffering layer is transport-agnostic: `createBufferedBatchSink<T>()` owns
 the ring buffer, batch selection, retry/backoff, and shutdown drain while
-callers inject the transport-specific batch handler. Telemetry and audit sinks
-use the same primitive with different semantics:
+callers inject the transport-specific batch handler. Concurrent sink calls are
+serialized through flush chaining, preventing flush / RPC storms. `must_accept`
+failures propagate to the caller and do not silently degrade into best-effort
+delivery. BufferedBatchSink uses O(1) normal enqueue and overflow bookkeeping
+paths; normal batch selection and recovery rebuild paths are bounded O(N) over
+`maxQueueSize`. Rollback/requeue/rebuild paths are only used for
+recovery/failure handling. Timers are unref'ed best-effort so telemetry timers
+do not keep the process alive. Telemetry and audit sinks use the same primitive
+with different semantics:
 
 | Use case              | Overflow policy | Delivery mode | Failure semantics                                      |
 | --------------------- | --------------- | ------------- | ------------------------------------------------------ |
@@ -252,6 +263,19 @@ OpenAI / Anthropic direct HTTP, CLI OAuth wrappers, Adaptive Direct, and
 Supabase audit RPC. Setup never runs OAuth login, validates live credentials,
 stores API keys, emits service-role keys, or implements local JSONL persistence.
 See [`docs/setup-wizard.md`](docs/setup-wizard.md).
+
+The AgentChat skeleton now defines protocol roles, limits, transcript redaction,
+and audit milestone taxonomy, plus a deterministic standalone simulator:
+
+```bash
+deno run examples/agent-chat-simulator.ts
+```
+
+This is not production routing. `agent_chat` remains recognized but not
+implemented in `FusionRouter.route()` and still fails closed before adapter
+execution. The simulator makes no LLM, network, process, tool, persistence, or
+Supabase calls. See
+[`docs/agent-chat-protocol.md`](docs/agent-chat-protocol.md).
 
 Example config:
 
