@@ -16,6 +16,9 @@ export * from "./src/adapters/direct-http.ts";
 export * from "./src/telemetry/cofailure.ts";
 export * from "./src/telemetry/buffered-batch-sink.ts";
 export * from "./src/audit/supabase-audit.ts";
+export * from "./src/policy/provider-registry.ts";
+export * from "./src/policy/direct-routing-policy.ts";
+export * from "./src/policy/fallback-policy.ts";
 export * from "./src/router.ts";
 export * from "./src/runtime.ts";
 
