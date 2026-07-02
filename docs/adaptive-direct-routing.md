@@ -18,6 +18,8 @@ This wave is intentionally small:
 - With an explicit policy hook, the router can filter direct-mode model adapters
   using capability / readiness / budget decisions. This is a skeleton for future
   runtime ranking, not a hidden fallback engine.
+- Setup profiles can generate safe Adaptive Direct config and env placeholder
+  guidance without changing runtime defaults.
 
 ## Capability registry
 
@@ -108,6 +110,15 @@ A rejected or malformed response must not be turned into success by silently
 trying a different provider. Validation mismatch never falls back to an unsafe
 provider, and consensus validation failure remains a hard fail-closed boundary.
 
+## Setup profile
+
+The `adaptive-direct` setup profile emits deterministic config with
+`adaptiveDirect.enabled=true`, `fallbackPolicy=safe_provider_unavailable_only`,
+and an optional budget limit placeholder. It does not wire live provider health,
+write secrets, or change the default direct fan-out path unless the generated
+config is explicitly consumed by an application. See
+[`docs/setup-wizard.md`](setup-wizard.md).
+
 ## Compatibility and future work
 
 Adaptive Direct is currently policy plumbing plus tests and docs. Future work
@@ -119,7 +130,8 @@ can build on this by adding:
 - persisted provider registry overrides
 - richer budget allocation across request classes
 
-Non-goals for this wave remain unchanged: no `agent_chat` runtime, no installer
-wizard, no local JSONL audit store, no Supabase migration or RPC payload
-changes, no live remote health checks, no automatic provider purchase / API-key
-setup, and no unsafe fallback after consensus validation failure.
+Non-goals for this wave remain unchanged: no `agent_chat` runtime, no
+interactive installer prompt, no local JSONL audit store, no Supabase migration
+or RPC payload changes, no live remote health checks, no automatic provider
+purchase / API-key setup, and no unsafe fallback after consensus validation
+failure.

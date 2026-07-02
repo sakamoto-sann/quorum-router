@@ -17,6 +17,7 @@ barrel that re-exports the public contracts from the split modules, including:
 - process and direct-HTTP adapter factories
 - telemetry and audit sink factories
 - Adaptive Direct provider registry, direct-routing policy, and fallback policy
+- setup schema / generator / dry-run CLI exports through `src/setup/index.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -27,6 +28,7 @@ exports are still present.
 
 ```text
 router.ts                         # public compatibility barrel + CLI entrypoint
+setup.ts                          # setup CLI entrypoint wrapper
 src/
   router.ts                       # FusionRouter core route/telemetry flow
   routing-mode.ts                 # direct/agent_chat schema, precedence, decision summary
@@ -47,6 +49,11 @@ src/
     provider-registry.ts          # provider/model capability metadata
     direct-routing-policy.ts      # Adaptive Direct candidate selection decision
     fallback-policy.ts            # safe fallback reason classifier skeleton
+  setup/
+    index.ts                       # public setup export boundary
+    setup-schema.ts                # setup profiles, provider/auth/transport schema
+    config-generator.ts            # deterministic config, env guidance, setup report
+    cli.ts                         # dry-run setup CLI with optional --write
   adapters/
     process.ts                    # CLI/process adapters and structured synthesis
     direct-http.ts                # OpenAI/Anthropic direct HTTP adapters
@@ -100,6 +107,24 @@ The existing operational checks remain in place: Deno version, direct HTTP
 state, OTLP endpoint masking, Supabase audit config, Supabase service-role ban,
 CLI availability, and telemetry buffer limits.
 
+## Setup generator wave
+
+[`docs/setup-wizard.md`](setup-wizard.md) documents the setup schema, config
+generator, and dry-run CLI. This wave adds:
+
+- deterministic built-in profiles for minimal direct, direct HTTP, CLI OAuth,
+  Adaptive Direct, and Supabase audit RPC setup;
+- `fusion-router.config.json` output with provider/auth/transport/routing /
+  persistence / telemetry / Adaptive Direct selections;
+- empty env placeholder guidance only, never raw secret values;
+- doctor checks for profile, provider capability, auth/transport match, Supabase
+  anon/session-only guidance, Adaptive Direct safe fallback, local JSONL
+  placeholder status, and `agent_chat` warning state.
+
+Setup remains non-interactive and offline. It does not create provider accounts,
+run OAuth, store API keys, validate live credentials, implement local JSONL
+persistence, or change Supabase migrations/RPC payloads.
+
 ## Non-goals for this foundation wave
 
 This layout does not add:
@@ -107,7 +132,7 @@ This layout does not add:
 - `agent_chat` runtime
 - planner / coder / reviewer / red-team / closeout execution
 - agmsg protocol
-- installer wizard
+- interactive installer wizard
 - local JSONL audit store
 - Supabase migration changes
 - Supabase audit RPC payload changes

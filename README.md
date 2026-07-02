@@ -27,7 +27,8 @@ in [`src/`](docs/module-layout.md) so provider registry, Adaptive Direct policy,
 installer, `agent_chat`, and persistence work can move independently. Existing
 imports from `./router.ts` are preserved by the compatibility barrel. Adaptive
 Direct is documented in
-[`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md).
+[`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md). The setup
+surface is documented in [`docs/setup-wizard.md`](docs/setup-wizard.md).
 
 > Conceptual diagram for the current PoC. The default run still favors local
 > CLIs / wrappers, while direct HTTP lanes are opt-in via environment flags.
@@ -70,6 +71,8 @@ flowchart TD
 - estimated spend budget guardrails per lane
 - Adaptive Direct policy scaffolding for capability, readiness, budget, and safe
   fallback decisions without changing default fan-out behavior
+- deterministic setup profiles and config/env guidance for provider, auth,
+  transport, routing, persistence, telemetry, and doctor readiness
 - per-adapter circuit breaking after repeated failures
 - bounded process-backed adapter execution, even if an adapter ignores
   `AbortSignal`
@@ -240,6 +243,16 @@ routing modes, `agent_chat` not implemented, audit failure, and provider
 identity mismatches never fall back to an unsafe provider. See
 [`docs/adaptive-direct-routing.md`](docs/adaptive-direct-routing.md).
 
+The setup generator creates deterministic `fusion-router.config.json` candidates
+and empty env placeholder guidance without writing secrets. Use
+`deno task setup
+-- --profile minimal-direct` for dry-run output or add
+`--write` to write a config path. Built-in profiles cover `minimal-direct`,
+OpenAI / Anthropic direct HTTP, CLI OAuth wrappers, Adaptive Direct, and
+Supabase audit RPC. Setup never runs OAuth login, validates live credentials,
+stores API keys, emits service-role keys, or implements local JSONL persistence.
+See [`docs/setup-wizard.md`](docs/setup-wizard.md).
+
 Example config:
 
 ```json
@@ -268,6 +281,7 @@ deno task check
 deno task lint
 deno task test
 deno task doctor
+deno task setup -- --profile minimal-direct
 deno task run
 ```
 
