@@ -1,4 +1,8 @@
 import {
+  AGENT_CHAT_ROLES,
+  AgentChatAuditMilestone,
+  AgentChatObjectionSchema,
+  AgentChatRoleSchema,
   CircuitBreaker,
   CoFailureTelemetry,
   createAnthropicDirectAdapter,
@@ -13,6 +17,7 @@ import {
   createDevinCliAdapter,
   createGeminiCliAdapter,
   createGrokCliAdapter,
+  createInMemoryAgentChatAuditSink,
   createOpenAIDirectAdapter,
   createOpenAIDirectSynthesisAdapter,
   createOtlpHttpTelemetrySink,
@@ -34,17 +39,26 @@ import {
   loadFusionRouterConfig,
   ModelAdapter,
   ModelOutput,
+  normalizeAgentChatLimits,
   parseRoutingMode,
   ProcessExecutionError,
   ProviderCapabilityRegistry,
+  redactAgentChatContent,
   redactSecrets,
   resolveRoutingMode,
   RouterError,
   ROUTING_MODE_ENV,
+  runAgentChatSimulator,
   SynthesisAdapter,
 } from "./router.ts";
 import type { DirectRoutingDecision, ProviderDescriptor } from "./router.ts";
 import type {
+  AgentChatDecision as SmokeAgentChatDecision,
+  AgentChatLimits as SmokeAgentChatLimits,
+  AgentChatMessage as SmokeAgentChatMessage,
+  AgentChatRole as SmokeAgentChatRole,
+  AgentChatRunConfig as SmokeAgentChatRunConfig,
+  AgentChatTranscript as SmokeAgentChatTranscript,
   AnthropicDirectAdapterOptions as SmokeAnthropicDirectAdapterOptions,
   AuthStrategy as SmokeAuthStrategy,
   BudgetManager as SmokeBudgetManager,
@@ -123,6 +137,12 @@ import {
 import { FakeTime } from "@std/testing/time";
 
 type PublicExportTypeSmoke = [
+  SmokeAgentChatDecision,
+  SmokeAgentChatLimits,
+  SmokeAgentChatMessage,
+  SmokeAgentChatRole,
+  SmokeAgentChatRunConfig,
+  SmokeAgentChatTranscript,
   SmokeAnthropicDirectAdapterOptions,
   SmokeAuthStrategy,
   SmokeBufferedBatchHandler<unknown>,
@@ -195,6 +215,21 @@ function assertPublicTypeSmoke(_value?: PublicExportTypeSmoke): void {
 }
 
 const LEGACY_PUBLIC_EXPORT_NAMES = [
+  "AGENT_CHAT_PHASE_BY_ROLE",
+  "AGENT_CHAT_ROLES",
+  "AgentChatAuditMilestone",
+  "AgentChatDecision",
+  "AgentChatDecisionResultSchema",
+  "AgentChatLimits",
+  "AgentChatMessage",
+  "AgentChatMessageSchema",
+  "AgentChatPhase",
+  "AgentChatPhaseSchema",
+  "AgentChatRole",
+  "AgentChatRoleSchema",
+  "AgentChatRunConfig",
+  "AgentChatTranscript",
+  "AgentChatTranscriptSchema",
   "ALLOWED_ROUTING_MODES",
   "AnthropicDirectAdapterOptions",
   "AuthStrategy",
@@ -283,6 +318,7 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "createBufferedTelemetrySink",
   "createCapabilityDirectRoutingPolicy",
   "createDefaultProviderCapabilityRegistry",
+  "createInMemoryAgentChatAuditSink",
   "createSafeProviderUnavailableFallbackPolicy",
   "createClaudeCodeAdapter",
   "createClineCliAdapter",
@@ -315,8 +351,11 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "isFallbackAllowed",
   "isRoutingModeImplemented",
   "loadFusionRouterConfig",
+  "normalizeAgentChatLimits",
   "parseRoutingMode",
+  "redactAgentChatContent",
   "resolveRoutingMode",
+  "runAgentChatSimulator",
 ] as const;
 
 async function makeScript(content: string): Promise<string> {
@@ -492,6 +531,217 @@ function fixtureDescriptor(
     client,
   } as const;
 }
+
+Deno.test("agent chat roles enum accepts known roles only", () => {
+  assertEquals(AgentChatRoleSchema.parse("planner"), "planner");
+  assertEquals(AgentChatRoleSchema.parse("coder"), "coder");
+  assertThrows(() => AgentChatRoleSchema.parse("operator"));
+  assert(Object.isFrozen(AGENT_CHAT_ROLES));
+  assertThrows(() => {
+    (AGENT_CHAT_ROLES as unknown as string[]).push("operator");
+  }, TypeError);
+});
+
+Deno.test("agent chat invalid limits fail closed", () => {
+  const error = assertThrows(
+    () => normalizeAgentChatLimits({ maxTurns: 0 }),
+    RouterError,
+  );
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "invalid_agent_chat_limits");
+});
+
+Deno.test("agent chat objections only allow review/red_team phases", () => {
+  const base = {
+    role: "reviewer",
+    content: "blocked",
+    createdAtMs: 1,
+    redacted: true,
+    metadata: {},
+  } as const;
+  assertEquals(
+    AgentChatObjectionSchema.parse({
+      ...base,
+      phase: "review",
+    }).phase,
+    "review",
+  );
+  assertThrows(() =>
+    AgentChatObjectionSchema.parse({
+      ...base,
+      phase: "coding",
+    })
+  );
+});
+
+Deno.test("agent chat simulator produces deterministic transcript", () => {
+  const first = runAgentChatSimulator({
+    prompt: "ship safely",
+    startedAtMs: 10,
+  });
+  const second = runAgentChatSimulator({
+    prompt: "ship safely",
+    startedAtMs: 10,
+  });
+  assertEquals(first, second);
+  assertEquals(first.decision.decision, "ready");
+  assertEquals(first.transcript.turns.map((turn) => turn.role), [
+    "planner",
+    "coder",
+    "reviewer",
+    "red_team",
+    "closeout",
+  ]);
+  assert(first.transcript.turns.every((turn) => turn.redacted));
+});
+
+Deno.test("agent chat max turns are enforced", () => {
+  const error = assertThrows(
+    () =>
+      runAgentChatSimulator({
+        prompt: "bounded",
+        limits: { maxTurns: 4 },
+      }),
+    RouterError,
+  );
+  assertEquals(error.status, 4401);
+  assertEquals(error.code, "agent_chat_limit_exceeded");
+});
+
+Deno.test("agent chat timeout and budget limits are enforced", () => {
+  assertThrows(
+    () =>
+      runAgentChatSimulator({
+        prompt: "timeout",
+        limits: { maxPhaseDurationMs: 1 },
+        script: { planner: { durationMs: 2 } },
+      }),
+    RouterError,
+  );
+  assertThrows(
+    () =>
+      runAgentChatSimulator({
+        prompt: "budget",
+        limits: { maxBudgetUsd: 0.01 },
+        script: { coder: { budgetUsd: 0.02 } },
+      }),
+    RouterError,
+  );
+  const negativeStepError = assertThrows(
+    () =>
+      runAgentChatSimulator({
+        prompt: "negative",
+        script: { coder: { durationMs: -1, budgetUsd: -0.01 } },
+      }),
+    RouterError,
+  );
+  assertEquals(negativeStepError.code, "invalid_agent_chat_script_step");
+});
+
+Deno.test("agent chat reviewer objection blocks closeout ready", () => {
+  const result = runAgentChatSimulator({
+    prompt: "review objection",
+    script: { reviewer: { objection: "Reviewer blocks: missing tests" } },
+  });
+  assertEquals(result.decision.decision, "not_ready");
+  assertEquals(result.decision.closeout?.ready, false);
+  assertEquals(result.transcript.objections[0].role, "reviewer");
+});
+
+Deno.test("agent chat red-team objection blocks closeout ready", () => {
+  const result = runAgentChatSimulator({
+    prompt: "red team objection",
+    script: { red_team: { objection: "Red-team blocks: unsafe fallback" } },
+  });
+  assertEquals(result.decision.decision, "not_ready");
+  assertEquals(result.decision.closeout?.ready, false);
+  assertEquals(result.transcript.objections[0].role, "red_team");
+});
+
+Deno.test("agent chat closeout ready only when review and red-team pass", () => {
+  const result = runAgentChatSimulator({ prompt: "clean run" });
+  assertEquals(result.decision.decision, "ready");
+  assertEquals(result.decision.closeout?.ready, true);
+  assertEquals(result.transcript.objections, []);
+});
+
+Deno.test("agent chat transcript redacts token password and secret patterns", () => {
+  const rawToken = ["tok", "agent", "fixture"].join("-");
+  const result = runAgentChatSimulator({
+    prompt: `token=${rawToken}`,
+    extraRedactionValues: [rawToken],
+    script: {
+      coder: {
+        content:
+          `Use bearer ${rawToken} password=hunter2 secret=hidden session_jwt=abc`,
+        metadata: {
+          authorization: "Basic abc123",
+          token: rawToken,
+          safe: "kept",
+        },
+      },
+    },
+  });
+  const surface = JSON.stringify(result);
+  assert(!surface.includes(rawToken));
+  assert(!surface.includes("hunter2"));
+  assert(!surface.includes("hidden"));
+  assert(!surface.includes("Basic abc123"));
+  assertStringIncludes(surface, "[REDACTED]");
+  assertStringIncludes(surface, "kept");
+  assertStringIncludes(
+    redactAgentChatContent("Authorization: Bearer abc"),
+    "Authorization=[REDACTED]",
+  );
+});
+
+Deno.test("agent chat audit milestones are emitted in order", () => {
+  const audit = createInMemoryAgentChatAuditSink();
+  runAgentChatSimulator({ prompt: "audit", auditSink: audit.sink });
+  assertEquals(audit.events.map((event) => event.milestone), [
+    AgentChatAuditMilestone.started,
+    AgentChatAuditMilestone.phaseStarted,
+    AgentChatAuditMilestone.turnRecorded,
+    AgentChatAuditMilestone.phaseStarted,
+    AgentChatAuditMilestone.turnRecorded,
+    AgentChatAuditMilestone.phaseStarted,
+    AgentChatAuditMilestone.turnRecorded,
+    AgentChatAuditMilestone.reviewPassed,
+    AgentChatAuditMilestone.phaseStarted,
+    AgentChatAuditMilestone.turnRecorded,
+    AgentChatAuditMilestone.redTeamPassed,
+    AgentChatAuditMilestone.phaseStarted,
+    AgentChatAuditMilestone.turnRecorded,
+    AgentChatAuditMilestone.closeoutReady,
+  ]);
+});
+
+Deno.test("agent chat simulator has no network or process side effects", async () => {
+  const files = [
+    "src/agent-chat/simulator.ts",
+    "src/agent-chat/audit.ts",
+    "src/agent-chat/protocol.ts",
+    "src/agent-chat/redaction.ts",
+  ];
+  for (const file of files) {
+    const source = await Deno.readTextFile(file);
+    assert(!source.includes("fetch("), file);
+    assert(!source.includes("Deno.Command"), file);
+    assert(!source.includes("Deno.write"), file);
+  }
+});
+
+Deno.test("agent_chat route still fails closed before adapter execution with agent modules present", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const error = await assertRejects(
+    () => router.route("hello", { routingMode: "agent_chat" }),
+    RouterError,
+  );
+  assertEquals(error.status, 4401);
+  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(adapter.calls, 0);
+});
 
 Deno.test("provider registry validates known providers", () => {
   const registry = createDefaultProviderCapabilityRegistry();

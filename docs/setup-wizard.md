@@ -103,7 +103,11 @@ mismatches, invalid routing modes, and budget exhaustion remain fail-closed.
 
 `agent_chat` can be represented in config only with an explicit experimental
 input flag in code. It remains recognized but not implemented. Doctor reports a
-warning, and route execution still fails closed before adapter execution.
+warning, and route execution still fails closed before adapter execution. The
+AgentChat simulator is standalone and experimental: it validates protocol roles,
+limits, transcript redaction, and audit milestones without production routing,
+external tools, or network calls. Setup does not enable real agent execution.
+See [`agent-chat-protocol.md`](agent-chat-protocol.md).
 
 ## Doctor integration
 
