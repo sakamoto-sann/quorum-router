@@ -11,7 +11,7 @@ export type UnsafeFallbackReason =
   | "malformed_provider_response"
   | "consensus_validation_failure"
   | "routing_mode_invalid"
-  | "agent_chat_not_implemented"
+  | "agent_chat_runtime_gate"
   | "audit_failure"
   | "provider_identity_mismatch"
   | "budget_exhausted"
@@ -98,7 +98,7 @@ export function fallbackReasonFromError(
       case "invalid_routing_mode":
         return "routing_mode_invalid";
       case "routing_mode_not_implemented":
-        return "agent_chat_not_implemented";
+        return "agent_chat_runtime_gate";
       case "consensus_validation_failed":
       case "consensus_insufficient":
         return "consensus_validation_failure";

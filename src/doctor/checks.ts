@@ -420,7 +420,7 @@ export async function runDoctorChecks(
       name: "routing_agent_chat_status",
       ok: true,
       detail:
-        "agent_chat is recognized but not implemented; direct remains the runtime-ready mode",
+        "agent_chat is explicit opt-in experimental runtime; direct remains the production-ready mode",
       severity: decision.mode === "agent_chat" ? "warn" : "info",
     });
     checks.push({
@@ -428,14 +428,14 @@ export async function runDoctorChecks(
       ok: true,
       detail: decision.mode === "direct"
         ? "direct mode ready"
-        : "direct mode ready; current effective mode is not implemented",
+        : "direct mode ready; current effective mode requires experimental AgentRuntime opt-in",
       severity: "info",
     });
     checks.push({
       name: "v0_1_readiness",
       ok: decision.mode === "direct" && decision.implemented,
       detail: decision.mode === "direct" && decision.implemented
-        ? "safe direct router ready; agent_chat remains simulator-only"
+        ? "safe direct router ready; experimental AgentRuntime available only with explicit opt-in"
         : "safe direct router ready, but current effective mode is not production-implemented",
       severity: decision.mode === "direct" && decision.implemented
         ? "info"

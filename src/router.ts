@@ -1,5 +1,9 @@
 import type { BudgetManager } from "./budget/budget.ts";
 import {
+  type AgentRuntimeConfig,
+  runAgentRuntime,
+} from "./agent-runtime/index.ts";
+import {
   type CoFailureTelemetry,
   type FinalSynthesis,
   FinalSynthesisSchema,
@@ -72,12 +76,14 @@ export type FusionRouterOptions = {
   providerRegistry?: ProviderCapabilityRegistry;
   providerReadinessHints?: DirectRoutingPolicyInput["readinessHints"];
   directRoutingBudgetManager?: BudgetManager;
+  agentRuntime?: AgentRuntimeConfig;
 };
 
 export type FusionRouterRouteOptions = {
   routingMode?: unknown;
   providerReadinessHints?: DirectRoutingPolicyInput["readinessHints"];
   directRoutingBudgetManager?: BudgetManager;
+  experimentalAgentRuntime?: boolean;
 };
 
 export class FusionRouter {
@@ -93,6 +99,7 @@ export class FusionRouter {
   private readonly providerReadinessHints?:
     DirectRoutingPolicyInput["readinessHints"];
   private readonly directRoutingBudgetManager?: BudgetManager;
+  private readonly agentRuntime?: AgentRuntimeConfig;
 
   constructor(options: FusionRouterOptions) {
     if (options.modelAdapters.length === 0) {
@@ -131,6 +138,7 @@ export class FusionRouter {
     this.providerRegistry = options.providerRegistry;
     this.providerReadinessHints = options.providerReadinessHints;
     this.directRoutingBudgetManager = options.directRoutingBudgetManager;
+    this.agentRuntime = options.agentRuntime;
   }
 
   resolveRoutingModeForRequest(
@@ -187,11 +195,65 @@ export class FusionRouter {
     );
   }
 
+  async routeAgentRuntime(
+    prompt: string,
+    options: FusionRouterRouteOptions = {},
+  ) {
+    if (options.experimentalAgentRuntime !== true) {
+      failClosed(
+        4401,
+        "agent_runtime_opt_in_required",
+        "agent_chat requires experimentalAgentRuntime=true before AgentRuntime execution.",
+      );
+    }
+    if (!this.agentRuntime || this.agentRuntime.enabled !== true) {
+      failClosed(
+        4401,
+        "agent_runtime_config_required",
+        "agent_chat requires an enabled AgentRuntime config.",
+      );
+    }
+    if (this.agentRuntime.experimental !== true) {
+      failClosed(
+        4401,
+        "agent_runtime_experimental_required",
+        "AgentRuntime config must be marked experimental=true.",
+      );
+    }
+    return await runAgentRuntime({
+      prompt,
+      config: this.agentRuntime,
+    });
+  }
+
   async route(
     prompt: string,
     options: FusionRouterRouteOptions = {},
   ): Promise<FinalSynthesis> {
     const routingMode = this.describeRoutingModeDecisionForRequest(options);
+    if (routingMode.mode === "agent_chat") {
+      const runtimeResult = await this.routeAgentRuntime(prompt, options);
+      if (!runtimeResult.ok || !runtimeResult.finalAnswer) {
+        failClosed(
+          4401,
+          "agent_runtime_not_ready",
+          "AgentRuntime completed without a ready final answer.",
+          {
+            decision: runtimeResult.decision.decision,
+            objections: runtimeResult.runtimeSummary.objections,
+            turns: runtimeResult.runtimeSummary.turns,
+          },
+        );
+      }
+      return FinalSynthesisSchema.parse({
+        synthesis: runtimeResult.finalAnswer,
+        reasoning: runtimeResult.decision.reason,
+        consensusModel: "AgentRuntime/experimental",
+        sources: runtimeResult.transcript.turns.map((turn) =>
+          `${String(turn.metadata.provider)}/${String(turn.metadata.model)}`
+        ),
+      });
+    }
     assertImplementedRoutingMode(routingMode);
 
     const controller = new AbortController();

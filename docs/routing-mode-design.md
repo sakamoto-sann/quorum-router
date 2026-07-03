@@ -4,10 +4,10 @@ Phase 3 design pass for the fusion router routing-mode switch. This document is
 the contract for future runtime work. Implementation slices 1-3 add the safe
 parser/resolver boundary, config-loader skeleton, and sanitized routing decision
 summary: `direct` is active on the existing router flow, and `agent_chat` is
-recognized but fails closed before adapter execution because the agent-chat
-runtime is intentionally not implemented yet. The Foundation Wave moves
-routing/config/doctor contracts into `src/` modules while preserving the root
-`router.ts` public export surface.
+recognized but fails closed before adapter execution unless an explicit
+experimental AgentRuntime is configured and the request opts in. The Foundation
+Wave moves routing/config/doctor contracts into `src/` modules while preserving
+the root `router.ts` public export surface.
 
 ## Goals
 
@@ -379,8 +379,8 @@ Implemented in slices 1-3:
 - selection precedence: request metadata > config file > `FUSION_ROUTER_MODE`
   > default;
 - `direct` connected to the existing router flow;
-- `agent_chat` recognized but not implemented, with fail-closed behavior before
-  adapter execution and a sanitized decision in `RouterError.details`.
+- `agent_chat` recognized and gated behind explicit experimental runtime opt-in,
+  with fail-closed behavior before adapter execution and sanitized errors.
 
 Foundation Wave also preserves these contracts after the module split and adds
 operator-facing doctor checks for config-file validity, `FUSION_ROUTER_MODE`

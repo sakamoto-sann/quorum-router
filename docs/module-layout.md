@@ -20,8 +20,9 @@ barrel that re-exports the public contracts from the split modules, including:
 - setup schema / generator / dry-run CLI exports through `src/setup/index.ts`
 - Commander role/config/selection contract exports through
   `src/commander/index.ts`
-- AgentChat protocol / simulator skeleton and Agent Bus contract exports through
+- AgentChat protocol / simulator and Agent Bus contract exports through
   `src/agent-chat/index.ts`
+- experimental AgentRuntime exports through `src/agent-runtime/index.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -74,6 +75,12 @@ src/
       types.ts                     # durable coordination domain types and store interface
       supabase-contract.ts         # RPC names, row mappers, config defaults
       in-memory-agent-bus.ts       # deterministic offline reference store
+  agent-runtime/
+    index.ts                       # public AgentRuntime export boundary
+    types.ts                       # role bindings, limits, config, result types
+    parser.ts                      # strict JSON role output parser
+    prompts.ts                     # deterministic role prompt builder
+    runtime.ts                     # in-process experimental role loop
   adapters/
     process.ts                    # CLI/process adapters and structured synthesis
     direct-http.ts                # OpenAI/Anthropic direct HTTP adapters
@@ -88,23 +95,26 @@ The split is intended to be behavior-preserving:
 - default routing mode remains `direct`
 - precedence remains request > config > env > default
 - invalid modes fail closed before adapter execution
-- `agent_chat` is recognized but not implemented and fails closed before adapter
-  execution
+- `agent_chat` fails closed before adapter execution unless explicit
+  `experimentalAgentRuntime` opt-in and enabled experimental runtime config are
+  present
 - routing decision details are bounded to sanitized
   `{ mode, source, implemented }`
 - audit sinks remain must-accept / fail-closed
 - telemetry sinks remain best-effort / drop-oldest
 - Supabase service-role credentials remain forbidden at runtime
 - Supabase audit RPC payload shape is unchanged
-- Supabase Agent Bus is a durable coordination plane for future `agent_chat`,
-  not a replacement for direct best-answer routing
+- Supabase Agent Bus is a durable coordination plane for `agent_chat`; live
+  Supabase runtime writes remain future work and do not replace direct
+  best-answer routing
 - Commander is a role/config/selection contract, not a fixed provider or model
 - Commander config does not replace the caller-provided `synthesisAdapter` or
   make `agent_chat` production-ready
 - `routing.mode` remains `direct | agent_chat`; no `agent_bus` routing mode is
   introduced
 - Agent Bus config under `agentBus` does not connect `FusionRouter.route()` to a
-  production `agent_chat` runtime
+  production `agent_chat` runtime; experimental runtime requires explicit role
+  adapters
 - `BufferedBatchSink` delivery semantics are unchanged
   - concurrent sink calls are serialized through flush chaining to prevent flush
     / RPC storms
@@ -138,7 +148,7 @@ routing checks cover:
 - `FUSION_ROUTER_MODE` absent / valid / invalid
 - config-vs-env precedence note
 - effective routing decision and implementation status
-- explicit note that `agent_chat` is recognized but not implemented
+- explicit note that `agent_chat` is gated behind experimental runtime opt-in
 - direct-mode readiness summary
 
 The existing operational checks remain in place: Deno version, direct HTTP

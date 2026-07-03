@@ -20,7 +20,7 @@ import {
 const DEFAULT_CONFIG_PATH = "fusion-router.config.json";
 
 const NON_GOALS = [
-  "no agent_chat runtime",
+  "no production autonomous agent_chat runtime",
   "no provider account creation",
   "no OAuth login flow",
   "no API key storage",
@@ -200,8 +200,9 @@ function mergeProfile(input: SetupWizardInput): SetupWizardInput {
     persistence: { ...defaults.persistence, ...input.persistence },
     telemetry: { ...defaults.telemetry, ...input.telemetry },
     adaptiveDirect: { ...defaults.adaptiveDirect, ...input.adaptiveDirect },
-    agentBus: { ...input.agentBus },
-    commander: { ...input.commander },
+    agentBus: { ...defaults.agentBus, ...input.agentBus },
+    agentRuntime: { ...defaults.agentRuntime, ...input.agentRuntime },
+    commander: { ...defaults.commander, ...input.commander },
     providers: input.providers ?? defaults.providers,
   };
 }
@@ -230,7 +231,7 @@ function assertAgentChatExplicit(input: NormalizedSetupWizardInput): void {
   failClosed(
     4401,
     "setup_agent_chat_requires_explicit_warning",
-    "agent_chat is recognized but not implemented; setup requires experimentalAgentChat=true.",
+    "agent_chat is experimental and requires explicit runtime opt-in; setup requires experimentalAgentChat=true.",
     { routingMode: input.routingMode },
   );
 }
@@ -435,7 +436,7 @@ function warningsFor(input: NormalizedSetupWizardInput): string[] {
   const warnings: string[] = [];
   if (input.routingMode === "agent_chat") {
     warnings.push(
-      "agent_chat is recognized but not implemented; runtime route execution fails closed before adapter execution.",
+      "agent_chat requires explicit experimentalAgentRuntime route opt-in and an enabled experimental AgentRuntime config; otherwise it fails closed before adapter execution.",
     );
   }
   if (input.persistence.mode === "localJsonl") {
@@ -455,7 +456,12 @@ function warningsFor(input: NormalizedSetupWizardInput): string[] {
   }
   if (input.agentBus.enabled) {
     warnings.push(
-      "Agent Bus is a future coordination plane for agent_chat and does not make agent_chat production-ready.",
+      "Agent Bus is a coordination plane for agent_chat. The experimental in-process AgentRuntime can use an explicit bus store, but live Supabase runtime is still future work.",
+    );
+  }
+  if (input.agentRuntime.enabled) {
+    warnings.push(
+      "AgentRuntime is experimental, in-process, adapter-based, and still requires explicit per-request opt-in.",
     );
   }
   if (input.commander.enabled) {
@@ -523,6 +529,11 @@ function doctorExpectationsFor(input: NormalizedSetupWizardInput): string[] {
       "agent_bus_config is coordination-only and does not change routing.mode",
     );
   }
+  if (input.agentRuntime.enabled) {
+    expectations.push(
+      "agent_runtime_config experimental in-process runtime remains explicit opt-in",
+    );
+  }
   if (input.commander.enabled) {
     expectations.push(
       "commander_config is metadata/selection-only and does not change routing.mode",
@@ -542,6 +553,7 @@ function buildConfig(
     telemetry: input.telemetry,
     adaptiveDirect: input.adaptiveDirect,
     agentBus: input.agentBus,
+    agentRuntime: input.agentRuntime,
     commander: input.commander,
     setup: {
       generatedBy: "fusion-router setup" as const,

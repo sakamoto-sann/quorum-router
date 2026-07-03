@@ -1,14 +1,16 @@
 # Supabase Agent Bus
 
-The Supabase Agent Bus is Fusion Router's planned durable coordination plane for
-a future `agent_chat` / commander runtime. It is **not** a replacement for the
-current production router path.
+The Supabase Agent Bus is Fusion Router's durable coordination-plane contract
+for `agent_chat` / commander runtime work. The experimental AgentRuntime can use
+the in-memory store interface, but this document's Supabase path is still future
+live runtime work. It is **not** a replacement for the current production direct
+router path.
 
 Required boundary:
 
 ```text
 direct = best-answer routing path
-agent_chat = future multi-agent chat/coordination path
+agent_chat = explicit opt-in experimental multi-role runtime, otherwise fail-closed
 agent_bus = durable coordination/message/event plane for agent_chat
 ```
 
@@ -30,9 +32,9 @@ agent_bus = durable coordination/message/event plane for agent_chat
 
 - stateful run
 - Commander role + peer agents
-- messages/events/history in Supabase
-- Realtime may wake workers in future
-- not production-connected yet
+- messages/events/history through an AgentBusStore contract
+- in-memory store available for deterministic experimental runtime tests
+- Supabase writes and Realtime worker wake-up remain future work
 
 Commander is a role, not a fixed provider/model/client. Agent Bus may persist
 future Commander-related messages and events, but it does not choose a model,
@@ -69,14 +71,14 @@ a separate namespace:
 
 Rules:
 
-- `agentBus.enabled=false` for direct best-answer examples.
-- `agentBus.enabled=true` only documents future `agent_chat` coordination.
+- `agentBus.enabled=true` documents coordination-plane intent; live Supabase
+  runtime writes are still future work.
 - Commander config lives under `commander` and remains role/selection metadata;
-  it does not connect Agent Bus to runtime execution.
+  the experimental runtime still requires explicit role adapters.
 - Enabling Agent Bus does not make `agent_chat` production-ready.
 - `FusionRouter.route(..., { routingMode: "agent_chat" })` still fails closed
-  before adapter execution.
-- Default direct behavior remains compatible.
+  before adapter execution unless `experimentalAgentRuntime: true` and an
+  enabled experimental runtime config are present.
 
 ## Durable source of truth
 

@@ -1,7 +1,8 @@
-# v0.1 Release Checklist
+# v0.1.1 AgentRuntime Release Checklist
 
-Use this checklist for the v0.1 Safe Direct Router release PR and merge
-closeout.
+Use this checklist for the experimental AgentRuntime PR and release closeout. Do
+not retarget the existing v0.1.0 tag/release silently; v0.1.1 is the first real
+AgentRuntime threshold.
 
 ## Local verification
 
@@ -17,11 +18,38 @@ closeout.
 ## Expected local results
 
 - [ ] Tests pass with the expected count for the branch.
-- [ ] `smoke:v0.1` passes.
+- [ ] `smoke:v0.1` passes and includes AgentRuntime success:
+      `"agentRuntime": { "ok": true, "decision": "ready", "turns": 5 }`.
 - [ ] Doctor reports `ok: true`.
 - [ ] `supabase_audit_config`: `not configured`, severity `info`.
 - [ ] `cli_zcode`: `not found`, severity `warn`.
 - [ ] Gitleaks reports no leaks found.
+
+## Runtime gates
+
+- [ ] `direct` remains production-ready best-answer routing.
+- [ ] `agent_chat` without `experimentalAgentRuntime: true` fails closed before
+      adapter execution.
+- [ ] `agent_chat` with missing/disabled/non-experimental runtime config fails
+      closed before adapter execution.
+- [ ] Required runtime roles are present exactly once:
+      commander/coder/reviewer/red_team/closeout.
+- [ ] Runtime returns transcript, Agent Bus messages, Agent Bus events, closeout
+      decision, final answer, and runtime summary.
+- [ ] Max turns, timeout, and budget are enforced.
+- [ ] Malformed role output, unsafe objections, missing role, duplicate role,
+      and adapter exceptions fail closed.
+- [ ] No hidden fallback behavior.
+
+## Runtime non-goals
+
+- [ ] No live Supabase Agent Bus runtime client/writes.
+- [ ] No Supabase Realtime subscriber.
+- [ ] No Edge Function gateway.
+- [ ] No worker process spawning.
+- [ ] No service-role runtime.
+- [ ] No OAuth/API-key setup.
+- [ ] No external tool execution by agents.
 
 ## CI and license
 

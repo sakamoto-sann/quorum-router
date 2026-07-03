@@ -1,7 +1,9 @@
 import {
   AGENT_BUS_MESSAGE_TYPES,
   AGENT_CHAT_ROLES,
+  AGENT_RUNTIME_ROLES,
   AgentChatAuditMilestone,
+  AgentChatMessageSchema,
   AgentChatObjectionSchema,
   AgentChatRoleSchema,
   CircuitBreaker,
@@ -27,6 +29,7 @@ import {
   createSupabaseAuditHandler,
   createSupabaseAuditSink,
   createZcodeGlmAdapter,
+  DEFAULT_AGENT_RUNTIME_BUS_IDS,
   describeRoutingModeDecision,
   fallbackReasonFromError,
   FinalSynthesis,
@@ -56,7 +59,13 @@ import {
   selectCommander,
   SynthesisAdapter,
 } from "./router.ts";
-import type { DirectRoutingDecision, ProviderDescriptor } from "./router.ts";
+import type {
+  AgentRuntimeConfig,
+  AgentRuntimeRole,
+  CommanderConfig,
+  DirectRoutingDecision,
+  ProviderDescriptor,
+} from "./router.ts";
 import type {
   AgentBusConfig as SmokeAgentBusConfig,
   AgentBusDirective as SmokeAgentBusDirective,
@@ -76,6 +85,11 @@ import type {
   AgentChatRole as SmokeAgentChatRole,
   AgentChatRunConfig as SmokeAgentChatRunConfig,
   AgentChatTranscript as SmokeAgentChatTranscript,
+  AgentRuntimeConfig as SmokeAgentRuntimeConfig,
+  AgentRuntimeLimits as SmokeAgentRuntimeLimits,
+  AgentRuntimeResult as SmokeAgentRuntimeResult,
+  AgentRuntimeRole as SmokeAgentRuntimeRole,
+  AgentRuntimeRoleBinding as SmokeAgentRuntimeRoleBinding,
   AnthropicDirectAdapterOptions as SmokeAnthropicDirectAdapterOptions,
   AuthStrategy as SmokeAuthStrategy,
   BudgetManager as SmokeBudgetManager,
@@ -214,6 +228,11 @@ type PublicExportTypeSmoke = [
   SmokeFetchLike,
   SmokeFinalSynthesis,
   SmokeFlushableTelemetrySink,
+  SmokeAgentRuntimeConfig,
+  SmokeAgentRuntimeLimits,
+  SmokeAgentRuntimeResult,
+  SmokeAgentRuntimeRole,
+  SmokeAgentRuntimeRoleBinding,
   SmokeFallbackPolicy,
   SmokeFallbackPolicyDecision,
   SmokeFallbackReason,
@@ -680,6 +699,7 @@ function buildRouter(
   options: {
     routingMode?: unknown;
     routingModeEnvProvider?: () => unknown;
+    agentRuntime?: AgentRuntimeConfig;
   } = {},
 ): FusionRouter {
   return new FusionRouter({
@@ -689,6 +709,7 @@ function buildRouter(
     timeoutMs: 10_000,
     routingMode: options.routingMode,
     routingModeEnvProvider: options.routingModeEnvProvider,
+    agentRuntime: options.agentRuntime,
   });
 }
 
@@ -713,6 +734,174 @@ function fixtureDescriptor(
     transport: "processAdapter",
     client,
   } as const;
+}
+
+const TEST_RUNTIME_COMMANDER: CommanderConfig = {
+  enabled: true,
+  mode: "agent_chat_future",
+  selectionStrategy: "explicit",
+  provider: "Fixture",
+  model: "commander",
+  authMode: "session",
+  transport: "processAdapter",
+  client: "RuntimeTestCommander",
+  local: false,
+};
+
+class RuntimeRoleAdapter implements ModelAdapter {
+  readonly descriptor: ProviderDescriptor;
+  calls = 0;
+  prompts: string[] = [];
+
+  constructor(
+    readonly role: AgentRuntimeRole,
+    private readonly output: string,
+    private readonly behavior: "ok" | "throw" | "never" = "ok",
+  ) {
+    this.descriptor = fixtureDescriptor(
+      "Fixture",
+      `runtime-${role}`,
+      `RuntimeTest/${role}`,
+    );
+  }
+
+  invoke(prompt: string, signal: AbortSignal): Promise<ModelOutput> {
+    this.calls += 1;
+    this.prompts.push(prompt);
+    if (this.behavior === "throw") {
+      return Promise.reject(new Error(`adapter failed for ${this.role}`));
+    }
+    if (this.behavior === "never") {
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () =>
+            reject(new RouterError(4401, "agent_runtime_timeout", "aborted")),
+          { once: true },
+        );
+      });
+    }
+    return Promise.resolve({
+      provider: this.descriptor.provider,
+      model: this.descriptor.model,
+      content: this.output,
+      latencyMs: 1,
+    });
+  }
+}
+
+function runtimeJson(
+  status: string,
+  content: string,
+  extra: Record<string, unknown> = {},
+): string {
+  return JSON.stringify({
+    status,
+    content,
+    objection: null,
+    finalAnswer: null,
+    budgetUsd: 0,
+    ...extra,
+  });
+}
+
+let runtimeRunSequence = 0;
+
+function makeRuntimeBus(
+  ids: typeof DEFAULT_AGENT_RUNTIME_BUS_IDS,
+): InMemoryAgentBusStore {
+  return new InMemoryAgentBusStore({
+    teams: [{
+      id: ids.teamId,
+      ownerUserId: "fixture-user",
+      name: "runtime-test-team",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }],
+    identities: Object.entries(ids.roleAgentIds).map(([role, id]) => ({
+      id,
+      teamId: ids.teamId,
+      agentName: role,
+      agentRole: role,
+      runtimeType: "in-process-test",
+      status: "idle" as const,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    })),
+    runs: [{
+      id: ids.runId,
+      teamId: ids.teamId,
+      commanderAgentId: ids.roleAgentIds.commander,
+      routingMode: "agent_chat",
+      status: "running",
+      startedAt: "2026-01-01T00:00:00.000Z",
+      metadata: {},
+    }],
+  });
+}
+
+function makeAgentRuntimeConfig(input: {
+  outputs?: Partial<Record<AgentRuntimeRole, string>>;
+  omitRoles?: AgentRuntimeRole[];
+  duplicateRole?: AgentRuntimeRole;
+  disabled?: boolean;
+  experimental?: boolean;
+  limits?: AgentRuntimeConfig["limits"];
+  behavior?: Partial<Record<AgentRuntimeRole, "ok" | "throw" | "never">>;
+} = {}): AgentRuntimeConfig & {
+  adaptersByRole: Map<AgentRuntimeRole, RuntimeRoleAdapter>;
+} {
+  const outputs: Record<AgentRuntimeRole, string> = {
+    commander: runtimeJson("plan", "Plan the work."),
+    coder: runtimeJson("result", "Implemented result."),
+    reviewer: runtimeJson("pass", "Review passed."),
+    red_team: runtimeJson("pass", "Red-team passed."),
+    closeout: runtimeJson("ready", "Closeout ready.", {
+      finalAnswer: "Runtime final answer.",
+    }),
+    ...input.outputs,
+  };
+  const omitted = new Set(input.omitRoles ?? []);
+  const adaptersByRole = new Map<AgentRuntimeRole, RuntimeRoleAdapter>();
+  const roles = AGENT_RUNTIME_ROLES.filter((role) => !omitted.has(role)).map(
+    (role) => {
+      const adapter = new RuntimeRoleAdapter(
+        role,
+        outputs[role],
+        input.behavior?.[role] ?? "ok",
+      );
+      adaptersByRole.set(role, adapter);
+      return { role, required: true, adapter };
+    },
+  );
+  if (input.duplicateRole) {
+    roles.push({
+      role: input.duplicateRole,
+      required: true,
+      adapter: new RuntimeRoleAdapter(
+        input.duplicateRole,
+        outputs[input.duplicateRole],
+      ),
+    });
+  }
+  const runId = `agent-runtime-test-run-${++runtimeRunSequence}`;
+  const busIds = {
+    ...DEFAULT_AGENT_RUNTIME_BUS_IDS,
+    runId,
+  };
+  return {
+    enabled: input.disabled ? false : true,
+    experimental: input.experimental ?? true,
+    bus: makeRuntimeBus(busIds),
+    busIds,
+    commander: TEST_RUNTIME_COMMANDER,
+    roles,
+    limits: {
+      maxTurns: 5,
+      maxDurationMs: 10_000,
+      maxBudgetUsd: 0,
+      ...input.limits,
+    },
+    adaptersByRole,
+  };
 }
 
 Deno.test("agent chat roles enum accepts known roles only", () => {
@@ -914,16 +1103,365 @@ Deno.test("agent chat simulator has no network or process side effects", async (
   }
 });
 
-Deno.test("agent_chat route still fails closed before adapter execution with agent modules present", async () => {
+Deno.test("agent_chat route without explicit runtime opt-in fails closed before adapter execution", async () => {
   const adapter = new CountingAdapter();
-  const router = buildRouter(adapter, staticOkSynthesis());
+  const runtime = makeAgentRuntimeConfig();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    agentRuntime: runtime,
+  });
   const error = await assertRejects(
     () => router.route("hello", { routingMode: "agent_chat" }),
     RouterError,
   );
   assertEquals(error.status, 4401);
-  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 0);
+});
+
+Deno.test("agent_chat route with explicit opt-in succeeds through experimental AgentRuntime", async () => {
+  const adapter = new CountingAdapter();
+  const runtime = makeAgentRuntimeConfig();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    agentRuntime: runtime,
+  });
+  const result = await router.route("hello", {
+    routingMode: "agent_chat",
+    experimentalAgentRuntime: true,
+  });
+  assertEquals(result.synthesis, "Runtime final answer.");
+  assertEquals(result.consensusModel, "AgentRuntime/experimental");
+  assertEquals(adapter.calls, 0);
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 1);
+});
+
+Deno.test("missing runtime config fails closed before adapter execution", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const error = await assertRejects(
+    () =>
+      router.route("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "agent_runtime_config_required");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("AgentRuntime config defaults are disabled in generated config", () => {
+  const config = generateFusionRouterConfig({ profile: "minimal-direct" });
+  assertEquals(config.agentRuntime, {
+    enabled: false,
+    experimental: false,
+    transport: "inMemory",
+  });
+});
+
+Deno.test("AgentRuntime missing required role fails before adapter execution", async () => {
+  const runtime = makeAgentRuntimeConfig({ omitRoles: ["red_team"] });
+  const error = await assertRejects(
+    () =>
+      new FusionRouter({
+        modelAdapters: [new CountingAdapter()],
+        synthesisAdapter: staticOkSynthesis(),
+        minSuccessfulAdapters: 1,
+        agentRuntime: runtime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "agent_runtime_required_role_missing");
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 0);
+});
+
+Deno.test("AgentRuntime duplicate role binding fails closed", async () => {
+  const runtime = makeAgentRuntimeConfig({ duplicateRole: "coder" });
+  const router = buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    agentRuntime: runtime,
+  });
+  const error = await assertRejects(
+    () =>
+      router.routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "agent_runtime_duplicate_role");
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 0);
+});
+
+Deno.test("runAgentRuntime completes five-turn loop and records transcript bus messages events", async () => {
+  const runtime = makeAgentRuntimeConfig();
+  const router = buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    agentRuntime: runtime,
+  });
+  const result = await router.routeAgentRuntime("hello", {
+    routingMode: "agent_chat",
+    experimentalAgentRuntime: true,
+  });
+  assertEquals(result.ok, true);
+  assertEquals(result.decision.decision, "ready");
+  assertEquals(result.runtimeSummary.turns, 5);
+  assertEquals(result.runtimeSummary.objections, 0);
+  assertEquals(result.finalAnswer, "Runtime final answer.");
+  assertEquals(result.transcript.turns.length, 5);
+  assertEquals(result.transcript.messages.length, 5);
+  for (const message of result.transcript.messages) {
+    AgentChatMessageSchema.parse(message);
+    assertEquals("turnIndex" in message, false);
+  }
+  assertEquals(result.messages.length, 5);
+  assert(
+    result.messages.every((message) => message.runId === runtime.busIds?.runId),
+  );
+  assert(
+    result.events.some((event) => event.eventType === "agent_runtime.started"),
+  );
+  assert(
+    result.events.some((event) =>
+      event.eventType === "agent_runtime.closeout_ready"
+    ),
+  );
+  const commanderTurn = result.transcript.turns[0];
+  assertEquals(commanderTurn.role, "planner");
+  assertEquals(commanderTurn.metadata.runtimeRole, "commander");
+  assertEquals(commanderTurn.metadata.provider, "Fixture");
+});
+
+Deno.test("reviewer objection blocks closeout ready and records objection", async () => {
+  const runtime = makeAgentRuntimeConfig({
+    outputs: {
+      reviewer: runtimeJson("object", "Review blocked.", {
+        objection: "Needs tests.",
+      }),
+      closeout: runtimeJson("not_ready", "Blocked by reviewer."),
+    },
+  });
+  const result = await buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    agentRuntime: runtime,
+  }).routeAgentRuntime("hello", {
+    routingMode: "agent_chat",
+    experimentalAgentRuntime: true,
+  });
+  assertEquals(result.ok, false);
+  assertEquals(result.decision.decision, "not_ready");
+  assertEquals(result.runtimeSummary.objections, 1);
+  assert(
+    result.events.some((event) =>
+      event.eventType === "agent_runtime.objection_raised"
+    ),
+  );
+});
+
+Deno.test("red-team objection blocks closeout ready", async () => {
+  const runtime = makeAgentRuntimeConfig({
+    outputs: {
+      red_team: runtimeJson("object", "Risk blocked.", {
+        objection: "Unsafe behavior.",
+      }),
+      closeout: runtimeJson("not_ready", "Blocked by red-team."),
+    },
+  });
+  const result = await buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    agentRuntime: runtime,
+  }).routeAgentRuntime("hello", {
+    routingMode: "agent_chat",
+    experimentalAgentRuntime: true,
+  });
+  assertEquals(result.ok, false);
+  assertEquals(result.runtimeSummary.objections, 1);
+});
+
+Deno.test("malformed role JSON fails closed", async () => {
+  const runtime = makeAgentRuntimeConfig({ outputs: { coder: "not-json" } });
+  const error = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: runtime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "agent_runtime_malformed_role_output");
+});
+
+Deno.test("unexpected role status, unsafe objection, and unsafe final answer fail closed", async () => {
+  const unexpectedRuntime = makeAgentRuntimeConfig({
+    outputs: {
+      commander: runtimeJson("object", "Unsafe commander objection.", {
+        objection: "Stop.",
+      }),
+    },
+  });
+  const unexpected = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: unexpectedRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(unexpected.code, "agent_runtime_unexpected_role_status");
+
+  const unsafeRuntime = makeAgentRuntimeConfig({
+    outputs: {
+      reviewer: runtimeJson("pass", "Pass but unsafe objection.", {
+        objection: "contradiction",
+      }),
+    },
+  });
+  const unsafe = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: unsafeRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(unsafe.code, "agent_runtime_unsafe_objection");
+
+  const unsafeFinalRuntime = makeAgentRuntimeConfig({
+    outputs: {
+      coder: runtimeJson("result", "Result with stray final answer.", {
+        finalAnswer: "not allowed here",
+      }),
+    },
+  });
+  const unsafeFinal = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: unsafeFinalRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(unsafeFinal.code, "agent_runtime_unsafe_final_answer");
+});
+
+Deno.test("negative and NaN budgets fail closed", async () => {
+  for (const budgetUsd of [-1, Number.NaN]) {
+    const runtime = makeAgentRuntimeConfig({
+      outputs: { coder: runtimeJson("result", "Result.", { budgetUsd }) },
+    });
+    const error = await assertRejects(
+      () =>
+        buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+          agentRuntime: runtime,
+        }).routeAgentRuntime("hello", {
+          routingMode: "agent_chat",
+          experimentalAgentRuntime: true,
+        }),
+      RouterError,
+    );
+    assertEquals(error.code, "agent_runtime_malformed_role_output");
+  }
+});
+
+Deno.test("max turns and budget are enforced", async () => {
+  const maxTurnsRuntime = makeAgentRuntimeConfig({ limits: { maxTurns: 4 } });
+  const turnsError = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: maxTurnsRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(turnsError.code, "agent_runtime_max_turns_exceeded");
+
+  const budgetRuntime = makeAgentRuntimeConfig({
+    outputs: { coder: runtimeJson("result", "Result.", { budgetUsd: 0.02 }) },
+    limits: { maxBudgetUsd: 0.01 },
+  });
+  const budgetError = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: budgetRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(budgetError.code, "agent_runtime_budget_exceeded");
+});
+
+Deno.test("actual role prompt length is enforced after prior outputs", async () => {
+  const runtime = makeAgentRuntimeConfig({
+    outputs: { commander: runtimeJson("plan", "x".repeat(2_000)) },
+    limits: { maxPromptChars: 1_000 },
+  });
+  const error = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: runtime,
+      }).routeAgentRuntime("small prompt", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "agent_runtime_prompt_too_large");
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 1);
+  assertEquals(runtime.adaptersByRole.get("coder")?.calls, 0);
+});
+
+Deno.test("timeout and adapter exception fail closed", async () => {
+  const timeoutRuntime = makeAgentRuntimeConfig({
+    behavior: { coder: "never" },
+    limits: { maxDurationMs: 1 },
+  });
+  const timeoutError = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: timeoutRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(timeoutError.code, "agent_runtime_timeout");
+
+  const throwRuntime = makeAgentRuntimeConfig({ behavior: { coder: "throw" } });
+  const adapterError = await assertRejects(
+    () =>
+      buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+        agentRuntime: throwRuntime,
+      }).routeAgentRuntime("hello", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      }),
+    RouterError,
+  );
+  assertEquals(adapterError.code, "agent_runtime_adapter_failed");
+});
+
+Deno.test("direct route remains unchanged with runtime config present", async () => {
+  const directAdapter = new CountingAdapter();
+  const runtime = makeAgentRuntimeConfig();
+  const router = buildRouter(directAdapter, staticOkSynthesis(), {
+    agentRuntime: runtime,
+  });
+  const result = await router.route("hello", { routingMode: "direct" });
+  assertEquals(result.synthesis, "ok");
+  assertEquals(directAdapter.calls, 1);
+  assertEquals(runtime.adaptersByRole.get("commander")?.calls, 0);
 });
 
 Deno.test("provider registry validates known providers", () => {
@@ -1652,7 +2190,7 @@ Deno.test("generated agent_chat config still fails closed before adapter executi
   await assertRejects(
     () => router.route("agent_chat stays unavailable"),
     RouterError,
-    "not implemented",
+    "experimentalAgentRuntime",
   );
   assertEquals(adapter.calls, 0);
 });
@@ -2059,7 +2597,7 @@ Deno.test("agent_chat with Agent Bus config still fails closed before adapter ex
   await assertRejects(
     () => router.route("agent_chat remains unavailable with bus config"),
     RouterError,
-    "not implemented",
+    "experimentalAgentRuntime",
   );
   assertEquals(loaded.agentBus?.enabled, true);
   assertEquals(adapter.calls, 0);
@@ -2092,7 +2630,7 @@ Deno.test("agent_chat with commander and Agent Bus config still fails closed bef
   await assertRejects(
     () => router.route("agent_chat remains unavailable with bus and commander"),
     RouterError,
-    "not implemented",
+    "experimentalAgentRuntime",
   );
   assertEquals(loaded.commander?.mode, "agent_chat_future");
   assertEquals(loaded.agentBus?.enabled, true);
@@ -2709,6 +3247,8 @@ Deno.test("v0.1 examples do not contain raw credential patterns", async () => {
     "examples/setup-generated-config.ts",
     "examples/v0_1_smoke.ts",
     "examples/v0_1_fixtures.ts",
+    "examples/agent-runtime-basic.ts",
+    "examples/agent-runtime-fail-closed.ts",
   ];
   const rawSecretPattern =
     /(sk-[A-Za-z0-9_-]{8,}|gh[opsu]_[A-Za-z0-9_]{8,}|Bearer\s+[A-Za-z0-9._-]{8,}|Basic\s+[A-Za-z0-9+/=]{8,}|(?:api[_-]?key|token|password|secret)\s*[:=]\s*["'][^"'\s]{4,}["'])/i;
@@ -2728,10 +3268,11 @@ Deno.test("v0.1 release docs mention explicit non-goals and verification", async
     const required of [
       "No real `agent_chat` production runtime",
       "No hidden fallback behavior",
-      "No production Agent Bus runtime connection",
+      "No live Supabase Agent Bus runtime client/writes",
       "No OAuth login flow or automatic API-key setup",
       "deno task smoke:v0.1",
       "gitleaks git --log-opts",
+      "experimentalAgentRuntime: true",
     ]
   ) {
     assertStringIncludes(release, required);
@@ -2831,7 +3372,7 @@ Deno.test("doctor warns on generated agent_chat config while route still fails c
     () => router.route("hello"),
     RouterError,
   );
-  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
 });
 
@@ -2889,14 +3430,7 @@ Deno.test("valid config agent_chat loads and route fails closed before adapter e
     RouterError,
   );
 
-  assertEquals(error.code, "routing_mode_not_implemented");
-  assertEquals(error.details, {
-    routingMode: {
-      mode: "agent_chat",
-      source: "config",
-      implemented: false,
-    },
-  });
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
 });
 
@@ -3079,7 +3613,7 @@ Deno.test("agent_chat from loaded config does not call adapters", async () => {
     RouterError,
   );
 
-  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
 });
 
@@ -3216,7 +3750,7 @@ Deno.test("routing mode config agent_chat fails closed before adapter execution"
     RouterError,
   );
 
-  assertEquals(error.code, "routing_mode_not_implemented");
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
 });
 
@@ -3240,14 +3774,7 @@ Deno.test("routing mode agent_chat is recognized but fails closed before adapter
   );
 
   assertEquals(error.status, 4401);
-  assertEquals(error.code, "routing_mode_not_implemented");
-  assertEquals(error.details, {
-    routingMode: {
-      mode: "agent_chat",
-      source: "request",
-      implemented: false,
-    },
-  });
+  assertEquals(error.code, "agent_runtime_opt_in_required");
   assertEquals(adapter.calls, 0);
 });
 
@@ -3413,14 +3940,7 @@ Deno.test("routing mode env agent_chat resolves but fails closed before adapter 
       RouterError,
     );
 
-    assertEquals(error.code, "routing_mode_not_implemented");
-    assertEquals(error.details, {
-      routingMode: {
-        mode: "agent_chat",
-        source: "env",
-        implemented: false,
-      },
-    });
+    assertEquals(error.code, "agent_runtime_opt_in_required");
     assertEquals(adapter.calls, 0);
   });
 });
@@ -5002,7 +5522,7 @@ Deno.test("doctor fails closed on invalid env routing mode without raw value", a
   assert(!text.includes(hiddenInvalidValue));
 });
 
-Deno.test("doctor warns when agent_chat is selected because runtime is not implemented", async () => {
+Deno.test("doctor warns when agent_chat is selected because runtime requires opt-in", async () => {
   const output = await new Deno.Command(Deno.execPath(), {
     args: doctorArgs(),
     clearEnv: true,

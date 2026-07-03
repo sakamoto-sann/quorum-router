@@ -86,6 +86,13 @@ export const SetupAgentBusSchema = z.object({
 }).strict();
 export type SetupAgentBus = z.infer<typeof SetupAgentBusSchema>;
 
+export const SetupAgentRuntimeSchema = z.object({
+  enabled: z.boolean().default(false),
+  experimental: z.boolean().default(false),
+  transport: z.literal("inMemory").default("inMemory"),
+}).strict();
+export type SetupAgentRuntime = z.infer<typeof SetupAgentRuntimeSchema>;
+
 export const CommanderConfigSchema = z.object({
   enabled: z.boolean().default(false),
   mode: z.enum(["direct_synthesis", "agent_chat_future"]).default(
@@ -131,6 +138,11 @@ export const SetupWizardInputSchema = z.object({
     transport: "supabase",
     realtimeWakeup: false,
   }),
+  agentRuntime: SetupAgentRuntimeSchema.default({
+    enabled: false,
+    experimental: false,
+    transport: "inMemory",
+  }),
   commander: CommanderConfigSchema.default({
     enabled: false,
     mode: "direct_synthesis",
@@ -153,6 +165,7 @@ export const GeneratedFusionRouterConfigSchema = z.object({
   telemetry: SetupTelemetrySchema,
   adaptiveDirect: SetupAdaptiveDirectSchema,
   agentBus: SetupAgentBusSchema,
+  agentRuntime: SetupAgentRuntimeSchema,
   commander: CommanderConfigSchema,
   setup: z.object({
     generatedBy: z.literal("fusion-router setup"),

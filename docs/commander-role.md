@@ -8,10 +8,11 @@ commander = role
 provider/model/client = implementation
 ```
 
-This wave adds the Commander role/config/selection contract only. It does not
-add production Commander runtime, production `agent_chat`, Realtime subscribers,
-worker spawning, external tool execution, local model runtime, or automatic
-replacement of the existing synthesis adapter.
+Commander remains a role/config/selection contract. The experimental
+AgentRuntime can bind a commander role adapter explicitly, but this does not add
+a production Commander service, Realtime subscribers, worker spawning, external
+tool execution, local model runtime, or automatic replacement of the existing
+synthesis adapter.
 
 ## Mode comparison
 
@@ -23,12 +24,14 @@ replacement of the existing synthesis adapter.
 - No Agent Bus required.
 - No Commander runtime is invoked by this config contract.
 
-### agent_chat / commander future
+### agent_chat / experimental commander role
 
-- Commander will plan, dispatch, and close out a future multi-agent run.
-- Peer workers will communicate through Agent Bus in a future wave.
-- Not production-connected yet.
-- `agent_chat` still fails closed before adapter execution.
+- Commander plans the experimental in-process runtime when explicitly bound to a
+  role adapter.
+- Peer roles communicate through the AgentBusStore contract.
+- No automatic worker spawn or Realtime subscriber is added.
+- `agent_chat` still fails closed before adapter execution without explicit
+  runtime opt-in.
 
 ### agent_bus / coordination plane
 
@@ -116,8 +119,10 @@ provider/model/client combinations fail closed in setup/selector validation.
 - `direct` remains the default best-answer route.
 - Existing direct routes still use the provided `synthesisAdapter`.
 - Commander config does not automatically replace `synthesisAdapter`.
-- `agent_chat` remains recognized but not implemented.
-- Agent Bus remains durable coordination state only.
+- `agent_chat` remains explicit opt-in experimental runtime, otherwise
+  fail-closed.
+- Agent Bus remains durable coordination state; live Supabase runtime writes are
+  future work.
 - Service-role runtime remains forbidden.
 - Audit remains must-accept / fail-closed.
 - Telemetry remains best-effort / drop-oldest.
@@ -126,7 +131,7 @@ provider/model/client combinations fail closed in setup/selector validation.
 
 This wave does not implement:
 
-- production Commander runtime;
+- production Commander service runtime;
 - production `agent_chat`;
 - Realtime subscribers;
 - worker spawning;
