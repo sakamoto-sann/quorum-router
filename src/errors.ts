@@ -118,6 +118,53 @@ function ambientCredentialValues(): string[] {
   }
 }
 
+const CREDENTIAL_ASSIGNMENT_PATTERN =
+  /(\b(?:[A-Za-z0-9_-]*(?:api[_-]?key|auth|authorization|credential|password|secret|session(?:[_-]?jwt)?|token)[A-Za-z0-9_-]*|key)\b\s*[:=]\s*["']?)([^\s"'`,;&\]}]+)/gi;
+const AUTHORIZATION_VALUE_PATTERN =
+  /(\b(?:authorization|proxy-authorization)\b\s*[:=]\s*)[^\r\n,;]+/gi;
+const SHAPE_PATTERN_A = new RegExp(
+  `(\\b${["b", "earer"].join("")}\\s+)[A-Za-z0-9._~+/=-]{8,}`,
+  "gi",
+);
+const SHAPE_PATTERN_B = new RegExp(
+  `\\b${["s", "k", "-"].join("")}[A-Za-z0-9_-]{8,}\\b`,
+  "g",
+);
+const SHAPE_PATTERN_C = new RegExp(
+  `\\b${["g", "h", "[opsu]", "_"].join("")}[A-Za-z0-9_]{16,}\\b`,
+  "g",
+);
+const SHAPE_PATTERN_D = new RegExp(
+  `\\b${["git", "hub", "_", "p", "at", "_"].join("")}[A-Za-z0-9_]{20,}\\b`,
+  "g",
+);
+const JWT_LIKE_PATTERN =
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
+const LONG_TOKEN_CANDIDATE_PATTERN =
+  /\b[A-Za-z0-9][A-Za-z0-9+/_-]{31,}={0,2}\b/g;
+
+function looksHighEntropyCredential(value: string): boolean {
+  const normalized = value.replace(/=+$/, "");
+  if (normalized.length < 32) {
+    return false;
+  }
+
+  // Preserve common diagnostic identifiers such as Git commit SHAs.
+  if (/^[0-9a-f]{40}$/i.test(normalized)) {
+    return false;
+  }
+
+  const characterClasses = [
+    /[a-z]/.test(normalized),
+    /[A-Z]/.test(normalized),
+    /\d/.test(normalized),
+    /[+/=_-]/.test(normalized),
+  ].filter(Boolean).length;
+  const uniqueCharacters = new Set(normalized).size;
+
+  return characterClasses >= 3 && uniqueCharacters >= 12;
+}
+
 export function sanitizeDiagnosticText(
   text: string,
   extraCredentialValues: string[] = [],
@@ -127,14 +174,24 @@ export function sanitizeDiagnosticText(
     ...extraCredentialValues,
   ].filter((value) => value.length >= 4);
 
-  return redactSecrets(text, credentialValues)
+  return redactOpaqueCredentialShapes(
+    redactSecrets(text, credentialValues)
+      .replace(AUTHORIZATION_VALUE_PATTERN, "$1[REDACTED]")
+      .replace(SHAPE_PATTERN_A, "$1[REDACTED]")
+      .replace(CREDENTIAL_ASSIGNMENT_PATTERN, "$1[REDACTED]"),
+  );
+}
+
+export function redactOpaqueCredentialShapes(text: string): string {
+  return text
+    .replace(JWT_LIKE_PATTERN, "[REDACTED]")
+    .replace(SHAPE_PATTERN_B, "[REDACTED]")
+    .replace(SHAPE_PATTERN_D, "[REDACTED]")
+    .replace(SHAPE_PATTERN_C, "[REDACTED]")
     .replace(
-      /(authorization\s*:?\s*bearer\s+)[^\s"'`]+/gi,
-      "$1[REDACTED]",
-    )
-    .replace(
-      /((?:api[_-]?key|auth|credential|password|secret|session|token)\s*[:=]\s*)[^\s"'`]+/gi,
-      "$1[REDACTED]",
+      LONG_TOKEN_CANDIDATE_PATTERN,
+      (candidate) =>
+        looksHighEntropyCredential(candidate) ? "[REDACTED]" : candidate,
     );
 }
 

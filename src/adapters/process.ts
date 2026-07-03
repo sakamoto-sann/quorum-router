@@ -26,6 +26,21 @@ import { sleepWithAbort } from "../utils.ts";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+function secureTempFilePath(tmpDir: string, suffix: string): string {
+  return `${tmpDir}/${crypto.randomUUID()}-${suffix}`;
+}
+
+async function writeRestrictiveTextFile(
+  path: string,
+  content: string,
+): Promise<void> {
+  await Deno.writeTextFile(path, content, { mode: 0o600 });
+  // Deno's create-time mode is subject to the host umask and platform support.
+  // Tighten permissions best-effort on POSIX while keeping Windows/unsupported
+  // filesystems from breaking the adapter path.
+  await Deno.chmod(path, 0o600).catch(() => undefined);
+}
+
 export type ProcessInvocation = {
   command: string;
   args?: string[];
@@ -963,14 +978,15 @@ export class CodexStructuredSynthesisAdapter implements SynthesisAdapter {
     }
 
     const tmpDir = await Deno.makeTempDir({ prefix: "fusion-router-codex-" });
-    const schemaPath = `${tmpDir}/schema.json`;
-    const outputPath = `${tmpDir}/out.json`;
+    const schemaPath = secureTempFilePath(tmpDir, "schema.json");
+    const outputPath = secureTempFilePath(tmpDir, "out.json");
 
     try {
-      await Deno.writeTextFile(
+      await writeRestrictiveTextFile(
         schemaPath,
         JSON.stringify(FinalSynthesisJsonSchema, null, 2),
       );
+      await writeRestrictiveTextFile(outputPath, "");
 
       const sourceLines = outputs
         .map((output, index) =>

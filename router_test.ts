@@ -7,6 +7,7 @@ import {
   AgentChatObjectionSchema,
   AgentChatRoleSchema,
   CircuitBreaker,
+  CodexStructuredSynthesisAdapter,
   CoFailureTelemetry,
   createAnthropicDirectAdapter,
   createBufferedBatchSink,
@@ -56,6 +57,7 @@ import {
   RouterError,
   ROUTING_MODE_ENV,
   runAgentChatSimulator,
+  sanitizeDiagnosticText,
   selectCommander,
   SynthesisAdapter,
 } from "./router.ts";
@@ -471,6 +473,75 @@ async function makeScript(content: string): Promise<string> {
   await Deno.writeTextFile(path, content);
   await Deno.chmod(path, 0o755);
   return path;
+}
+
+function parentDir(path: string): string {
+  return path.slice(0, path.lastIndexOf("/"));
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function readPathCapture(path: string): Promise<
+  Array<{ schemaPath: string; outputPath: string; schemaMode: string }>
+> {
+  const text = await Deno.readTextFile(path);
+  return text.trim().split("\n").map((line) => {
+    const [schemaPath, outputPath, schemaMode = ""] = line.split("|");
+    return { schemaPath, outputPath, schemaMode };
+  });
+}
+
+async function makeCodexStructuredFixtureScript(): Promise<string> {
+  return await makeScript(`#!/usr/bin/env bash
+set -euo pipefail
+schema_path=""
+output_path=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --output-schema)
+      schema_path="$2"
+      shift 2
+      ;;
+    --output-last-message)
+      output_path="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [ -z "$schema_path" ]; then
+  exit 0
+fi
+
+mode=""
+if mode_value=$(stat -c '%a' "$schema_path" 2>/dev/null); then
+  mode="$mode_value"
+elif mode_value=$(stat -f '%Lp' "$schema_path" 2>/dev/null); then
+  mode="$mode_value"
+fi
+printf '%s|%s|%s\n' "$schema_path" "$output_path" "$mode" >> "$FUSION_ROUTER_CAPTURE_PATH"
+
+if [ "\${FUSION_ROUTER_FAIL_SYNTH:-0}" = "1" ]; then
+  exit 1
+fi
+
+cat > "$output_path" <<'JSON'
+{"synthesis":"ok","reasoning":"fixture structured synthesis","consensusModel":"OpenAI/gpt-5.5","sources":["Fixture/good"]}
+JSON
+`);
 }
 
 async function writeConfigFile(content: string): Promise<string> {
@@ -3083,6 +3154,31 @@ Deno.test("public docs mention direct best-answer remains default", async () => 
   assertStringIncludes(docs, "do not change default direct routing");
 });
 
+Deno.test("security docs state license runtime posture and non-goals", async () => {
+  const readme = await Deno.readTextFile("README.md");
+  const security = await Deno.readTextFile("docs/security.md");
+  const normalizedSecurity = security.replace(/\s+/g, " ");
+  assertStringIncludes(readme, "docs/security.md");
+  for (
+    const phrase of [
+      "source-available and non-commercial",
+      "not an open source license",
+      "direct` is the production-ready best-answer routing path",
+      "agent_chat` / AgentRuntime is experimental and explicit opt-in only",
+      "not a production autonomous runtime",
+      "no live Supabase Agent Bus runtime client/writes",
+      "no Supabase Realtime subscriber",
+      "no service-role runtime",
+      "Process adapters execute explicit configured CLI adapters",
+      "Do not expose untrusted public traffic without external rate limiting",
+      "Budget and circuit breaker state is currently in-memory",
+      "requires prior written permission",
+    ]
+  ) {
+    assertStringIncludes(normalizedSecurity, phrase);
+  }
+});
+
 Deno.test("public docs state commander is role not model", async () => {
   const docs = [
     await Deno.readTextFile("docs/commander-role.md"),
@@ -4156,6 +4252,93 @@ exit 1
     telemetryRecords,
   });
   assert(!routerSurface.includes(leakFixture));
+});
+
+Deno.test("codex structured synthesis temp files are unique restrictive and cleaned after success", async () => {
+  const captureDir = await Deno.makeTempDir({
+    prefix: "fusion-router-temp-capture-",
+  });
+  const capturePath = `${captureDir}/paths.txt`;
+  const command = await makeCodexStructuredFixtureScript();
+  const adapter = new CodexStructuredSynthesisAdapter({
+    command,
+    auth: {
+      env: { FUSION_ROUTER_CAPTURE_PATH: capturePath },
+      readinessCheck: { command, args: ["status"] },
+    },
+    defaultTimeoutMs: 5_000,
+  });
+  const outputs: ModelOutput[] = [{
+    provider: "Fixture",
+    model: "good",
+    content: "validated upstream output",
+    latencyMs: 1,
+  }];
+
+  const first = await adapter.synthesize(
+    "hello",
+    outputs,
+    new AbortController().signal,
+  );
+  const second = await adapter.synthesize(
+    "hello again",
+    outputs,
+    new AbortController().signal,
+  );
+
+  assertEquals(first.synthesis, "ok");
+  assertEquals(second.synthesis, "ok");
+  const captures = await readPathCapture(capturePath);
+  assertEquals(captures.length, 2);
+  assert(captures[0].schemaPath !== captures[1].schemaPath);
+  assert(captures[0].outputPath !== captures[1].outputPath);
+
+  for (const capture of captures) {
+    assertStringIncludes(capture.schemaPath, "fusion-router-codex-");
+    assertStringIncludes(capture.outputPath, "fusion-router-codex-");
+    if (capture.schemaMode) {
+      assertEquals(capture.schemaMode, "600");
+    }
+    assertEquals(await pathExists(parentDir(capture.schemaPath)), false);
+  }
+});
+
+Deno.test("codex structured synthesis temp files are cleaned after adapter failure", async () => {
+  const captureDir = await Deno.makeTempDir({
+    prefix: "fusion-router-temp-fail-",
+  });
+  const capturePath = `${captureDir}/paths.txt`;
+  const command = await makeCodexStructuredFixtureScript();
+  const adapter = new CodexStructuredSynthesisAdapter({
+    command,
+    auth: {
+      env: {
+        FUSION_ROUTER_CAPTURE_PATH: capturePath,
+        FUSION_ROUTER_FAIL_SYNTH: "1",
+      },
+      readinessCheck: { command, args: ["status"] },
+    },
+    defaultTimeoutMs: 5_000,
+  });
+
+  await assertRejects(
+    () =>
+      adapter.synthesize("hello", [{
+        provider: "Fixture",
+        model: "good",
+        content: "validated upstream output",
+        latencyMs: 1,
+      }], new AbortController().signal),
+    RouterError,
+    "Consensus stage failed validation.",
+  );
+
+  const [capture] = await readPathCapture(capturePath);
+  assert(capture.schemaPath !== capture.outputPath);
+  if (capture.schemaMode) {
+    assertEquals(capture.schemaMode, "600");
+  }
+  assertEquals(await pathExists(parentDir(capture.schemaPath)), false);
 });
 
 Deno.test("synthesis validation failure fails closed", async () => {
@@ -5319,6 +5502,62 @@ Deno.test("redactSecrets replaces overlapping secrets longest first", () => {
   const redacted = redactSecrets(text, ["abc", "abcd"]);
   assertEquals(redacted, "token=[REDACTED] and prefix=[REDACTED]");
   assert(!redacted.includes("d and"));
+});
+
+Deno.test("diagnostic redaction catches non-standard and encoded credentials", () => {
+  const nonStandardToken = ["fixture", "nonstandard", "credential"].join("-");
+  const openAiStyle = ["sk", "abcdefghijklmnopqrstuvwxyz123456"].join("-");
+  const githubClassic = ["gho", "abcdefghijklmnopqrstuvwxyz1234567890"].join(
+    "_",
+  );
+  const githubPat = [
+    "github",
+    "pat",
+    "11ABCDEFGHIJKLMNOPQRSTuvwx_abcdefghijklmnopqrstuvwxyz1234567890",
+  ].join("_");
+  const jwtLike = [
+    "eyJhbGciOiJIUzI1NiIsInR5cCI",
+    "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI",
+    "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+  ].join(".");
+  const highEntropy = "Aa1_Bb2-Cc3_Dd4-Ee5_Ff6-Gg7_Hh8-Ii9";
+  const customAuthorization = "Digest nonceabc responsexyz";
+  const diagnostic = [
+    `opaqueCredential=${nonStandardToken}`,
+    `url=https://example.test/callback?token=${openAiStyle}&next=ok`,
+    `authorization: Bearer ${githubClassic}`,
+    `proxy-authorization: ${customAuthorization}`,
+    `password=${githubPat}`,
+    "key=short-api-key-value",
+    "monkey=banana",
+    `jwt=${jwtLike}`,
+    `blob=${highEntropy}`,
+    "mode direct retry after 1s code 4401 ok",
+  ].join("\n");
+
+  const redacted = sanitizeDiagnosticText(diagnostic);
+
+  for (
+    const raw of [
+      nonStandardToken,
+      openAiStyle,
+      githubClassic,
+      githubPat,
+      jwtLike,
+      highEntropy,
+      customAuthorization,
+      "short-api-key-value",
+    ]
+  ) {
+    assert(!redacted.includes(raw), raw);
+  }
+  assertStringIncludes(redacted, "opaqueCredential=[REDACTED]");
+  assertStringIncludes(redacted, "token=[REDACTED]");
+  assertStringIncludes(redacted, "authorization:");
+  assertStringIncludes(redacted, "[REDACTED]");
+  assertStringIncludes(redacted, "key=[REDACTED]");
+  assertStringIncludes(redacted, "monkey=banana");
+  assertStringIncludes(redacted, "mode direct retry after 1s code 4401 ok");
 });
 
 Deno.test("FusionRouter rejects invalid quorum values", () => {

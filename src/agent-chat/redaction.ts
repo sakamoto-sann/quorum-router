@@ -1,4 +1,5 @@
 import type { AgentChatMessage, AgentChatMetadata } from "./types.ts";
+import { redactOpaqueCredentialShapes } from "../errors.ts";
 
 const SENSITIVE_KEY_PATTERN =
   /(api[_-]?key|authorization|bearer|credential|password|secret|session[_-]?jwt|session|token)/i;
@@ -37,7 +38,7 @@ export function redactAgentChatContent(
     KEY_VALUE_PATTERN,
     (_match, key: string) => `${key}=[REDACTED]`,
   );
-  return redacted;
+  return redactOpaqueCredentialShapes(redacted);
 }
 
 export function sanitizeAgentChatMetadata(

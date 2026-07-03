@@ -82,6 +82,9 @@ This is not an open source license.
 > an explicit `AbortSignal` cancellation contract. Google Gemini / Vertex and
 > xAI direct HTTP lanes remain follow-up work.
 
+Security posture, non-production caveats, process-adapter risk, and license-use
+boundaries are documented in [`docs/security.md`](docs/security.md).
+
 ## Architecture at a glance
 
 The public entrypoint remains `router.ts`, but implementation modules now live
