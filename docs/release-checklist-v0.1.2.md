@@ -3,7 +3,7 @@
 ## Target
 
 - [ ] Release version: v0.1.2
-- [ ] Release target commit: e806b7e6c3df04c57e3181ee6182ec7d1cad9891
+- [ ] Release target commit: 56a4356e108e9d1c8530bdb4e00d4049b2efd9cf
 - [ ] Existing v0.1.0 left unchanged
 - [ ] Existing v0.1.1 left unchanged
 
