@@ -1,0 +1,124 @@
+name: npm-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish, for example v0.1.2
+        required: true
+        default: v0.1.2
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-create-fusion-router:
+    name: publish-create-fusion-router
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve release ref
+        id: release-ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+          case "$tag" in
+            v*) ;;
+            *) echo "tag must start with v: $tag" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release-ref.outputs.tag }}
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Setup Node for npm trusted publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Verify release package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/create-fusion-router
+          node -e '
+            const pkg = require("./package.json");
+            const expectedVersion = process.env.EXPECTED_VERSION;
+            if (pkg.name !== "create-fusion-router") {
+              throw new Error(`unexpected package name: ${pkg.name}`);
+            }
+            if (pkg.version !== expectedVersion) {
+              throw new Error(`expected version ${expectedVersion}, got ${pkg.version}`);
+            }
+            if (pkg.license !== "SEE LICENSE IN LICENSE") {
+              throw new Error(`unexpected license: ${pkg.license}`);
+            }
+            if (!pkg.bin || pkg.bin["create-fusion-router"] !== "bin/create-fusion-router.js") {
+              throw new Error("unexpected bin mapping");
+            }
+          '
+          npm pkg get name version license bin files
+        env:
+          EXPECTED_VERSION: ${{ steps.release-ref.outputs.version }}
+
+      - name: Verify package tarball contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/create-fusion-router
+          npm pack --dry-run --json > /tmp/create-fusion-router-pack.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync('/tmp/create-fusion-router-pack.json', 'utf8'));
+          const actual = data[0].files.map((file) => file.path).sort();
+          const expected = [
+            'LICENSE',
+            'README.md',
+            'bin/create-fusion-router.js',
+            'package.json',
+            'templates/basic/README.md',
+            'templates/basic/deno.json',
+            'templates/basic/main.ts',
+          ];
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+            console.error('Unexpected tarball contents:', actual);
+            process.exit(1);
+          }
+          console.log(actual.join('\n'));
+          NODE
+
+      - name: Run repository verification
+        run: |
+          deno task lock:check
+          deno task check
+          deno task lint
+          deno task test
+          deno task doctor
+          deno task smoke:v0.1
+
+      - name: Publish create-fusion-router
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packages/create-fusion-router
+          npm publish --access public --provenance
