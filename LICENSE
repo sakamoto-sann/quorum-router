@@ -1,21 +1,31 @@
-MIT License
+Fusion Router Source-Available Non-Commercial License
 
-Copyright (c) 2026 sakamoto-sann
+Copyright (c) 2026 sakamoto-sann. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository and its contents are made available for source review, personal evaluation, academic or non-commercial research, and non-production testing only.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Subject to the restrictions below, you may:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+- read and review the source code;
+- clone the repository for personal, academic, or non-commercial evaluation;
+- run tests and examples for non-production evaluation;
+- modify the software locally for personal, academic, or non-commercial evaluation;
+- submit issues or proposed contributions, if the repository accepts them.
+
+Unless you have received prior written permission from the copyright holder, you may not:
+
+- use the software or any substantial portion of it for commercial purposes;
+- use the software or any substantial portion of it in production;
+- use the software to provide, operate, or support a hosted, managed, SaaS, API, agent, routing, automation, model-orchestration, or similar service;
+- copy, publish, distribute, sublicense, sell, lease, rent, commercialize, or otherwise make the software or any derivative work available to third parties;
+- use the software to build or operate a competing product or service;
+- remove or alter copyright, license, or attribution notices;
+- use the project name, repository name, or branding to imply endorsement, sponsorship, or affiliation.
+
+For purposes of this license, "commercial purposes" include, without limitation, use by or for a business, company, paid service, revenue-generating product, paid consulting engagement, commercial research project, production infrastructure, hosted service, or venture-backed project, whether or not direct fees are charged for access to this software.
+
+Commercial, production, hosted-service, redistribution, integration, or derivative use requires a separate written license agreement from the copyright holder.
+
+No patent, trademark, or other rights are granted except as expressly stated in this license.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, RELIABILITY, OR AVAILABILITY. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE SOFTWARE OR ITS USE.

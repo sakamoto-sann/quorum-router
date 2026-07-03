@@ -53,7 +53,15 @@ AgentRuntime threshold.
 
 ## CI and license
 
-- [ ] `LICENSE` exists and declares MIT.
+- [ ] `LICENSE` exists and declares Source-Available Non-Commercial terms.
+- [ ] MIT license was replaced before the first AgentRuntime release.
+- [ ] Current license is Source-Available Non-Commercial.
+- [ ] This is not an open source license.
+- [ ] Personal, academic, non-commercial evaluation and non-production testing
+      are allowed.
+- [ ] Commercial, production, hosted-service/SaaS/API, redistribution,
+      sublicensing, integration, or derivative commercialization requires prior
+      written permission.
 - [ ] GitHub Actions workflow `.github/workflows/ci.yml` runs `deno-checks` and
       `optional-secret-scan` jobs on pull requests and pushes to `main`.
 - [ ] `deno-checks` runs lock, check, lint, test, doctor, and v0.1 smoke.

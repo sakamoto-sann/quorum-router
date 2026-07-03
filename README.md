@@ -62,7 +62,13 @@ v0.1 explicit non-goals:
 
 ## License
 
-MIT
+Fusion Router is source-available for personal, academic, non-commercial
+evaluation, and non-production testing only.
+
+Commercial use, production use, hosted-service/SaaS/API use, redistribution,
+sublicensing, or derivative commercialization requires prior written permission.
+
+This is not an open source license.
 
 ## Current PoC status
 
