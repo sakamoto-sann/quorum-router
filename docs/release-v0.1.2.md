@@ -70,7 +70,8 @@ requires prior written permission.
 
 ## Verification target
 
-Release target commit: `56a4356e108e9d1c8530bdb4e00d4049b2efd9cf`
+Release target commit: the final `main` HEAD selected during the v0.1.2 release
+readback and recorded by the published `v0.1.2` Git tag.
 
 Expected verification:
 

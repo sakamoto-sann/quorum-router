@@ -3,7 +3,8 @@
 ## Target
 
 - [ ] Release version: v0.1.2
-- [ ] Release target commit: 56a4356e108e9d1c8530bdb4e00d4049b2efd9cf
+- [ ] Release target commit matches final `main` HEAD from release readback
+- [ ] Published `v0.1.2` tag points at that exact commit
 - [ ] Existing v0.1.0 left unchanged
 - [ ] Existing v0.1.1 left unchanged
 
