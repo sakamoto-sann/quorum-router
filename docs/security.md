@@ -1,7 +1,7 @@
 # Fusion Router security status
 
-Fusion Router v0.1.1 is **source-available and non-commercial**. It is **not an
-open source license**. Commercial, production, hosted-service, SaaS, API,
+Fusion Router is **source-available and non-commercial**. It is **not an open
+source license**. Commercial, production, hosted-service, SaaS, API,
 redistribution, sublicensing, or derivative-commercialization use requires prior
 written permission.
 
@@ -49,9 +49,9 @@ subject to OS/filesystem behavior and host umask semantics.
 - Run `deno task doctor`, `deno task smoke:v0.1`, and a secret scan before
   publishing release artifacts.
 
-## Non-goals for v0.1.1
+## Non-goals
 
-The current release does not implement:
+The current security posture does not implement:
 
 - app-level rate limiting
 - persistent budget database
