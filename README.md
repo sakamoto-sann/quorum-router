@@ -47,10 +47,13 @@ deno run examples/agent-runtime-fail-closed.ts
 
 Read the release guide and checklist:
 
+- [Security status](docs/security.md)
 - [`docs/release-v0.1.md`](docs/release-v0.1.md)
 - [`docs/release-checklist-v0.1.md`](docs/release-checklist-v0.1.md)
 - [`docs/release-v0.1.1.md`](docs/release-v0.1.1.md)
 - [`docs/release-checklist-v0.1.1.md`](docs/release-checklist-v0.1.1.md)
+- [v0.1.2 release notes](docs/release-v0.1.2.md)
+- [v0.1.2 release checklist](docs/release-checklist-v0.1.2.md)
 
 v0.1.1 explicit non-goals:
 
