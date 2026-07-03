@@ -7,8 +7,8 @@ Security hardening release after the first AgentRuntime release.
 ## Summary
 
 v0.1.2 includes post-v0.1.1 security hardening for diagnostics redaction,
-AgentChat redaction, process-backed structured synthesis temp files, and
-security posture documentation.
+AgentChat redaction, process-backed structured synthesis temp files, security
+posture documentation, and developer-adoption bootstrap paths.
 
 ## What changed since v0.1.1
 
@@ -36,6 +36,10 @@ security posture documentation.
   - README links to security status page
   - explicit source-available non-commercial license posture
   - explicit runtime boundaries and operational caveats
+- Developer-adoption bootstrap paths:
+  - includes npm create package scaffold and install helper scripts
+  - adds README quickstart, install docs, and Product Hunt quickstart notes
+  - keeps npm publication status separate from GitHub release publication
 
 ## Runtime scope
 
@@ -81,11 +85,13 @@ Expected verification:
 - `deno task test`
 - `deno task doctor`
 - `deno task smoke:v0.1`
+- `cd packages/create-fusion-router && npm pack --dry-run`
+- `cd packages/create-fusion-router && npm pkg get name version license bin files`
 - `gitleaks git --log-opts "$(git merge-base origin/main HEAD)..HEAD" --redact --no-banner`
 
 Expected results:
 
-- tests: `205 passed | 0 failed`
+- tests: v0.1 baseline plus npm/install/docs bootstrap tests pass
 - doctor: `ok: true`
 - smoke:v0.1: `ok: true`
 - AgentRuntime smoke:

@@ -16,6 +16,19 @@
 - [ ] `docs/security.md` exists
 - [ ] README links security status page
 
+## Developer adoption paths
+
+- [ ] `packages/create-fusion-router` npm create package scaffold present
+- [ ] generated demo does not require secrets
+- [ ] generated demo documents tagged `v0.1.2` runtime import
+- [ ] `install.sh` dry-run path present
+- [ ] `docs/install.md` includes clone, npx, install, uninstall, security
+      boundaries, and troubleshooting
+- [ ] `docs/product-hunt.md` includes Product Hunt quickstart, license wording,
+      and runtime boundaries
+- [ ] README quickstart includes clone, npx scaffold, and tagged install helper
+      dry-run
+
 ## Runtime boundary
 
 - [ ] direct remains production-ready best-answer path

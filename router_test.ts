@@ -6213,3 +6213,230 @@ echo 'would have run'
     "Budget exhausted",
   );
 });
+
+async function readJsonRecord(path: string): Promise<Record<string, unknown>> {
+  return JSON.parse(await Deno.readTextFile(path)) as Record<string, unknown>;
+}
+
+function stringArray(value: unknown): string[] {
+  assert(Array.isArray(value));
+  return value.map(String);
+}
+
+function assertNoExactTargetSha(text: string) {
+  for (
+    const sha of [
+      "e806b7e6c3df04c57e3181ee6182ec7d1cad9891",
+      "56a4356e108e9d1c8530bdb4e00d4049b2efd9cf",
+      "bb6f82f0003daf97734eb3bdc9a6ed81646c306f",
+    ]
+  ) {
+    assert(!text.includes(sha), `unexpected hardcoded target SHA: ${sha}`);
+  }
+}
+
+Deno.test("create-fusion-router package files and metadata are release-safe", async () => {
+  const requiredFiles = [
+    "packages/create-fusion-router/package.json",
+    "packages/create-fusion-router/bin/create-fusion-router.js",
+    "packages/create-fusion-router/README.md",
+    "packages/create-fusion-router/LICENSE",
+    "packages/create-fusion-router/templates/basic/README.md",
+    "packages/create-fusion-router/templates/basic/deno.json",
+    "packages/create-fusion-router/templates/basic/main.ts",
+  ];
+  for (const file of requiredFiles) {
+    assert((await Deno.stat(file)).isFile, `${file} must exist`);
+  }
+
+  const packageJson = await readJsonRecord(
+    "packages/create-fusion-router/package.json",
+  );
+  assertEquals(packageJson.name, "create-fusion-router");
+  assertEquals(packageJson.version, "0.1.2");
+  assertEquals(packageJson.license, "SEE LICENSE IN LICENSE");
+  const bin = packageJson.bin as Record<string, unknown>;
+  assertEquals(bin["create-fusion-router"], "bin/create-fusion-router.js");
+  const files = stringArray(packageJson.files);
+  for (const entry of ["bin", "templates", "README.md", "LICENSE"]) {
+    assert(files.includes(entry), `files must include ${entry}`);
+  }
+  const scripts = packageJson.scripts as Record<string, unknown> | undefined;
+  assertEquals(scripts?.postinstall, undefined);
+});
+
+Deno.test("create-fusion-router docs state license and runtime boundaries", async () => {
+  const packageReadme = await Deno.readTextFile(
+    "packages/create-fusion-router/README.md",
+  );
+  const normalizedPackageReadme = packageReadme.replace(/\s+/g, " ");
+  assertStringIncludes(
+    normalizedPackageReadme,
+    "Source-Available Non-Commercial",
+  );
+  assertStringIncludes(normalizedPackageReadme, "not open source");
+  assertStringIncludes(
+    normalizedPackageReadme,
+    "requires prior written permission",
+  );
+
+  const templateReadme = await Deno.readTextFile(
+    "packages/create-fusion-router/templates/basic/README.md",
+  );
+  assertStringIncludes(templateReadme, "Non-commercial evaluation only");
+  assertStringIncludes(templateReadme, "No service-role runtime");
+  assertStringIncludes(templateReadme, "No live Supabase runtime writes");
+  assertStringIncludes(templateReadme, "v0.1.2");
+});
+
+Deno.test("create-fusion-router CLI is static safe and functional", async () => {
+  const cli =
+    `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;
+  const cliText = await Deno.readTextFile(cli);
+  assert(cliText.startsWith("#!/usr/bin/env node"));
+  assertStringIncludes(cliText, "--help");
+  assert(!cliText.includes("postinstall"));
+  assert(!cliText.includes("process.env"));
+
+  const nodeProbe = await new Deno.Command("node", {
+    args: ["--version"],
+    stdout: "null",
+    stderr: "null",
+  }).output();
+  if (nodeProbe.code !== 0) {
+    console.warn(
+      "skipping create-fusion-router functional test: node not found",
+    );
+    return;
+  }
+
+  const help = await new Deno.Command("node", {
+    args: [cli, "--help"],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(help.code, 0);
+  assertStringIncludes(new TextDecoder().decode(help.stdout), "Usage:");
+
+  const tempDir = await Deno.makeTempDir();
+  try {
+    const create = await new Deno.Command("node", {
+      args: [cli, "demo", "--template", "basic"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(create.code, 0);
+    for (const file of ["README.md", "deno.json", "main.ts"]) {
+      assert((await Deno.stat(`${tempDir}/demo/${file}`)).isFile);
+    }
+
+    const check = await new Deno.Command("deno", {
+      args: ["task", "check"],
+      cwd: `${tempDir}/demo`,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(check.code, 0, new TextDecoder().decode(check.stderr));
+
+    await Deno.mkdir(`${tempDir}/non-empty`);
+    await Deno.writeTextFile(`${tempDir}/non-empty/file.txt`, "keep");
+    const refused = await new Deno.Command("node", {
+      args: [cli, "non-empty"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(refused.code !== 0);
+    assertStringIncludes(
+      new TextDecoder().decode(refused.stderr),
+      "refusing to overwrite non-empty directory",
+    );
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("generated demo documents tagged release dependency before tag publication", async () => {
+  const readme = await Deno.readTextFile(
+    "packages/create-fusion-router/templates/basic/README.md",
+  );
+  const normalizedReadme = readme.replace(/\s+/g, " ");
+  assertStringIncludes(
+    normalizedReadme,
+    "requires network access to `raw.githubusercontent.com`",
+  );
+  assertStringIncludes(normalizedReadme, "requires the `v0.1.2` tag to exist");
+  assertStringIncludes(
+    normalizedReadme,
+    "retry `deno task smoke` after the release is live",
+  );
+});
+
+Deno.test("install helper is dry-run safe and avoids credential/runtime setup", async () => {
+  const script = await Deno.readTextFile("install.sh");
+  assertStringIncludes(script, "--dry-run");
+  assertStringIncludes(script, "--prefix");
+  assertStringIncludes(script, "--ref");
+  assert(!script.includes("sudo"));
+  assert(!/service-role/i.test(script));
+  assert(!/process adapter/i.test(script));
+  assert(!/API[_-]?KEY|TOKEN|SECRET/.test(script));
+
+  const tempDir = await Deno.makeTempDir();
+  try {
+    const dryRun = await new Deno.Command("sh", {
+      args: ["install.sh", "--dry-run", "--prefix", tempDir, "--ref", "v0.1.2"],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(dryRun.code, 0, new TextDecoder().decode(dryRun.stderr));
+    assertStringIncludes(new TextDecoder().decode(dryRun.stdout), "dry-run");
+    await assertRejects(() => Deno.stat(`${tempDir}/share/fusion-router`));
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("install and Product Hunt docs preserve license and security boundaries", async () => {
+  const installDocs = await Deno.readTextFile("docs/install.md");
+  const productHunt = await Deno.readTextFile("docs/product-hunt.md");
+  for (const doc of [installDocs, productHunt]) {
+    const normalized = doc.replace(/\s+/g, " ");
+    assertStringIncludes(normalized, "Source-Available Non-Commercial");
+    assertStringIncludes(normalized, "not open source");
+    assertStringIncludes(normalized, "No production autonomous runtime");
+    assertStringIncludes(normalized, "No service-role runtime");
+    assertStringIncludes(normalized, "No live Supabase");
+    assert(!/is open source/i.test(normalized));
+  }
+  assertStringIncludes(installDocs, "npx create-fusion-router@latest");
+  assertStringIncludes(installDocs, "--dry-run");
+  assertStringIncludes(installDocs, "Uninstall");
+  assertStringIncludes(productHunt, "Maker comment draft");
+  assertStringIncludes(
+    productHunt.replace(/\s+/g, " "),
+    "direct` = production-ready best-answer",
+  );
+});
+
+Deno.test("README and v0.1.2 docs expose install paths without hardcoded target SHA", async () => {
+  const readme = await Deno.readTextFile("README.md");
+  const normalizedMainReadme = readme.replace(/\s+/g, " ");
+  assertStringIncludes(readme, "npx create-fusion-router@latest");
+  assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
+  assertStringIncludes(readme, "Source-Available Non-Commercial");
+  assertStringIncludes(normalizedMainReadme, "not an open source license");
+
+  const release = await Deno.readTextFile("docs/release-v0.1.2.md");
+  const checklist = await Deno.readTextFile("docs/release-checklist-v0.1.2.md");
+  assertStringIncludes(
+    release,
+    "includes npm create package scaffold and install helper scripts",
+  );
+  assertStringIncludes(
+    checklist,
+    "Published `v0.1.2` tag points at that exact commit",
+  );
+  assertNoExactTargetSha([readme, release, checklist].join("\n"));
+});

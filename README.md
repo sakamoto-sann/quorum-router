@@ -21,6 +21,44 @@ final consensus.
 > `experimentalAgentRuntime: true`; otherwise it fails closed before adapter
 > execution.
 
+## Quick start
+
+### Clone
+
+```bash
+git clone https://github.com/sakamoto-sann/fusion-router.git
+cd fusion-router
+deno task smoke:v0.1
+```
+
+### Scaffold an evaluation demo
+
+```bash
+npx create-fusion-router@latest my-fusion-router-demo
+cd my-fusion-router-demo
+deno task smoke
+```
+
+### Install helper
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --dry-run
+```
+
+Fusion Router is Source-Available Non-Commercial. This is not an open source
+license.
+
+Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
+integration, derivative commercialization, or competing product/service use
+requires prior written permission. Personal evaluation, academic or
+non-commercial research, and non-production testing are the intended evaluation
+allowances; see [License](#license) and [`LICENSE`](LICENSE) for the
+authoritative terms.
+
+See [install docs](docs/install.md) and
+[Product Hunt launch notes](docs/product-hunt.md) for adoption-focused setup
+paths.
+
 ## v0.1 quickstart
 
 Run the deterministic offline smoke:
@@ -67,13 +105,17 @@ v0.1.1 explicit non-goals:
 
 ## License
 
-Fusion Router is source-available for personal, academic, non-commercial
-evaluation, and non-production testing only.
+Fusion Router is Source-Available Non-Commercial. This is not an open source
+license.
 
-Commercial use, production use, hosted-service/SaaS/API use, redistribution,
-sublicensing, or derivative commercialization requires prior written permission.
+Fusion Router is source-available for source review, personal evaluation,
+academic or non-commercial research, and non-production testing only.
 
-This is not an open source license.
+Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
+integration, derivative commercialization, or competing product/service use
+requires prior written permission.
+
+See [`LICENSE`](LICENSE) for the authoritative terms.
 
 ## Current PoC status
 

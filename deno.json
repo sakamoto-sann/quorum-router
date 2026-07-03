@@ -6,9 +6,9 @@
     "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
   },
   "tasks": {
-    "check": "deno check router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts src/**/*.ts",
-    "fmt": "deno fmt router.ts router_test.ts doctor.ts setup.ts examples src README.md docs deno.json",
-    "lint": "deno lint router.ts router_test.ts doctor.ts setup.ts examples src",
+    "check": "deno check router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts src/**/*.ts packages/**/*.ts",
+    "fmt": "deno fmt router.ts router_test.ts doctor.ts setup.ts examples src packages README.md docs deno.json",
+    "lint": "deno lint router.ts router_test.ts doctor.ts setup.ts examples src packages",
     "smoke:v0.1": "deno run --allow-read --allow-env examples/v0_1_smoke.ts",
     "test": "deno test -A router_test.ts",
     "run": "deno run --allow-run --allow-read --allow-write --allow-env --allow-net router.ts",
