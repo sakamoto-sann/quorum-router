@@ -17,7 +17,8 @@ Usage:
 
 Creates a local Fusion Router evaluation demo. The scaffold does not fetch remote
 code, install dependencies, ask for credentials, write secrets, enable process
-adapters, or configure live runtime services.`;
+adapters, or configure live runtime services. The generated real API task is
+explicit opt-in and reads credentials only from the local process environment.`;
 }
 
 function parseArgs(argv) {
@@ -105,9 +106,18 @@ function main() {
   console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);
   console.log("  deno task check");
   console.log("  deno task smoke");
+  console.log(
+    "  # Optional real provider call, after setting a local provider API key:",
+  );
+  console.log(
+    '  deno task real -- "Review this README change for risky launch claims."',
+  );
   console.log("");
   console.log(
     "Note: deno task smoke imports Fusion Router from the published v0.1.2 Git tag and requires network access to raw.githubusercontent.com.",
+  );
+  console.log(
+    "Note: deno task real is explicit opt-in and reads provider credentials only from the local process environment.",
   );
 }
 

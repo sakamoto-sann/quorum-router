@@ -6268,7 +6268,18 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "packages/create-fusion-router/templates/basic/deno.json",
   );
   const imports = templateDenoJson.imports as Record<string, unknown>;
+  assertEquals(templateDenoJson.lock, false);
   assertEquals(imports.zod, "https://deno.land/x/zod@v3.23.8/mod.ts");
+  const templateTasks = templateDenoJson.tasks as Record<string, unknown>;
+  assertStringIncludes(String(templateTasks.smoke), "--fixture");
+  assert(!String(templateTasks.smoke).includes("--allow-env"));
+  assertStringIncludes(String(templateTasks.real), "--real");
+  assertStringIncludes(String(templateTasks.real), "api.openai.com");
+  assertStringIncludes(String(templateTasks.real), "api.anthropic.com");
+  assertStringIncludes(
+    String(templateTasks.real),
+    "FUSION_ROUTER_REAL_PROVIDER",
+  );
 });
 
 Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
@@ -6326,6 +6337,9 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
   assertStringIncludes(templateReadme, "v0.1.2");
+  assertStringIncludes(templateReadme, "Real API mode");
+  assertStringIncludes(templateReadme, "deno task real");
+  assertStringIncludes(templateReadme, "fails closed");
 });
 
 Deno.test("create-fusion-router CLI is static safe and functional", async () => {

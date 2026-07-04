@@ -28,10 +28,12 @@ External launch label: **Fusion Router v0.1 Public RC**. `0.1.3` is an
 engineering patch for NPX scaffold / generated-demo compatibility, not a
 separate product milestone.
 
-The scaffold copies a deterministic demo template only. It does not fetch remote
-code during scaffolding, install dependencies, ask for credentials, write
-secrets, enable process adapters, or configure Supabase service-role/runtime
-access.
+The scaffold copies an evaluation template only. It does not fetch remote code
+during scaffolding, install dependencies, ask for credentials, write secrets,
+enable process adapters, or configure Supabase service-role/runtime access. The
+generated fixture smoke path remains credential-free; the generated real API
+path is explicit opt-in via `deno task real` and reads provider credentials only
+from the local process environment.
 
 The generated `smoke` task imports the public Fusion Router entrypoint from the
 published `v0.1.2` Git tag at runtime. That network access is explicit in the
@@ -39,6 +41,20 @@ generated `deno.json` permission (`--allow-net=raw.githubusercontent.com`).
 v0.1.2 is the GitHub security hardening release used by the generated demo; npm
 package users should use `create-fusion-router@latest` or
 `create-fusion-router@0.1.3`.
+
+## Real API mode
+
+After generating the demo, keep `deno task smoke` for fixture smoke tests and
+use `deno task real` only when you want a real provider call:
+
+```bash
+# provide OPENAI_API_KEY or ANTHROPIC_API_KEY via your local shell/secret manager
+cd my-fusion-router-demo
+deno task real -- "Review this README change for risky launch claims."
+```
+
+Real mode supports OpenAI and Anthropic direct HTTP adapters, does not print
+credential values, and fails closed if no supported credential is present.
 
 ## CLI
 
