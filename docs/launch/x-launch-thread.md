@@ -13,17 +13,12 @@ Links:
 
 Fusion Router v0.1 Public RC is live.
 
-A source-available routing/runtime framework for production-ready `direct`
-best-answer routing and explicit opt-in experimental `agent_chat`.
+A source-available routing/runtime framework for production-ready Best Route /
+`direct` best-answer routing and explicit opt-in experimental `agent_chat`.
 
-```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
-```
-
-GitHub: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
-https://www.npmjs.com/package/create-fusion-router
+GIF 1 shows Best Route mode choosing the best answer path. GIF 2 shows
+experimental Agent Chat mode solving a puzzle through explicit multi-role
+conversation.
 
 Source-Available Non-Commercial; not open source.
 
@@ -31,10 +26,11 @@ Source-Available Non-Commercial; not open source.
 
 Fusion Router v0.1 Public RC:
 
-- `direct` = production-ready best-answer path
+- Best Route / `direct` = production-ready best-answer path
 - Zod-validated adapter + synthesis outputs
 - fail-closed runtime boundaries
 - `agent_chat` = experimental explicit opt-in only
+- Best Route does not imply `agent_chat`
 - no production autonomous runtime
 - no live Supabase runtime writes
 - no service-role runtime
@@ -50,9 +46,7 @@ deno task smoke
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
 https://www.npmjs.com/package/create-fusion-router
 
-License: Source-Available Non-Commercial, not open source.
-
-## Longer thread: 7 tweets
+## Two-GIF thread: 7 tweets
 
 ### 1/7
 
@@ -66,6 +60,30 @@ https://www.npmjs.com/package/create-fusion-router
 
 ### 2/7
 
+GIF 1 shows Best Route mode choosing the best answer path.
+
+The demo compares deterministic direct routes for a small Three Doors puzzle,
+scores consistency/risk, selects `structured_direct`, and returns Door C.
+
+### 3/7
+
+GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
+multi-role conversation.
+
+Commander, Solver, Reviewer, Red Team, and Closeout correct a tempting Door B
+answer and end on Door C.
+
+### 4/7
+
+These GIFs are intentionally separate.
+
+Best Route / `direct` is the production-ready best-answer routing path.
+`agent_chat` is experimental explicit opt-in only.
+
+Best Route does not imply `agent_chat`.
+
+### 5/7
+
 Quickstart:
 
 ```bash
@@ -74,52 +92,25 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-Expected result: the generated Deno demo prints a JSON result containing
-`"ok": true`.
+The generated Deno demo should print a JSON result containing `"ok": true`.
 
-### 3/7
+### 6/7
 
-The stable path is `direct`.
-
-`direct` fans out to model adapters, validates outputs, and synthesizes a best
-answer through a fail-closed contract.
-
-This is the production-ready best-answer routing path in v0.1 Public RC.
-
-### 4/7
-
-`agent_chat` exists, but it is experimental explicit opt-in only.
-
-It is not a production autonomous runtime. It does not turn the project into a
-full multi-agent production system.
-
-### 5/7
-
-Runtime boundaries are explicit:
+Runtime boundaries:
 
 - no production autonomous runtime
 - no live Supabase Agent Bus runtime writes
 - no service-role runtime
 - no hidden runtime expansion from the scaffold
 
-### 6/7
+### 7/7
 
-The npm package is `create-fusion-router@0.1.3`.
+The npm package is `create-fusion-router@0.1.3`; `latest -> 0.1.3`.
 
 `0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
 the v0.1 Public RC line, not a separate product milestone.
 
-`latest -> 0.1.3`.
-
-### 7/7
-
-License boundary:
-
-Fusion Router is Source-Available Non-Commercial. It is not open source.
-
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Source-Available Non-Commercial; not open source.
 
 ## Builder-focused thread: 6 tweets
 
@@ -135,6 +126,31 @@ That is the focus of Fusion Router v0.1 Public RC.
 
 ### 2/6
 
+The stable path is Best Route / `direct`.
+
+It compares answer routes, validates outputs, and synthesizes a final answer
+without pretending the system is autonomous.
+
+GIF 1 shows this path choosing the best answer.
+
+### 3/6
+
+`agent_chat` is included as an experimental explicit opt-in surface.
+
+GIF 2 shows it as a role conversation demo, not as the default route and not a
+claim of production-ready autonomy.
+
+### 4/6
+
+The mode boundary matters:
+
+- Best Route does not imply `agent_chat`
+- no production autonomous runtime
+- no live Supabase runtime writes
+- no service-role runtime
+
+### 5/6
+
 Try the generated demo:
 
 ```bash
@@ -145,29 +161,6 @@ deno task smoke
 
 Then inspect `main.ts` and `deno.json`.
 
-### 3/6
-
-`direct` is the production-ready path.
-
-It is the best-answer route: adapters produce structured outputs, validation
-gates them, and synthesis produces the final response.
-
-No autonomous agent runtime is required for that path.
-
-### 4/6
-
-`agent_chat` is included as an experimental explicit opt-in surface.
-
-That boundary matters: no production autonomous runtime, no live Supabase
-runtime writes, and no service-role runtime are claimed or enabled.
-
-### 5/6
-
-The launch artifact is the v0.1 Public RC line.
-
-The npm package is `create-fusion-router@0.1.3`; `0.1.3` is a
-scaffold/generated-demo compatibility patch, not a separate product milestone.
-
 ### 6/6
 
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
@@ -175,57 +168,3 @@ https://www.npmjs.com/package/create-fusion-router
 
 License: Source-Available Non-Commercial, not open source. Check permissions
 before commercial or production use.
-
-## “Routing first, agents second” thread: 6 tweets
-
-### 1/6
-
-Routing first, agents second.
-
-That is the design stance behind Fusion Router v0.1 Public RC.
-
-Before a system acts autonomously, it should have a clear routing boundary,
-validation, and failure semantics.
-
-### 2/6
-
-In Fusion Router, `direct` is the production-ready best-answer path.
-
-It keeps the core task simple: collect candidate outputs, validate them, and
-synthesize a final answer without pretending the system is autonomous.
-
-### 3/6
-
-`agent_chat` is intentionally not the default.
-
-It is experimental explicit opt-in only. If the caller does not opt in with the
-required runtime config, it fails closed before adapter execution.
-
-### 4/6
-
-That boundary keeps the Public RC honest:
-
-- no production autonomous runtime
-- no live Supabase Agent Bus runtime writes
-- no service-role runtime
-- no full multi-agent production-system claim
-
-### 5/6
-
-Try the smallest public path:
-
-```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
-```
-
-The generated demo should print `"ok": true`.
-
-### 6/6
-
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
-https://www.npmjs.com/package/create-fusion-router
-
-Source-Available Non-Commercial; not open source. Commercial/production/SaaS/API
-use requires prior written permission.

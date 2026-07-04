@@ -3,87 +3,104 @@
 > Screen recording plan only. Do not create a video/GIF unless explicitly
 > requested.
 
-## Terminal size
+## Terminal setup
 
 - Recommended size: 100 columns x 32 rows.
 - Theme: high contrast dark background, readable monospace font.
 - Font size: large enough for mobile preview.
 - Hide unrelated shell prompt decorations if possible.
+- Record the two mode demos as two separate GIF files.
 
-## Commands to type
+## GIF 1 — Best Route Game
 
-Type commands manually or paste one at a time:
+### Commands to type
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
-find . -maxdepth 2 -type f | sort
-cat deno.json
-cat main.ts
-deno task check
-deno task smoke
+cd examples/best-route-game
+deno task demo
 ```
 
-## Pacing
+### Pacing
 
-1. Start with an empty terminal in a temp directory.
-2. Pause briefly before the NPX command so viewers can read it.
-3. Let the scaffold output stay visible for 1–2 seconds.
-4. Run `find` and pause on the three generated files.
-5. Show `deno.json` for 2–3 seconds; do not dwell on every line.
-6. Show `main.ts` with a slow scroll only if needed.
-7. Run `deno task check`; pause on successful check.
-8. Run `deno task smoke`; pause on `"ok": true`.
+1. Pause on `Mode: best_route`.
+2. Pause on the route list.
+3. Pause on the score table.
+4. Pause on `Selected route: structured_direct`.
+5. Final frame should show `Final answer: Door C` and the trace path.
 
-## Where to pause
-
-- On the NPX quickstart command.
-- On the generated file list:
+### Final frame text
 
 ```text
-./README.md
-./deno.json
-./main.ts
+Fusion Router v0.1 Public RC — Best Route mode chooses the best answer path
 ```
 
-- On the `deno task smoke` result containing `"ok": true`.
+### Must not appear
 
-## Final frame
+- Commander
+- Solver
+- Reviewer
+- Red Team
+- Closeout
 
-Final frame should show the smoke JSON with `"ok": true` visible and, if space
-allows, a short terminal comment above or below:
+## GIF 2 — Agent Chat Game
+
+### Commands to type
+
+```bash
+cd examples/agent-chat-game
+deno task demo
+```
+
+### Pacing
+
+1. Pause on `Mode: agent_chat`.
+2. Pause on `Status: experimental explicit opt-in`.
+3. Let the role turns appear in order.
+4. Pause on Reviewer correcting Door B.
+5. Pause on Red Team checking Door C.
+6. Final frame should show Closeout and `Final: Door C`.
+
+### Final frame text
 
 ```text
-Fusion Router v0.1 Public RC — direct best-answer routing demo
+Fusion Router v0.1 Public RC — experimental Agent Chat mode, explicit opt-in
 ```
+
+### Must not appear
+
+- Best Route score table
+- Do not include any claim that this is a production autonomous runtime
 
 ## Caption options
 
-1. “Fusion Router v0.1 Public RC: NPX scaffold to Deno smoke in under a minute.”
-2. “Routing first, agents second. `direct` is the production-ready best-answer
-   path; `agent_chat` is experimental opt-in.”
-3. “A tiny generated demo: README, deno.json, main.ts, and `"ok": true`.”
-4. “Source-Available Non-Commercial. Not open source. Check the license before
-   commercial or production use.”
+1. “GIF 1 shows Best Route mode choosing the best answer path.”
+2. “GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
+   multi-role conversation.”
+3. “Two separate modes, two separate demos: production-ready best-answer routing
+   vs experimental opt-in role conversation.”
+4. “Both demos are deterministic fixtures: no external model/API call and no
+   credentials required.”
 
-## Alt text
+## Alt text bundle
 
-Terminal recording showing
-`npx --yes create-fusion-router@latest my-fusion-router-demo`, a generated
-Fusion Router demo with `README.md`, `deno.json`, and `main.ts`, followed by
-`deno task check` and `deno task smoke` completing successfully with JSON output
-containing `"ok": true`.
+- **Best Route Game:** Terminal demo showing `Mode: best_route`, a Three Doors
+  puzzle, direct route scoring, selected route `structured_direct`, final answer
+  Door C, and displayed trace path
+  `../../out/examples/best-route-game-trace.json`.
+- **Agent Chat Game:** Terminal demo showing `Mode: agent_chat`, status
+  `experimental explicit opt-in`, role turns for Commander, Solver, Reviewer,
+  Red Team, and Closeout, final answer Door C, and displayed trace path
+  `../../out/examples/agent-chat-game-trace.json`.
 
 ## Social preview text
 
-Fusion Router v0.1 Public RC — source-available best-answer routing for LLM
-adapters.
+Fusion Router v0.1 Public RC has two intentionally separate demos:
 
-```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
+```text
+GIF 1: Best Route mode choosing the best answer path.
+GIF 2: experimental Agent Chat mode solving a puzzle through explicit roles.
 ```
 
-`direct` is production-ready. `agent_chat` is experimental explicit opt-in only.
-Source-Available Non-Commercial; not open source.
+Best Route is the production-ready best-answer routing path. `agent_chat` is
+experimental explicit opt-in only. Source-Available Non-Commercial; not open
+source.

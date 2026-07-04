@@ -81,7 +81,24 @@ Launch assets for external posting and demos live under
 [`docs/launch/`](docs/launch/):
 [Product Hunt copy](docs/launch/product-hunt-copy.md),
 [X launch drafts](docs/launch/x-launch-thread.md),
+[two-GIF demo plan](docs/launch/two-gif-demo-plan.md),
+[Best Route GIF plan](docs/launch/best-route-game-gif.md),
+[Agent Chat GIF plan](docs/launch/agent-chat-game-gif.md),
 [demo script](docs/launch/demo-script.md), and [FAQ](docs/launch/faq.md).
+
+Two deterministic local demos are available for launch media recording:
+
+```bash
+cd examples/best-route-game
+deno task demo
+
+cd ../agent-chat-game
+deno task demo
+```
+
+Best Route mode and Agent Chat Game mode are intentionally separate: Best Route
+shows production-ready best-answer routing, while `agent_chat` is experimental
+explicit opt-in only.
 
 ## v0.1 quickstart
 
