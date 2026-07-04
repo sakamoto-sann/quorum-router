@@ -1,0 +1,37 @@
+[
+  {
+    "id": "DOC-001",
+    "category": "Documentation / launch copy",
+    "task": "Check README for overclaiming before public launch.",
+    "recommendedMode": "best_route",
+    "expectedValue": "Find unsafe or unsupported claims while preserving concise wording."
+  },
+  {
+    "id": "CODE-001",
+    "category": "Code / architecture review",
+    "task": "Compare two implementation plans for a small feature.",
+    "recommendedMode": "best_route",
+    "expectedValue": "Choose the lower-risk plan and name conditions for refactor."
+  },
+  {
+    "id": "PR-002",
+    "category": "PR readiness",
+    "task": "Identify merge blockers in an active PR.",
+    "recommendedMode": "best_route",
+    "expectedValue": "Separate must-fix blockers from polish."
+  },
+  {
+    "id": "ROUTE-002",
+    "category": "Routing-specific",
+    "task": "Evaluate when agent_chat adds value for a complex review task.",
+    "recommendedMode": "agent_chat",
+    "expectedValue": "Record whether multi-role review improves the result enough to justify explicit opt-in."
+  },
+  {
+    "id": "SAFE-004",
+    "category": "Safety / claims",
+    "task": "Detect Best Route / Agent Chat mode confusion in launch copy.",
+    "recommendedMode": "best_route",
+    "expectedValue": "Keep Best Route/direct separate from experimental agent_chat."
+  }
+]

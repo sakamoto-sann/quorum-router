@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "new-session": "deno run --allow-read --allow-env=FUSION_ROUTER_DEV_TASK_ID --allow-write=../../out/dogfood main.ts",
+    "list": "deno run --allow-read main.ts --list"
+  }
+}
