@@ -41,6 +41,14 @@ posture documentation, and developer-adoption bootstrap paths.
   - adds README quickstart, install docs, and Product Hunt quickstart notes
   - keeps npm publication status separate from GitHub release publication
 
+## npm scaffold follow-up
+
+v0.1.2 is the GitHub security hardening release. The live npm scaffold package
+is `create-fusion-router@0.1.3`, and the `latest` dist-tag resolves to `0.1.3`.
+`0.1.3` is an engineering patch for NPX scaffold / generated-demo compatibility,
+not a separate product milestone. Public quickstarts should point to
+`create-fusion-router@latest` or the fixed `create-fusion-router@0.1.3` package.
+
 ## Runtime scope
 
 No routing behavior changes.

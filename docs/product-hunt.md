@@ -1,5 +1,7 @@
 # Product Hunt launch notes
 
+External launch label: **Fusion Router v0.1 Public RC**.
+
 ## Tagline options
 
 - Fusion Router: fail-closed best-answer routing for LLM adapters.
@@ -39,10 +41,22 @@ deno task smoke:v0.1
 Scaffold an evaluation demo:
 
 ```bash
-npx create-fusion-router@latest my-fusion-router-demo
+npx --yes create-fusion-router@latest my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
+
+Fixed package version:
+
+```bash
+npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+cd my-fusion-router-demo
+deno task smoke
+```
+
+`create-fusion-router@latest` is live on npm and resolves to `0.1.3`. `0.1.3` is
+an engineering patch for NPX scaffold / generated-demo compatibility, not a
+separate product milestone.
 
 Inspect the install helper:
 
@@ -52,10 +66,10 @@ curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/
 
 ## Maker comment draft
 
-Fusion Router is a Deno-based fusion router PoC focused on readable safety
-boundaries: default `direct` routing, Zod-validated outputs, fail-closed errors,
-explicit non-goals, and no hidden production autonomous runtime. v0.1.2 is a
-security hardening release with redaction/temp-file improvements plus easier
-evaluation paths through `npx create-fusion-router` and a tagged install helper.
-It is Source-Available Non-Commercial, not open source; commercial or production
-use requires prior written permission.
+Fusion Router v0.1 Public RC is a Deno-based fusion router PoC focused on
+readable safety boundaries: default `direct` routing, Zod-validated outputs,
+fail-closed errors, explicit non-goals, and no hidden production autonomous
+runtime. v0.1.2 is the GitHub security hardening release; the live npm scaffold
+is `create-fusion-router@0.1.3`, an engineering patch for NPX scaffold /
+generated-demo compatibility. It is Source-Available Non-Commercial, not open
+source; commercial or production use requires prior written permission.

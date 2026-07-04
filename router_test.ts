@@ -6433,7 +6433,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
   }
 });
 
-Deno.test("generated demo documents tagged release dependency before tag publication", async () => {
+Deno.test("generated demo documents tagged release dependency and live npm scaffold", async () => {
   const readme = await Deno.readTextFile(
     "packages/create-fusion-router/templates/basic/README.md",
   );
@@ -6445,7 +6445,11 @@ Deno.test("generated demo documents tagged release dependency before tag publica
   assertStringIncludes(normalizedReadme, "requires the `v0.1.2` tag to exist");
   assertStringIncludes(
     normalizedReadme,
-    "retry `deno task smoke` after the release is live",
+    "npm scaffold package is live as `create-fusion-router@0.1.3`",
+  );
+  assertStringIncludes(
+    normalizedReadme,
+    "engineering patch for NPX scaffold / generated-demo compatibility",
   );
 });
 
@@ -6486,7 +6490,7 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
     assertStringIncludes(normalized, "No live Supabase");
     assert(!/is open source/i.test(normalized));
   }
-  assertStringIncludes(installDocs, "npx create-fusion-router@latest");
+  assertStringIncludes(installDocs, "npx --yes create-fusion-router@latest");
   assertStringIncludes(installDocs, "--dry-run");
   assertStringIncludes(installDocs, "Uninstall");
   assertStringIncludes(productHunt, "Maker comment draft");
@@ -6499,7 +6503,7 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
 Deno.test("README and v0.1.2 docs expose install paths without hardcoded target SHA", async () => {
   const readme = await Deno.readTextFile("README.md");
   const normalizedMainReadme = readme.replace(/\s+/g, " ");
-  assertStringIncludes(readme, "npx create-fusion-router@latest");
+  assertStringIncludes(readme, "npx --yes create-fusion-router@latest");
   assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
   assertStringIncludes(readme, "Source-Available Non-Commercial");
   assertStringIncludes(normalizedMainReadme, "not an open source license");

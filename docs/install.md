@@ -27,20 +27,30 @@ deno task smoke:v0.1
 ## Scaffold an evaluation demo with npx
 
 ```bash
-npx create-fusion-router@latest my-fusion-router-demo
+npx --yes create-fusion-router@latest my-fusion-router-demo
 cd my-fusion-router-demo
-deno task check
+deno task smoke
+```
+
+`create-fusion-router@latest` is live on npm and currently resolves to `0.1.3`.
+For a fixed package version:
+
+```bash
+npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+cd my-fusion-router-demo
 deno task smoke
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. The generated smoke task imports Fusion Router from
-the published `v0.1.2` Git tag at runtime, so it requires network access to
-`raw.githubusercontent.com` and the release tag must exist.
+dependencies automatically. `0.1.3` is an engineering patch for the NPX scaffold
+and generated-demo compatibility, not a separate product milestone. The
+generated smoke task imports Fusion Router from the published `v0.1.2` Git tag
+at runtime, so it requires network access to `raw.githubusercontent.com` and the
+release tag must exist.
 
 ## Install helper dry run
 
-After v0.1.2 is published, inspect the install plan first:
+For the tagged v0.1.2 install helper, inspect the install plan first:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --dry-run
@@ -63,8 +73,8 @@ fusion-router smoke
 fusion-router test
 ```
 
-If the `v0.1.2` tag does not exist yet, the helper fails clearly. For
-pre-release evaluation only, pass an explicit ref:
+The helper fails clearly if the requested ref is unavailable. For local
+source-tree evaluation only, pass an explicit ref:
 
 ```bash
 sh install.sh --dry-run --ref main
@@ -85,9 +95,9 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.2`: the release tag is not published yet,
-  or the ref is misspelled.
+- Clone or checkout errors for `v0.1.2`: verify network access and the ref
+  spelling.
 - `fusion-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Network failures during `deno task smoke` in the scaffold usually mean
-  `raw.githubusercontent.com` is unreachable or the `v0.1.2` tag has not been
-  published yet.
+  `raw.githubusercontent.com` is unreachable or the tagged runtime import cannot
+  be fetched.

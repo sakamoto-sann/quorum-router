@@ -34,7 +34,20 @@ deno task smoke:v0.1
 ### Scaffold an evaluation demo
 
 ```bash
-npx create-fusion-router@latest my-fusion-router-demo
+npx --yes create-fusion-router@latest my-fusion-router-demo
+cd my-fusion-router-demo
+deno task smoke
+```
+
+`create-fusion-router@latest` is live on npm and currently resolves to `0.1.3`.
+The external launch label is **Fusion Router v0.1 Public RC**; `0.1.3` is an
+engineering patch for the NPX scaffold and generated-demo compatibility, not a
+separate product milestone.
+
+For a fixed package version:
+
+```bash
+npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
@@ -92,6 +105,7 @@ Read the release guide and checklist:
 - [`docs/release-checklist-v0.1.1.md`](docs/release-checklist-v0.1.1.md)
 - [v0.1.2 release notes](docs/release-v0.1.2.md)
 - [v0.1.2 release checklist](docs/release-checklist-v0.1.2.md)
+- [Versioning and Public RC policy](docs/versioning.md)
 
 v0.1.1 explicit non-goals:
 
