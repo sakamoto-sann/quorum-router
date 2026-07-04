@@ -3,6 +3,8 @@
 > GIF 1. This is the production-ready best-answer routing path demo. Do not
 > describe it as Agent Chat or autonomous runtime.
 
+![Best Route mode demo](../assets/launch/fusion-router-best-route-game.gif)
+
 ## Terminal recording commands
 
 Recommended terminal: 100 columns x 32 rows, high-contrast dark theme, large

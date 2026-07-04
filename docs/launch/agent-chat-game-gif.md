@@ -3,6 +3,8 @@
 > GIF 2. This is the experimental explicit opt-in `agent_chat` conversation
 > demo. Do not describe it as Best Route mode or production autonomous runtime.
 
+![Agent Chat mode demo](../assets/launch/fusion-router-agent-chat-game.gif)
+
 ## Terminal recording commands
 
 Recommended terminal: 100 columns x 32 rows, high-contrast dark theme, large

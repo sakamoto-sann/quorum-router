@@ -14,9 +14,11 @@ This plan separates them into two standalone terminal GIFs:
 | GIF   | Mode         | What it proves                                                                       | What it must not imply                                        |
 | ----- | ------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | GIF 1 | `best_route` | Production-ready direct/best-answer route comparison selects the best answer path.   | No role conversation, no `agent_chat`, no autonomous runtime. |
-| GIF 2 | `agent_chat` | Experimental explicit opt-in multi-role conversation can solve a small game fixture. | Not Best Route mode, not production autonomous runtime.       |
+| GIF 2 | `agent_chat` | Experimental explicit opt-in multi-role conversation can solve a small game fixture. | Not Best Route mode; no production autonomous runtime.        |
 
 ## GIF 1 — Best Route mode
+
+![Best Route mode demo](../assets/launch/fusion-router-best-route-game.gif)
 
 **Command:**
 
@@ -37,6 +39,8 @@ returns `Door C`.
 Closeout. It is a route-comparison / best-answer path selection demo only.
 
 ## GIF 2 — Agent Chat Game mode
+
+![Agent Chat mode demo](../assets/launch/fusion-router-agent-chat-game.gif)
 
 **Command:**
 
