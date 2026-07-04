@@ -1,6 +1,6 @@
 {
   "name": "create-fusion-router",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Create a local Fusion Router evaluation demo.",
   "license": "SEE LICENSE IN LICENSE",
   "bin": {

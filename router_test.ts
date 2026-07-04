@@ -6253,7 +6253,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "packages/create-fusion-router/package.json",
   );
   assertEquals(packageJson.name, "create-fusion-router");
-  assertEquals(packageJson.version, "0.1.2");
+  assertEquals(packageJson.version, "0.1.3");
   assertEquals(packageJson.license, "SEE LICENSE IN LICENSE");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-fusion-router"], "bin/create-fusion-router.js");
@@ -6263,6 +6263,45 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   }
   const scripts = packageJson.scripts as Record<string, unknown> | undefined;
   assertEquals(scripts?.postinstall, undefined);
+
+  const templateDenoJson = await readJsonRecord(
+    "packages/create-fusion-router/templates/basic/deno.json",
+  );
+  const imports = templateDenoJson.imports as Record<string, unknown>;
+  assertEquals(imports.zod, "https://deno.land/x/zod@v3.23.8/mod.ts");
+});
+
+Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
+  const npmProbe = await new Deno.Command("npm", {
+    args: ["--version"],
+    stdout: "null",
+    stderr: "null",
+  }).output();
+  if (npmProbe.code !== 0) {
+    console.warn("skipping create-fusion-router tarball test: npm not found");
+    return;
+  }
+
+  const pack = await new Deno.Command("npm", {
+    args: ["pack", "--dry-run", "--json"],
+    cwd: "packages/create-fusion-router",
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(pack.code, 0, new TextDecoder().decode(pack.stderr));
+  const tarballs = JSON.parse(new TextDecoder().decode(pack.stdout)) as Array<{
+    files: Array<{ path: string }>;
+  }>;
+  const actual = tarballs[0].files.map((file) => file.path).sort();
+  assertEquals(actual, [
+    "LICENSE",
+    "README.md",
+    "bin/create-fusion-router.js",
+    "package.json",
+    "templates/basic/README.md",
+    "templates/basic/deno.json",
+    "templates/basic/main.ts",
+  ]);
 });
 
 Deno.test("create-fusion-router docs state license and runtime boundaries", async () => {
@@ -6297,6 +6336,9 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
   assertStringIncludes(cliText, "--help");
   assert(!cliText.includes("postinstall"));
   assert(!cliText.includes("process.env"));
+  assert(!cliText.includes("fetch("));
+  assert(!cliText.includes("https://"));
+  assert(!cliText.includes("http://"));
 
   const nodeProbe = await new Deno.Command("node", {
     args: ["--version"],
@@ -6318,6 +6360,14 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
   assertEquals(help.code, 0);
   assertStringIncludes(new TextDecoder().decode(help.stdout), "Usage:");
 
+  const version = await new Deno.Command("node", {
+    args: [cli, "--version"],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(version.code, 0);
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.3");
+
   const tempDir = await Deno.makeTempDir();
   try {
     const create = await new Deno.Command("node", {
@@ -6330,6 +6380,17 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     for (const file of ["README.md", "deno.json", "main.ts"]) {
       assert((await Deno.stat(`${tempDir}/demo/${file}`)).isFile);
     }
+    const generatedDenoJson = JSON.parse(
+      await Deno.readTextFile(`${tempDir}/demo/deno.json`),
+    ) as Record<string, unknown>;
+    const generatedImports = generatedDenoJson.imports as Record<
+      string,
+      unknown
+    >;
+    assertEquals(
+      generatedImports.zod,
+      "https://deno.land/x/zod@v3.23.8/mod.ts",
+    );
 
     const check = await new Deno.Command("deno", {
       args: ["task", "check"],
@@ -6338,6 +6399,21 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
       stderr: "piped",
     }).output();
     assertEquals(check.code, 0, new TextDecoder().decode(check.stderr));
+
+    if (Deno.env.get("RUN_CREATE_FUSION_ROUTER_SMOKE") === "1") {
+      const smoke = await new Deno.Command("deno", {
+        args: ["task", "smoke"],
+        cwd: `${tempDir}/demo`,
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assertEquals(
+        smoke.code,
+        0,
+        new TextDecoder().decode(smoke.stdout) +
+          new TextDecoder().decode(smoke.stderr),
+      );
+    }
 
     await Deno.mkdir(`${tempDir}/non-empty`);
     await Deno.writeTextFile(`${tempDir}/non-empty/file.txt`, "keep");

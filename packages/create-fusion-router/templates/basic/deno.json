@@ -1,4 +1,7 @@
 {
+  "imports": {
+    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
+  },
   "tasks": {
     "check": "deno check main.ts",
     "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts"
