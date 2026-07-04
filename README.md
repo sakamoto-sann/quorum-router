@@ -62,6 +62,8 @@ deno task smoke:v0.1
 - npm: https://www.npmjs.com/package/create-fusion-router
 - release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
 - launch assets: [docs/launch/](docs/launch/)
+- internal dogfood QA:
+  [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)
 - examples: [examples/](examples/)
 - security notes: [docs/security.md](docs/security.md)
 
