@@ -37,21 +37,21 @@ cd "$FUSION_ROUTER_REPO/examples/best-route-game"
 deno task demo
 ```
 
-| Case ID | Case                       | Must verify                                                                                                | Failure severity |
-| ------- | -------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------- |
-| B1      | Mode banner                | Output clearly says `Mode: best_route`.                                                                    | P1               |
-| B2      | Route comparison           | Output shows route comparison / score table.                                                               | P1               |
-| B3      | Selected route             | Output shows the selected route as `structured_direct` (same line or immediately below `Selected route:`). | P1               |
-| B4      | Final answer               | Output shows `Final answer: Door C`.                                                                       | P1               |
-| B5      | No Agent Chat roles        | Output does not show `Commander:`, `Solver:`, `Reviewer:`, `Red Team:`, or `Closeout:`.                    | P1               |
-| B6      | No Agent Chat implication  | Output does not imply Best Route invokes Agent Chat.                                                       | P1               |
-| B7      | Trace file exists          | Trace JSON exists after the run. Record path.                                                              | P1               |
-| B8      | Trace JSON valid           | Trace JSON parses as valid JSON.                                                                           | P1               |
-| B9      | Offline/no credentials     | Demo requires no network/API call and no credentials.                                                      | P1               |
-| B10     | Puzzle variation           | Change puzzle input if supported; otherwise mark not supported.                                            | P2               |
-| B11     | Scoring weight variation   | Change scoring weights if supported; otherwise mark not supported.                                         | P2               |
-| B12     | Repeated run determinism   | Run repeatedly and compare meaningful output.                                                              | P2               |
-| B13     | Bad/unknown route handling | Try bad/unknown route handling if supported; otherwise mark not supported.                                 | P2               |
+| Case ID | Case                      | Must verify                                                                            | Failure severity |
+| ------- | ------------------------- | -------------------------------------------------------------------------------------- | ---------------- |
+| B1      | Mode banner               | Output clearly says `Mode: best_route`.                                                | P1               |
+| B2      | Route comparison          | Output shows route comparison / score table.                                           | P1               |
+| B3      | Fixture agent labels      | Output shows `Fixture agents: Grok vs GLM` and does not imply live Grok/GLM API calls. | P1               |
+| B4      | Selected route            | Output shows the selected route as `balanced_development` below `Selected route:`.     | P1               |
+| B5      | Next move                 | Output shows `Next move:` followed by `Grok ▲S-68`.                                    | P1               |
+| B6      | Fadeout excerpt           | Output shows `Fadeout preview:` and does not pretend to show a full match.             | P1               |
+| B7      | No Agent Chat roles       | Output does not show `Mode: agent_chat` or role-conversation framing.                  | P1               |
+| B8      | No Agent Chat implication | Output does not imply Best Route invokes Agent Chat.                                   | P1               |
+| B9      | Trace file exists         | Trace JSON exists after the run. Record path.                                          | P1               |
+| B10     | Trace JSON valid          | Trace JSON parses as valid JSON.                                                       | P1               |
+| B11     | Offline/no credentials    | Demo requires no network/API call and no credentials.                                  | P1               |
+| B12     | Shogi variation           | Change shogi excerpt input if supported; otherwise mark not supported.                 | P2               |
+| B13     | Repeated run determinism  | Run repeatedly and compare meaningful output.                                          | P2               |
 
 ## C. Agent Chat Game mode tests
 
@@ -63,26 +63,23 @@ cd "$FUSION_ROUTER_REPO/examples/agent-chat-game"
 deno task demo
 ```
 
-| Case ID | Case                                 | Must verify                                                                | Failure severity |
-| ------- | ------------------------------------ | -------------------------------------------------------------------------- | ---------------- |
-| C1      | Mode banner                          | Output clearly says `Mode: agent_chat`.                                    | P1               |
-| C2      | Experimental wording                 | Output says experimental explicit opt-in.                                  | P1               |
-| C3      | Commander role                       | Output shows `Commander:`.                                                 | P1               |
-| C4      | Solver role                          | Output shows `Solver:`.                                                    | P1               |
-| C5      | Reviewer role                        | Output shows `Reviewer:`.                                                  | P1               |
-| C6      | Red Team role                        | Output shows `Red Team:`.                                                  | P1               |
-| C7      | Closeout role                        | Output shows `Closeout:`.                                                  | P1               |
-| C8      | Final answer                         | Output shows `Final answer: Door C`.                                       | P1               |
-| C9      | No Best Route table                  | Output does not show the Best Route score table.                           | P1               |
-| C10     | No production-ready implication      | Output does not imply Agent Chat is production-ready.                      | P1               |
-| C11     | Trace file exists                    | Trace JSON exists after the run. Record path.                              | P1               |
-| C12     | Trace JSON valid                     | Trace JSON parses as valid JSON.                                           | P1               |
-| C13     | Offline/no credentials               | Demo requires no network/API call and no credentials.                      | P1               |
-| C14     | Repeated run determinism             | Run repeatedly and compare meaningful output.                              | P2               |
-| C15     | Confusing puzzle variation           | Intentionally confusing puzzle if supported; otherwise mark not supported. | P2               |
-| C16     | Role output clarity                  | Each role's contribution is understandable.                                | P2               |
-| C17     | Reviewer/red-team correction clarity | Reviewer and Red Team corrections are clear and bounded.                   | P2               |
-| C18     | Final closeout clarity               | Closeout explains the final choice clearly.                                | P2               |
+| Case ID | Case                            | Must verify                                                                            | Failure severity |
+| ------- | ------------------------------- | -------------------------------------------------------------------------------------- | ---------------- |
+| C1      | Mode banner                     | Output clearly says `Mode: agent_chat`.                                                | P1               |
+| C2      | Experimental wording            | Output says experimental explicit opt-in.                                              | P1               |
+| C3      | Fixture agent labels            | Output shows `Fixture agents: Grok vs GLM` and does not imply live Grok/GLM API calls. | P1               |
+| C4      | Partial match                   | Output shows `Partial match:` with alternating Grok and GLM turns.                     | P1               |
+| C5      | Grok turn                       | Output shows `1. Grok:`.                                                               | P1               |
+| C6      | GLM turn                        | Output shows `1... GLM:`.                                                              | P1               |
+| C7      | Fadeout excerpt                 | Output shows `Fadeout:` and does not pretend to show a full match.                     | P1               |
+| C8      | No Best Route table             | Output does not show the Best Route score table.                                       | P1               |
+| C9      | No production-ready implication | Output does not imply Agent Chat is production-ready.                                  | P1               |
+| C10     | Trace file exists               | Trace JSON exists after the run. Record path.                                          | P1               |
+| C11     | Trace JSON valid                | Trace JSON parses as valid JSON.                                                       | P1               |
+| C12     | Offline/no credentials          | Demo requires no network/API call and no credentials.                                  | P1               |
+| C13     | Repeated run determinism        | Run repeatedly and compare meaningful output.                                          | P2               |
+| C14     | Shogi variation                 | Intentionally different shogi excerpt if supported; otherwise mark not supported.      | P2               |
+| C15     | Turn output clarity             | Each Grok/GLM turn is understandable.                                                  | P2               |
 
 ## D. README / GitHub surface tests
 

@@ -1,10 +1,13 @@
-# Best Route Game demo
+# Best Route Shogi demo
 
 This demo is **GIF 1** for Fusion Router v0.1 Public RC.
 
 It shows **Best Route mode** as a production-ready best-answer routing path:
-Fusion Router compares deterministic direct answer routes for a small game,
-scores the candidates, selects the best route, and prints the final answer.
+Fusion Router compares deterministic candidate lines for a small shogi opening
+excerpt, selects a next move, and fades out before the full match.
+
+The fixture agents are named `Grok` and `GLM`, but no external Grok/GLM
+model/API call is made.
 
 It is intentionally **not** a conversation demo.
 
@@ -18,10 +21,12 @@ deno task demo
 ## What it proves
 
 - `Mode: best_route` is visually explicit.
-- Multiple direct answer routes are compared for the same puzzle.
-- `structured_direct` wins because it has the highest clue-consistency score
-  with low risk.
-- The final answer is `Door C`.
+- Fixture agents are shown as `Grok vs GLM`.
+- Multiple direct candidate lines are compared for the same shogi excerpt.
+- `balanced_development` wins because it has the best clarity/safety/tempo
+  score.
+- The next move is `Grok ▲S-68`.
+- The clip fades out before showing the full match.
 - No external model/API call is made.
 - No credentials or secrets are required.
 
@@ -29,6 +34,7 @@ deno task demo
 
 - No multi-role conversation.
 - No `agent_chat` runtime.
+- No live Grok/GLM API call.
 - No production autonomous runtime claim.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
@@ -40,6 +46,6 @@ Running the demo writes deterministic trace artifacts:
 - `out/examples/best-route-game-trace.json`
 - `out/examples/best-route-game-summary.md`
 
-The trace JSON records `mode: "best_route"`, the game fixture, route candidates,
-scores, selected route, final answer, reason, and the
-deterministic/no-external-call boundary.
+The trace JSON records `mode: "best_route"`, the shogi fixture, route
+candidates, scores, selected route, selected move, fadeout note, and the
+deterministic/no external-call boundary.

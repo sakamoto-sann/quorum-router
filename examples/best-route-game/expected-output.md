@@ -1,45 +1,56 @@
-# Expected output — Best Route Game
+# Expected output — Best Route Shogi Excerpt
 
 ```text
 Fusion Router v0.1 Public RC
 Mode: best_route
-Demo: Best Route Game
+Demo: Mini Shogi Opening Excerpt
+Fixture agents: Grok vs GLM
 
-Game:
-  Three doors: A, B, C.
-  One has treasure.
-  The clues are partially ambiguous.
+Board:
+      5  4  3  2  1
+  a   .  .  k  .  .
+  b   .  b  .  r  .
+  c   p  p  p  p  p
+  d   P  P  P  P  P
+  e   .  R  .  B  K
+
+Opening excerpt:
+  1. Grok ▲P-76   opens the bishop diagonal
+  1... GLM △P-34  mirrors the center fight
+  2. Grok ▲P-26   prepares rook pressure
+  2... GLM △P-84  challenges the file
 
 Routes evaluated:
-  fast_direct
-  structured_direct
-  guarded_direct
-
-Score table:
-  route               answer    confidence    consistency    risk    final_score
-  fast_direct         Door B    0.62          0.40           low     0.62
-  structured_direct   Door C    0.78          0.92           low     0.88
-  guarded_direct      Door C    0.73          0.88           low     0.81
+  route                 agent   move      clarity   safety    tempo    final_score
+  grok_attack           Grok    ▲P-25     0.78      0.62      0.86     0.75
+  glm_counter_watch     GLM     △P-85     0.70      0.76      0.72     0.73
+  balanced_development  Grok    ▲S-68     0.86      0.90      0.80     0.87
 
 Selected route:
-  structured_direct
+  balanced_development
 
-Final answer:
-  Door C
+Next move:
+  Grok ▲S-68
 
 Why:
-  Highest clue-consistency score with low risk.
+  Balanced development keeps Grok's attack alive while respecting GLM's counterplay.
+
+Fadeout preview:
+  Match continues after this opening excerpt...
 
 Trace:
   ../../out/examples/best-route-game-trace.json
 
-No external model/API call was made. This is a deterministic demo fixture.
+No external Grok/GLM model/API call was made. This is a deterministic demo fixture.
 Summary: ../../out/examples/best-route-game-summary.md
 ```
 
 Validation notes:
 
 - Output contains `Mode: best_route`.
-- Output contains `Selected route:`.
-- Output contains `Final answer:` followed by `Door C`.
-- Output does **not** contain role-conversation labels.
+- Output contains `Fixture agents: Grok vs GLM`.
+- Output contains a mini shogi board and an opening excerpt.
+- Output contains `Selected route:` followed by `balanced_development`.
+- Output contains `Next move:` followed by `Grok ▲S-68`.
+- Output contains `Fadeout preview:`.
+- Output does **not** contain `Mode: agent_chat`.

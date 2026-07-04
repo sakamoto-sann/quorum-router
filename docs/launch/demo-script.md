@@ -2,19 +2,21 @@
 
 > Script for recorded or live terminal demos. Do not claim open source
 > licensing. Do not claim production autonomous runtime. Do not claim live
-> Supabase Agent Bus runtime writes. Do not claim service-role runtime.
+> Supabase Agent Bus runtime writes. Do not claim service-role runtime. `Grok`
+> and `GLM` are deterministic fixture labels here, not live external model
+> calls.
 
 ## Two separate GIFs
 
 Use two separate recordings so external viewers do not confuse Best Route mode
 with experimental Agent Chat mode.
 
-| GIF   | Command                                         | Message                                                                                |
-| ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
-| GIF 1 | `cd examples/best-route-game && deno task demo` | Best Route mode chooses the best answer path.                                          |
-| GIF 2 | `cd examples/agent-chat-game && deno task demo` | Experimental Agent Chat mode solves a puzzle through explicit multi-role conversation. |
+| GIF   | Command                                         | Message                                                                               |
+| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| GIF 1 | `cd examples/best-route-game && deno task demo` | Best Route mode chooses a next move in a Grok vs GLM shogi excerpt.                   |
+| GIF 2 | `cd examples/agent-chat-game && deno task demo` | Experimental Agent Chat mode shows a short Grok vs GLM shogi excerpt, then fades out. |
 
-## GIF 1 script — Best Route Game
+## GIF 1 script — Best Route shogi excerpt
 
 ```bash
 cd examples/best-route-game
@@ -25,15 +27,16 @@ Narration:
 
 - “This is Fusion Router v0.1 Public RC.”
 - “Mode is `best_route`.”
-- “The demo compares direct answer routes for the same Three Doors puzzle.”
-- “The production-ready best-answer path selects `structured_direct`.”
-- “Final answer is Door C.”
-- “No external model/API call was made; this is a deterministic fixture.”
+- “The fixture agents are Grok and GLM; no external model/API call is made.”
+- “The demo shows a simple shogi opening excerpt.”
+- “Best Route compares candidate next-move lines.”
+- “The production-ready best-answer path selects `balanced_development`.”
+- “The next move is `Grok ▲S-68`.”
+- “The clip fades out here rather than showing the full match.”
 
-Do **not** mention Commander, Solver, Reviewer, Red Team, or Closeout in this
-GIF.
+Do **not** mention `agent_chat` or role-conversation framing in this GIF.
 
-## GIF 2 script — Agent Chat Game
+## GIF 2 script — Agent Chat shogi excerpt
 
 ```bash
 cd examples/agent-chat-game
@@ -44,10 +47,9 @@ Narration:
 
 - “This is the separate `agent_chat` demo.”
 - “Status is experimental explicit opt-in.”
-- “Commander, Solver, Reviewer, Red Team, and Closeout solve the puzzle through
-  role turns.”
-- “Reviewer and Red Team correct the tempting Door B answer.”
-- “Final answer is Door C.”
+- “The fixture agents are Grok and GLM; no external model/API call is made.”
+- “Grok and GLM alternate a few shogi opening moves.”
+- “The match continues, but the demo fades out before the full game.”
 - “No external model/API call was made; this is a deterministic fixture.”
 
 Do **not** describe this GIF as Best Route mode.
@@ -63,27 +65,28 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-Use it only for “install to smoke” messaging. Use the two new GIFs for mode
+Use it only for “install to smoke” messaging. Use the two GIFs for mode
 positioning.
 
 ## What to say in launch copy
 
-- “GIF 1 shows Best Route mode choosing the best answer path.”
-- “GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-  multi-role conversation.”
+- “GIF 1 shows Best Route mode choosing a shogi next move.”
+- “GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
+  excerpt.”
 - “The two demos are intentionally separate.”
 - “Best Route is the production-ready best-answer routing path.”
 - “`agent_chat` is experimental explicit opt-in only.”
+- “Grok and GLM are deterministic fixture labels in the recording, not live API
+  calls.”
 - “Fusion Router is Source-Available Non-Commercial, not open source.”
 
 ## What not to claim
 
-- Do not claim Fusion Router is open source.
-- Do not claim this is a production autonomous runtime.
-- Do not claim `agent_chat` is production-ready.
-- Do not imply Best Route always invokes `agent_chat`.
-- Do not claim live Supabase Agent Bus runtime writes exist.
-- Do not claim service-role runtime exists.
-- Do not claim this is a full multi-agent production system.
-- Do not imply external model/API calls, secrets, or credentials are required
-  for these demos.
+- “Fusion Router is open source.”
+- “Fusion Router is MIT” unless a future release actually changes the license.
+- “Grok/GLM were called live in the demo.”
+- “Agent Chat is production-ready.”
+- “Best Route always uses Agent Chat.”
+- “Production autonomous runtime.”
+- “Live Supabase Agent Bus runtime writes.”
+- “Service-role runtime.”

@@ -1,7 +1,7 @@
 # Demo GIF shot list — Fusion Router v0.1 Public RC
 
-> Screen recording plan only. Do not create a video/GIF unless explicitly
-> requested.
+> Screen recording plan only. Do not post media without explicit launch
+> approval.
 
 ## Terminal setup
 
@@ -10,8 +10,10 @@
 - Font size: large enough for mobile preview.
 - Hide unrelated shell prompt decorations if possible.
 - Record the two mode demos as two separate GIF files.
+- The fixture agents are named `Grok` and `GLM`, but they are deterministic
+  labels only; no external Grok/GLM model/API calls are made.
 
-## GIF 1 — Best Route Game
+## GIF 1 — Best Route shogi excerpt
 
 ### Commands to type
 
@@ -23,26 +25,27 @@ deno task demo
 ### Pacing
 
 1. Pause on `Mode: best_route`.
-2. Pause on the route list.
-3. Pause on the score table.
-4. Pause on `Selected route: structured_direct`.
-5. Final frame should show `Final answer: Door C` and the trace path.
+2. Pause on `Fixture agents: Grok vs GLM` and the mini shogi board.
+3. Pause on the opening excerpt.
+4. Pause on the route score table.
+5. Pause on `Selected route: balanced_development`.
+6. Final frame should show `Next move: Grok ▲S-68`, `Fadeout preview`, and the
+   trace path.
 
 ### Final frame text
 
 ```text
-Fusion Router v0.1 Public RC — Best Route mode chooses the best answer path
+Fusion Router v0.1 Public RC — Best Route chooses a Grok vs GLM shogi line
 ```
 
 ### Must not appear
 
-- Commander
-- Solver
-- Reviewer
-- Red Team
-- Closeout
+- `Mode: agent_chat`
+- role-conversation framing
+- Any claim that real Grok or GLM model/API calls are made
+- Any claim that this is a production autonomous runtime
 
-## GIF 2 — Agent Chat Game
+## GIF 2 — Agent Chat shogi excerpt
 
 ### Commands to type
 
@@ -55,41 +58,45 @@ deno task demo
 
 1. Pause on `Mode: agent_chat`.
 2. Pause on `Status: experimental explicit opt-in`.
-3. Let the role turns appear in order.
-4. Pause on Reviewer correcting Door B.
-5. Pause on Red Team checking Door C.
-6. Final frame should show Closeout and `Final: Door C`.
+3. Pause on `Fixture agents: Grok vs GLM` and the mini shogi board.
+4. Let Grok and GLM alternate the short opening excerpt.
+5. Pause on `3... GLM` starting the counterattack.
+6. Final frame should show
+   `Fadeout: Match continues after this opening excerpt`.
 
 ### Final frame text
 
 ```text
-Fusion Router v0.1 Public RC — experimental Agent Chat mode, explicit opt-in
+Fusion Router v0.1 Public RC — experimental Agent Chat shogi excerpt, explicit opt-in
 ```
 
 ### Must not appear
 
 - Best Route score table
-- Do not include any claim that this is a production autonomous runtime
+- Any claim that real Grok or GLM model/API calls are made
+- Any claim that this is a production autonomous runtime
 
 ## Caption options
 
-1. “GIF 1 shows Best Route mode choosing the best answer path.”
-2. “GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-   multi-role conversation.”
+1. “GIF 1 shows Best Route mode choosing a next move in a Grok vs GLM shogi
+   excerpt.”
+2. “GIF 2 shows experimental Agent Chat mode: Grok and GLM alternate a few shogi
+   moves, then fade out.”
 3. “Two separate modes, two separate demos: production-ready best-answer routing
-   vs experimental opt-in role conversation.”
+   vs experimental opt-in conversation.”
 4. “Both demos are deterministic fixtures: no external model/API call and no
    credentials required.”
 
 ## Alt text bundle
 
-- **Best Route Game:** Terminal demo showing `Mode: best_route`, a Three Doors
-  puzzle, direct route scoring, selected route `structured_direct`, final answer
-  Door C, and displayed trace path
+- **Best Route shogi:** Terminal demo showing `Mode: best_route`, fixture agents
+  `Grok vs GLM`, a simple mini shogi board, opening moves, route scoring,
+  selected route `balanced_development`, next move `Grok ▲S-68`, fadeout
+  preview, and displayed trace path
   `../../out/examples/best-route-game-trace.json`.
-- **Agent Chat Game:** Terminal demo showing `Mode: agent_chat`, status
-  `experimental explicit opt-in`, role turns for Commander, Solver, Reviewer,
-  Red Team, and Closeout, final answer Door C, and displayed trace path
+- **Agent Chat shogi:** Terminal demo showing `Mode: agent_chat`, status
+  `experimental explicit opt-in`, fixture agents `Grok vs GLM`, a partial shogi
+  match, a fadeout line, and displayed trace path
   `../../out/examples/agent-chat-game-trace.json`.
 
 ## Social preview text
@@ -97,8 +104,8 @@ Fusion Router v0.1 Public RC — experimental Agent Chat mode, explicit opt-in
 Fusion Router v0.1 Public RC has two intentionally separate demos:
 
 ```text
-GIF 1: Best Route mode choosing the best answer path.
-GIF 2: experimental Agent Chat mode solving a puzzle through explicit roles.
+GIF 1: Best Route mode chooses a shogi next move.
+GIF 2: experimental Agent Chat mode shows a Grok vs GLM shogi excerpt.
 ```
 
 Best Route is the production-ready best-answer routing path. `agent_chat` is

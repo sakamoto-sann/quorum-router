@@ -5,16 +5,14 @@
 
 ## Why there are two GIFs
 
-The previous single-demo framing made two different surfaces look like one mode.
-That is misleading for external launch because **Best Route mode** and **Agent
-Chat Game mode** prove different things and carry different runtime claims.
+The demos use the same simple shogi setup with fixture agents named `Grok` and
+`GLM`, but they prove different surfaces. The names are deterministic labels for
+recording; no external Grok/GLM model/API call is made.
 
-This plan separates them into two standalone terminal GIFs:
-
-| GIF   | Mode         | What it proves                                                                       | What it must not imply                                        |
-| ----- | ------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| GIF 1 | `best_route` | Production-ready direct/best-answer route comparison selects the best answer path.   | No role conversation, no `agent_chat`, no autonomous runtime. |
-| GIF 2 | `agent_chat` | Experimental explicit opt-in multi-role conversation can solve a small game fixture. | Not Best Route mode; no production autonomous runtime.        |
+| GIF   | Mode         | What it proves                                                                        | What it must not imply                                                            |
+| ----- | ------------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| GIF 1 | `best_route` | Production-ready direct/best-answer route comparison chooses a next shogi move.       | No role conversation, no `agent_chat`, no autonomous runtime, no live model call. |
+| GIF 2 | `agent_chat` | Experimental explicit opt-in conversation can show a short Grok vs GLM shogi excerpt. | Not Best Route mode; no production autonomous runtime; no live model call.        |
 
 ## GIF 1 — Best Route mode
 
@@ -27,18 +25,18 @@ cd examples/best-route-game
 deno task demo
 ```
 
-**Core proof:** Fusion Router compares deterministic direct routes for a small
-Three Doors puzzle, scores the candidates, selects `structured_direct`, and
-returns `Door C`.
+**Core proof:** Fusion Router compares deterministic candidate lines for a small
+shogi opening excerpt, selects `balanced_development`, chooses `Grok ▲S-68`, and
+fades out before the full match.
 
 **External wording:**
 
-> GIF 1 shows Best Route mode choosing the best answer path.
+> GIF 1 shows Best Route mode choosing a shogi next move.
 
-**Boundary:** This GIF must not show Commander, Solver, Reviewer, Red Team, or
-Closeout. It is a route-comparison / best-answer path selection demo only.
+**Boundary:** This GIF must not show `Mode: agent_chat` or imply real Grok/GLM
+API calls.
 
-## GIF 2 — Agent Chat Game mode
+## GIF 2 — Agent Chat mode
 
 ![Agent Chat mode demo](../assets/launch/fusion-router-agent-chat-game.gif)
 
@@ -50,24 +48,24 @@ deno task demo
 ```
 
 **Core proof:** Fusion Router can show an experimental explicit opt-in
-`agent_chat` fixture where Commander, Solver, Reviewer, Red Team, and Closeout
-solve a small Three Doors puzzle by correcting a tempting wrong answer.
+`agent_chat` fixture where Grok and GLM alternate a few shogi opening moves,
+then fade out before the full match.
 
 **External wording:**
 
-> GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-> multi-role conversation.
+> GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
+> excerpt.
 
-**Boundary:** This GIF must not show a route score table or imply Best Route
-always invokes `agent_chat`.
+**Boundary:** This GIF must not show a route score table, imply Best Route
+always invokes `agent_chat`, or imply real Grok/GLM model/API calls.
 
 ## How to avoid confusing them on Product Hunt/X
 
 Use the two captions together:
 
-1. “GIF 1 shows Best Route mode choosing the best answer path.”
-2. “GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-   multi-role conversation.”
+1. “GIF 1 shows Best Route mode choosing a shogi next move.”
+2. “GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
+   excerpt.”
 
 Then add the boundary sentence:
 
@@ -78,7 +76,7 @@ Then add the boundary sentence:
 
 Both demos are deterministic fixtures:
 
-- no external model/API call is made;
+- no external Grok/GLM model/API call is made;
 - no credentials or secrets are required;
 - no live Supabase Agent Bus runtime writes are made;
 - no service-role runtime exists;

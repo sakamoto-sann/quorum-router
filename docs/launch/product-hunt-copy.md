@@ -31,9 +31,10 @@ Experimental `agent_chat` exists only behind explicit opt-in gates.
 
 ## Launch media captions
 
-- GIF 1 shows Best Route mode choosing the best answer path.
-- GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-  multi-role conversation.
+- GIF 1 shows Best Route mode choosing a shogi next move in a Grok vs GLM
+  deterministic fixture.
+- GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
+  excerpt, then fades out before the full match.
 
 Use the two GIFs together and keep the boundary explicit: Best Route does not
 imply `agent_chat`, and `agent_chat` is not the production-ready default path.
@@ -80,22 +81,22 @@ deno task smoke
 
 ## Demo commands
 
-Best Route Game:
+Best Route shogi excerpt:
 
 ```bash
 cd examples/best-route-game
 deno task demo
 ```
 
-Agent Chat Game:
+Agent Chat shogi excerpt:
 
 ```bash
 cd examples/agent-chat-game
 deno task demo
 ```
 
-Both demos are deterministic fixtures. No external model/API call is made and no
-credentials are required.
+Both demos are deterministic fixtures. `Grok` and `GLM` are fixture labels; no
+external Grok/GLM model/API call is made and no credentials are required.
 
 ## Maker comment draft
 
@@ -109,9 +110,10 @@ runtime.
 
 Launch media is split into two GIFs to avoid mode confusion:
 
-1. GIF 1 shows Best Route mode choosing the best answer path.
-2. GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-   multi-role conversation.
+1. GIF 1 shows Best Route mode choosing a shogi next move in a Grok vs GLM
+   deterministic fixture.
+2. GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
+   excerpt, then fades out before the full match.
 
 Quickstart:
 

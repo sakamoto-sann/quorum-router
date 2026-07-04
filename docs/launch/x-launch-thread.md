@@ -16,9 +16,8 @@ Fusion Router v0.1 Public RC is live.
 A source-available routing/runtime framework for production-ready Best Route /
 `direct` best-answer routing and explicit opt-in experimental `agent_chat`.
 
-GIF 1 shows Best Route mode choosing the best answer path. GIF 2 shows
-experimental Agent Chat mode solving a puzzle through explicit multi-role
-conversation.
+GIF 1 shows Best Route mode choosing a shogi next move. GIF 2 shows experimental
+Agent Chat mode with a short Grok vs GLM shogi excerpt.
 
 Source-Available Non-Commercial; not open source.
 
@@ -62,16 +61,15 @@ https://www.npmjs.com/package/create-fusion-router
 
 GIF 1 shows Best Route mode choosing the best answer path.
 
-The demo compares deterministic direct routes for a small Three Doors puzzle,
-scores consistency/risk, selects `structured_direct`, and returns Door C.
+The demo compares deterministic Grok vs GLM shogi lines, scores clarity/safety,
+selects `balanced_development`, and fades out before the full match.
 
 ### 3/7
 
-GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-multi-role conversation.
+GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi excerpt.
 
-Commander, Solver, Reviewer, Red Team, and Closeout correct a tempting Door B
-answer and end on Door C.
+Grok and GLM alternate a few opening moves, then the clip fades out before the
+full match. The names are fixture labels, not live external model calls.
 
 ### 4/7
 

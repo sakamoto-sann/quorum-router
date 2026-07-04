@@ -1,7 +1,8 @@
-# Agent Chat Game GIF — Fusion Router v0.1 Public RC
+# Agent Chat Shogi GIF — Fusion Router v0.1 Public RC
 
 > GIF 2. This is the experimental explicit opt-in `agent_chat` conversation
-> demo. Do not describe it as Best Route mode or production autonomous runtime.
+> demo. Do not describe it as Best Route mode, a live Grok/GLM model call, or
+> production autonomous runtime.
 
 ![Agent Chat mode demo](../assets/launch/fusion-router-agent-chat-game.gif)
 
@@ -32,12 +33,14 @@ Required visible markers:
 Fusion Router v0.1 Public RC
 Mode: agent_chat
 Status: experimental explicit opt-in
-Demo: Agent Chat Game
-Commander:
-Reviewer:
-Red Team:
-Closeout:
-  Final answer: Door C.
+Demo: Mini Shogi Opening Excerpt
+Fixture agents: Grok vs GLM
+Partial match:
+1. Grok:
+1... GLM:
+3... GLM:
+Fadeout:
+  Match continues after this opening excerpt...
 Trace:
   ../../out/examples/agent-chat-game-trace.json
 ```
@@ -46,39 +49,39 @@ The output must **not** contain a Best Route score table.
 
 ## Caption options
 
-1. “GIF 2: experimental Agent Chat mode solves a puzzle through explicit
-   multi-role conversation.”
-2. “Commander → Solver → Reviewer → Red Team → Closeout, using a deterministic
-   fixture and no external model/API call.”
+1. “GIF 2: experimental Agent Chat mode shows a Grok vs GLM shogi excerpt.”
+2. “Grok and GLM alternate a few opening moves, then the demo fades out before
+   the full match.”
 3. “`agent_chat` is explicit opt-in only; Best Route mode is a separate demo.”
-4. “A role-conversation demo for the experimental surface, not a production
-   autonomous runtime.”
+4. “A deterministic role-conversation fixture, not a production autonomous
+   runtime or live model/API call.”
 
 ## Alt text
 
 Terminal recording of Fusion Router v0.1 Public RC running
 `cd examples/agent-chat-game && deno task demo`. The output shows
-`Mode: agent_chat`, `Status: experimental explicit opt-in`, a Three Doors role
-turns for Commander, Solver, Reviewer, Red Team, and Closeout, final answer Door
-C, and displayed trace path `../../out/examples/agent-chat-game-trace.json`.
+`Mode: agent_chat`, `Status: experimental explicit opt-in`, fixture agents
+`Grok vs GLM`, a simple mini shogi board, six opening half-moves, a fadeout line
+saying the match continues after the excerpt, and displayed trace path
+`../../out/examples/agent-chat-game-trace.json`.
 
 ## Short Product Hunt caption
 
-GIF 2 shows experimental Agent Chat mode solving a puzzle through explicit
-multi-role conversation: Commander, Solver, Reviewer, Red Team, and Closeout.
+GIF 2 shows experimental Agent Chat mode with a deterministic Grok vs GLM shogi
+excerpt: a few opening moves, then a fadeout before the full match.
 
 ## Short X caption
 
-GIF 2: experimental `agent_chat`. A deterministic role conversation solves the
-Three Doors puzzle and corrects the tempting Door B answer to Door C.
+GIF 2: experimental `agent_chat`. Grok and GLM alternate a short shogi opening
+excerpt, then the demo fades out before the full match.
 
 ## Claims to avoid
 
 - Do not call Fusion Router open source.
+- Do not claim real Grok or GLM external model/API calls are made.
 - Do not claim `agent_chat` is production-ready.
 - Do not claim production autonomous runtime.
 - Do not imply this is Best Route mode.
 - Do not show or describe a route score table here.
 - Do not claim live Supabase Agent Bus runtime writes.
 - Do not claim service-role runtime.
-- Do not imply external model/API calls are required for this demo.
