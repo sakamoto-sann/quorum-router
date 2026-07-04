@@ -77,6 +77,12 @@ See the [Public RC runbook](docs/public-rc-runbook.md),
 [Product Hunt launch notes](docs/product-hunt.md) for adoption-focused setup
 paths.
 
+Launch assets for external posting and demos live under
+[`docs/launch/`](docs/launch/):
+[Product Hunt copy](docs/launch/product-hunt-copy.md),
+[X launch drafts](docs/launch/x-launch-thread.md),
+[demo script](docs/launch/demo-script.md), and [FAQ](docs/launch/faq.md).
+
 ## v0.1 quickstart
 
 Run the deterministic offline smoke:
