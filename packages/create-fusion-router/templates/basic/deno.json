@@ -1,9 +1,11 @@
 {
+  "lock": false,
   "imports": {
     "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
   },
   "tasks": {
     "check": "deno check main.ts",
-    "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts"
+    "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts --fixture",
+    "real": "deno run --allow-net=raw.githubusercontent.com,api.openai.com,api.anthropic.com --allow-env=OPENAI_API_KEY,ANTHROPIC_API_KEY,FUSION_ROUTER_REAL_PROVIDER,FUSION_ROUTER_PROMPT main.ts --real"
   }
 }
