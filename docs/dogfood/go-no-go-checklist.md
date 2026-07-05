@@ -20,6 +20,12 @@ manual session log.
 - [ ] Generated demo `deno task smoke` passes.
 - [ ] Generated demo `deno task smoke` is understood as fixture-only, not real
       provider dogfood.
+- [ ] Repo-local `(cd examples/local-model-dogfood && deno task inventory)`
+      reflects the user's actual local wrapper/session/provider state.
+- [ ] Repo-local `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes with
+      a local wrapper/session provider, or unavailable providers are marked with
+      exact blockers.
+- [ ] Generic API-key env fallback is not treated as the primary launch proof.
 - [ ] Generated demo `deno task external:check` passes on a credentialed machine
       without printing provider credentials.
 - [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once`

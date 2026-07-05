@@ -1,7 +1,8 @@
 # Launch-day checklist
 
-Public Product Hunt/X launch is currently **NO-GO** until external provider
-dogfood passes.
+Public Product Hunt/X launch is currently **NO-GO** until local real-model
+dogfood passes in the user's own environment. NPX is not the goal; it is only a
+distribution/demo surface after repo-local dogfood is usable.
 
 ## Hard stops
 
@@ -15,6 +16,11 @@ dogfood passes.
 ## External dogfood gate
 
 - [ ] Generated `deno task smoke` passes and is recorded as fixture-only.
+- [ ] Repo-local `examples/local-model-dogfood deno task inventory` reads actual
+      local wrapper/session/provider state.
+- [ ] Repo-local `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes with
+      a real local wrapper/session/provider.
+- [ ] Generic API-key env fallback is not used as the primary launch proof.
 - [ ] Generated `deno task external:check` passes on a credentialed machine.
 - [ ] `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once` passes once with a
       real external provider.

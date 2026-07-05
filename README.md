@@ -11,12 +11,28 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-`deno task smoke` is deterministic fixture-only. It does **not** call a real
-external provider API. Public Product Hunt/X launch requires at least one manual
-external provider dogfood pass with
-`RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once` after the 0.1.4 scaffold
-is released. The fuller current-env gate is Grok + Devin + OpenAI + local Qwen +
-GLM via `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix`.
+NPX is not the goal. `deno task smoke` is deterministic fixture-only and does
+**not** call a real external provider API. Public Product Hunt/X launch requires
+local real-model dogfood first: the user must personally confirm that Fusion
+Router can discover and invoke the models actually available from this machine's
+existing OAuth, wrapper, CLI session, or explicitly selected env fallback setup.
+Generic API-key env fallback is private/manual only and is not the primary
+launch proof.
+
+Repo-local dogfood workspace:
+
+```bash
+cd examples/local-model-dogfood
+deno task inventory
+deno task auth:status
+deno task health
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
+```
+
+Best Route/direct remains the production-ready best-answer routing path.
+`agent_chat` remains experimental explicit opt-in only.
 
 Dry-run the installer without changing the machine:
 

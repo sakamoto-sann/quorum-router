@@ -43,6 +43,13 @@ runtime tag before npm publish so package/runtime versions align.
 
 ## External provider dogfood
 
+NPX is not the goal for Fusion Router launch readiness. The repo-local
+`examples/local-model-dogfood` workspace is the primary internal dogfood path
+for machine-specific OAuth, wrapper, and CLI sessions. This generated scaffold
+keeps a portable fixture smoke plus explicit external-provider interface; local
+wrapper availability depends on the user's own machine and cannot be bundled
+into npm.
+
 The generated scaffold supports the current real-provider dogfood set:
 
 - Grok via `grok` CLI by default, or xAI OpenAI-compatible HTTP if configured;

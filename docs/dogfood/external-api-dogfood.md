@@ -1,9 +1,25 @@
 # External API dogfood gate
 
-Fusion Router v0.1 public launch is **NO-GO** until at least one real external
-provider dogfood path passes. Deterministic fixture smoke is still required for
-CI and quick install validation, but fixture-only success is not evidence that a
-user can use Fusion Router for real provider work.
+Fusion Router v0.1 public launch is **NO-GO** until local real-model dogfood
+passes in the user's own environment. NPX is not the goal. Deterministic fixture
+smoke is still required for CI and quick install validation, but fixture-only
+success is not evidence that a user can use Fusion Router for real provider
+work.
+
+The primary dogfood path is repo-local:
+
+```bash
+cd examples/local-model-dogfood
+deno task inventory
+deno task auth:status
+deno task health
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
+```
+
+Model inventory must be read from actual local wrapper/session/provider state.
+Generic API-key env fallback is explicit-only private dogfood, not the primary
+public launch proof.
 
 ## Required distinction
 

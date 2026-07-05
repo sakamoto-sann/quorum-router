@@ -1,0 +1,102 @@
+import type { ModelInventoryEntry, ProviderResult } from "./schema.ts";
+import { redact, summarize } from "./redact.ts";
+
+function argsFor(
+  entry: ModelInventoryEntry,
+  prompt: string,
+  outPath: string,
+): string[] {
+  return (entry.args_template ?? []).map((arg) =>
+    arg === "__PROMPT__"
+      ? prompt
+      : arg === "__CWD__"
+      ? Deno.cwd()
+      : arg === "__OUT__"
+      ? outPath
+      : arg
+  );
+}
+
+async function outputWithTimeout(
+  child: Deno.ChildProcess,
+  timeoutMs: number,
+): Promise<Deno.CommandOutput> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let killId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      child.output(),
+      new Promise<Deno.CommandOutput>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          try {
+            child.kill("SIGTERM");
+          } catch { /* best effort */ }
+          killId = setTimeout(() => {
+            try {
+              child.kill("SIGKILL");
+            } catch { /* best effort */ }
+            reject(
+              new Error(
+                "local model dogfood blocked: wrapper timed out after 120000ms",
+              ),
+            );
+          }, 2_000);
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (killId) clearTimeout(killId);
+  }
+}
+
+export async function callWrapper(
+  entry: ModelInventoryEntry,
+  prompt: string,
+): Promise<ProviderResult> {
+  if (!entry.command) {
+    throw new Error(
+      `local model dogfood blocked: ${entry.provider} has no command`,
+    );
+  }
+  await Deno.mkdir("../../out/dogfood/local-model-dogfood", {
+    recursive: true,
+  });
+  const outPath =
+    `../../out/dogfood/local-model-dogfood/tmp-${crypto.randomUUID()}.txt`;
+  try {
+    const child = new Deno.Command(entry.command, {
+      args: argsFor(entry, prompt, outPath),
+      cwd: Deno.cwd(),
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    const output = await outputWithTimeout(child, 120_000);
+    const stdout = new TextDecoder().decode(output.stdout);
+    const stderr = new TextDecoder().decode(output.stderr);
+    const fileOutput = await Deno.readTextFile(outPath).catch(() => "");
+    if (output.code !== 0) {
+      throw new Error(
+        `local model dogfood blocked: ${entry.provider}/${entry.model} exited ${output.code}: ${
+          summarize(redact(stderr || stdout || fileOutput), 400)
+        }`,
+      );
+    }
+    const content = (fileOutput || stdout || stderr).trim();
+    if (!content) {
+      throw new Error(
+        `local model dogfood blocked: ${entry.provider}/${entry.model} returned empty stdout`,
+      );
+    }
+    return {
+      provider: entry.provider,
+      model: entry.model,
+      response_received: true,
+      schema_valid: true,
+      response_summary: summarize(content),
+      raw_content: content,
+    };
+  } finally {
+    await Deno.remove(outPath).catch(() => undefined);
+  }
+}
