@@ -15,13 +15,13 @@ product/service use requires prior written permission.
 - No service-role runtime.
 - No live Supabase runtime writes.
 - No Supabase Realtime subscriber.
-- `direct` is the production-ready best-answer routing path.
+- `direct` / Best Route is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in.
-- Fixture smoke does not ask for credentials or write secrets.
-- Real API mode is explicit opt-in and reads provider credentials from local
-  process environment variables only.
-- Real API mode does not print credential values.
-- The demo does not enable process adapters.
+- `deno task smoke` is deterministic fixture smoke only; it does not call a real
+  provider API and is not external provider dogfood.
+- `external:once` and `external:matrix` are real provider dogfood, manual opt-in
+  only, and not run in CI.
+- No provider credentials should be committed. Do not commit `.env`.
 
 ## Quick start: deterministic fixture smoke
 
@@ -30,64 +30,118 @@ deno task check
 deno task smoke
 ```
 
-`deno task smoke` imports `router.ts` from the published `v0.1.2` Git tag:
+`deno task smoke` imports `router.ts` from the published `v0.1.3` Git tag:
 
 ```text
-https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/router.ts
+https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.3/router.ts
 ```
 
-That means `deno task smoke` requires network access to
-`raw.githubusercontent.com` and requires the `v0.1.2` tag to exist. The tag is
-used intentionally so the generated demo follows the published GitHub release
-URL. For reproducibility-sensitive evaluation, verify the `v0.1.2` Git tag
-target in GitHub release metadata before running. The npm scaffold package is
-live as `create-fusion-router@0.1.3`; `0.1.3` is an engineering patch for NPX
-scaffold / generated-demo compatibility, not a separate product milestone.
+This generated project is prepared for `create-fusion-router@0.1.4`, but the
+runtime import stays pinned to the latest published `v0.1.3` tag while this PR
+is reviewed. Release closeout must create `v0.1.4` and update the generated
+runtime tag before npm publish so package/runtime versions align.
 
-## Real API mode
+## External provider dogfood
 
-Use `deno task real` when you want Fusion Router to call a real provider API.
-Real mode currently supports OpenAI Chat Completions and Anthropic Messages API
-through the public `directHttp` adapters exported by Fusion Router.
+The generated scaffold supports the current real-provider dogfood set:
 
-Use your local shell or secret manager to provide one of these environment
-variables before running real mode:
+- Grok via `grok` CLI by default, or xAI OpenAI-compatible HTTP if configured;
+- Devin via `devin` CLI;
+- OpenAI via OpenAI-compatible HTTP, or Codex CLI with
+  `FUSION_ROUTER_OPENAI_MODE=cli`.
+- local Qwen via `qwen` CLI.
+- GLM via OpenAI-compatible HTTP, or zcode-compatible CLI with
+  `FUSION_ROUTER_GLM_MODE=cli`.
 
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
-
-Then run:
+### 1. Check config/env only
 
 ```bash
-# auto: uses every configured real provider
-deno task real -- "Review this README change for risky launch claims."
-
-# force one provider
-env FUSION_ROUTER_REAL_PROVIDER=openai deno task real -- "Choose direct fix vs refactor."
-env FUSION_ROUTER_REAL_PROVIDER=anthropic deno task real -- "Summarize this PR and list blockers."
+deno task external:check
 ```
 
-Real mode behavior:
+This checks the default single-provider path (`openai`) and sends **no**
+provider request. If the credential is missing it fails closed with a message
+such as:
 
-- Calls real provider APIs only when you explicitly run `deno task real`.
-- Reads credentials from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
-- Keeps `deno task real` network permissions scoped to
-  `raw.githubusercontent.com`, `api.openai.com`, and `api.anthropic.com`.
-- Never prints credential values.
-- Uses `FusionRouter` direct mode with real direct-http model adapter(s).
-- Uses local passthrough synthesis so a single real-provider key is enough for
-  evaluation.
-- Requires network access to `raw.githubusercontent.com` plus the selected
-  provider API host.
+```text
+external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY
+```
 
-If no supported credential is present, real mode fails closed with setup
-instructions instead of silently falling back to fixtures.
+Check the full current-provider set without provider requests:
+
+```bash
+FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
+  deno task external:check -- --matrix
+```
+
+The check confirms CLI command availability and provider credential env presence
+without printing credential values.
+
+### 2. Run exactly one real provider request
+
+```bash
+# Select one provider: grok, devin, openai, localqwen, or glm.
+export FUSION_ROUTER_EXTERNAL_PROVIDER=openai
+# For OpenAI HTTP, OPENAI_API_KEY or FUSION_ROUTER_OPENAI_API_KEY must be present.
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once -- -- "Review this README change for risky launch claims."
+```
+
+`external:once` behavior:
+
+- requires `RUN_EXTERNAL_MODEL_DOGFOOD=1`;
+- makes exactly one real provider call for the selected provider;
+- validates response shape;
+- redacts secrets from diagnostics;
+- writes `out/external-dogfood/external-once-trace.json`;
+- never runs by default and is not required in CI.
+
+### 3. Run all current dogfood providers
+
+```bash
+FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+  deno task external:matrix -- -- "Compare direct fix vs refactor for this bug."
+```
+
+`external:matrix` makes one call per selected provider and writes
+`out/external-dogfood/external-matrix-trace.json`.
+
+## Provider env/config
+
+HTTP providers:
+
+- OpenAI: `FUSION_ROUTER_OPENAI_MODE=http`, `FUSION_ROUTER_OPENAI_BASE_URL`,
+  `FUSION_ROUTER_OPENAI_API_KEY`, `FUSION_ROUTER_OPENAI_MODEL`; falls back to
+  `OPENAI_API_KEY`. Use `FUSION_ROUTER_OPENAI_MODE=cli` to route OpenAI dogfood
+  through Codex CLI with `FUSION_ROUTER_OPENAI_COMMAND` or `codex`.
+- Grok HTTP mode: set `FUSION_ROUTER_GROK_MODE=http`, then configure
+  `FUSION_ROUTER_GROK_BASE_URL`, `FUSION_ROUTER_GROK_API_KEY`,
+  `FUSION_ROUTER_GROK_MODEL`; falls back to `XAI_API_KEY` / `GROK_API_KEY`.
+- GLM: `FUSION_ROUTER_GLM_BASE_URL`, `FUSION_ROUTER_GLM_API_KEY`,
+  `FUSION_ROUTER_GLM_MODEL`; falls back to `GLM_API_KEY`, `ZHIPUAI_API_KEY`, or
+  `BIGMODEL_API_KEY`. Use `FUSION_ROUTER_GLM_MODE=cli` with
+  `FUSION_ROUTER_GLM_COMMAND` for zcode-compatible local GLM dogfood.
+
+CLI providers:
+
+- Grok: `FUSION_ROUTER_GROK_COMMAND` or `grok`.
+- Devin: `FUSION_ROUTER_DEVIN_COMMAND` or `devin`.
+- local Qwen: `FUSION_ROUTER_LOCALQWEN_COMMAND` or `qwen`, with optional
+  `FUSION_ROUTER_LOCALQWEN_MODEL`.
+
+You may also copy `provider_config.example.json` to `provider_config.json` for
+non-secret labels, base URLs, model names, or command names. Do not store
+secrets in that file.
 
 ## What runs
 
-`main.ts` has two explicit modes:
+`main.ts` is fixture-only for deterministic smoke. External provider dogfood
+lives in:
 
-- `--fixture` / `deno task smoke`: deterministic local fixture model and
-  synthesis adapters; no provider API key required.
-- `--real` / `deno task real`: real provider API model adapter(s) plus local
-  passthrough synthesis; provider API key required.
+- `external_provider.ts`
+- `external_dogfood.ts`
+- `provider_config.example.json`
+
+Public Product Hunt/X launch is blocked until at least one external provider
+dogfood pass is recorded by a human with local provider credentials. The richer
+current-provider gate is Grok + Devin + OpenAI + local Qwen + GLM.

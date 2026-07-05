@@ -1,11 +1,7 @@
 {
   "lock": false,
-  "imports": {
-    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
-  },
   "tasks": {
-    "check": "deno check main.ts external_provider.ts external_dogfood.ts",
-    "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts",
+    "check": "deno check external_provider.ts external_dogfood.ts",
     "external:check": "deno run --allow-read --allow-env external_dogfood.ts --check-only",
     "external:once": "deno run --allow-read --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless --allow-write=out/external-dogfood external_dogfood.ts --once",
     "external:matrix": "deno run --allow-read --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless --allow-write=out/external-dogfood external_dogfood.ts --matrix"

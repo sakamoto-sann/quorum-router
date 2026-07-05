@@ -10,10 +10,9 @@ dist-tags, create a new version, create a new repository, or post externally.
 
 - Do not post to Product Hunt.
 - Do not post to X.
-- Do not publish npm.
-- Do not bump package versions.
-- Do not create v0.1.4.
-- Do not mutate npm dist-tags.
+- Do not publish npm without explicit release approval.
+- Do not mutate npm dist-tags without explicit release approval.
+- Do not create tags/releases during dogfood verification.
 - Do not move, delete, recreate, or edit v0.1.0 / v0.1.1 / v0.1.2 / v0.1.3 tags
   or releases.
 - Do not run the publish workflow.
@@ -60,10 +59,12 @@ posting.
 3. Run NPX latest and pinned install tests.
 4. Run Best Route and Agent Chat demo tests.
 5. Review README, npm, and GitHub release surfaces.
-6. Run the claims/safety scan.
-7. Classify every failure with `bug-report-template.md`.
-8. Complete `go-no-go-checklist.md` and `out/dogfood/go-no-go-scorecard.md`.
-9. Decide: **GO**, **NO-GO**, or **GO with known limitations**.
+6. Run external provider dogfood from `external-api-dogfood.md` on a
+   credentialed machine.
+7. Run the claims/safety scan.
+8. Classify every failure with `bug-report-template.md`.
+9. Complete `go-no-go-checklist.md` and `out/dogfood/go-no-go-scorecard.md`.
+10. Decide: **GO**, **NO-GO**, or **GO with known limitations**.
 
 ## Preflight / verification commands
 
@@ -100,6 +101,40 @@ cd my-fusion-router-demo
 deno task check
 deno task smoke
 ```
+
+External provider dogfood preflight, no provider request:
+
+```bash
+tmp="$(mktemp -d)"
+cd "$tmp"
+npx --yes create-fusion-router@latest my-fusion-router-demo
+cd my-fusion-router-demo
+deno task external:check
+```
+
+Expected on an uncredentialed machine: a fail-closed blocked message such as
+`external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY`.
+That is safe but does not satisfy the public launch gate.
+
+External provider dogfood once-only run on a credentialed machine:
+
+```bash
+cd my-fusion-router-demo
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once
+```
+
+Full current-provider matrix on a credentialed machine:
+
+```bash
+cd my-fusion-router-demo
+FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+  deno task external:matrix -- -- "Compare direct fix vs refactor."
+```
+
+This must write `out/external-dogfood/external-once-trace.json` or
+`out/external-dogfood/external-matrix-trace.json` without provider credential
+values. It is manual opt-in only and must not run in CI.
 
 Best Route demo:
 
@@ -162,6 +197,8 @@ Public posting is blocked until:
 - at least one non-author manual test session passes end-to-end;
 - no P0/P1 dogfood bugs remain open;
 - no visible surface makes a disallowed claim;
-- npm latest remains `0.1.3`;
+- at least one real external provider dogfood pass is reviewed;
+- npm latest points to an approved external-dogfood package version after
+  publish approval;
 - v0.1.3 tag/release remains unchanged;
 - no npm publish or dist-tag mutation was attempted during dogfood.

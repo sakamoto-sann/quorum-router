@@ -11,6 +11,13 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
+`deno task smoke` is deterministic fixture-only. It does **not** call a real
+external provider API. Public Product Hunt/X launch requires at least one manual
+external provider dogfood pass with
+`RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once` after the 0.1.4 scaffold
+is released. The fuller current-env gate is Grok + Devin + OpenAI + local Qwen +
+GLM via `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix`.
+
 Dry-run the installer without changing the machine:
 
 ```bash

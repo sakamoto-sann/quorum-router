@@ -2,7 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 const SUPPORTED_TEMPLATES = new Set(["basic"]);
 
 function usage() {
@@ -17,8 +17,8 @@ Usage:
 
 Creates a local Fusion Router evaluation demo. The scaffold does not fetch remote
 code, install dependencies, ask for credentials, write secrets, enable process
-adapters, or configure live runtime services. The generated real API task is
-explicit opt-in and reads credentials only from the local process environment.`;
+adapters, or configure live runtime services. Fixture smoke is deterministic;
+external provider dogfood is an explicit manual opt-in path.`;
 }
 
 function parseArgs(argv) {
@@ -106,18 +106,21 @@ function main() {
   console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);
   console.log("  deno task check");
   console.log("  deno task smoke");
+  console.log("  deno task external:check");
   console.log(
-    "  # Optional real provider call, after setting a local provider API key:",
+    "  # Optional one-shot real provider dogfood after local env is configured:",
   );
+  console.log("  RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once");
+  console.log("  # Optional full current-provider matrix:");
   console.log(
-    '  deno task real -- "Review this README change for risky launch claims."',
+    "  FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix",
   );
   console.log("");
   console.log(
-    "Note: deno task smoke imports Fusion Router from the published v0.1.2 Git tag and requires network access to raw.githubusercontent.com.",
+    "Note: deno task smoke is deterministic fixture-only and does not call a provider API.",
   );
   console.log(
-    "Note: deno task real is explicit opt-in and reads provider credentials only from the local process environment.",
+    "Note: external:once is manual opt-in real provider dogfood and reads credentials only from the local process environment.",
   );
 }
 

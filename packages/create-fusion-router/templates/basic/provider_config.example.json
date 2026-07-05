@@ -1,0 +1,27 @@
+{
+  "providers": {
+    "grok": {
+      "mode": "cli",
+      "command": "grok"
+    },
+    "devin": {
+      "command": "devin"
+    },
+    "openai": {
+      "mode": "http",
+      "provider_label": "OpenAI",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini"
+    },
+    "localqwen": {
+      "command": "qwen",
+      "model": "qwen3-coder-max"
+    },
+    "glm": {
+      "mode": "http",
+      "provider_label": "GLM OpenAI-compatible",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "glm-4.5"
+    }
+  }
+}

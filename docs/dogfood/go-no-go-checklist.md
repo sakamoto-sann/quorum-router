@@ -15,18 +15,32 @@ manual session log.
 ## Must-pass before public posting
 
 - [ ] NPX latest works in a clean temp directory.
-- [ ] NPX pinned `@0.1.3` works.
+- [ ] NPX pinned `@0.1.4` works after publish approval.
 - [ ] Generated demo `deno task check` passes.
 - [ ] Generated demo `deno task smoke` passes.
+- [ ] Generated demo `deno task smoke` is understood as fixture-only, not real
+      provider dogfood.
+- [ ] Generated demo `deno task external:check` passes on a credentialed machine
+      without printing provider credentials.
+- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once`
+      passes at least once with a real external provider.
+- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix`
+      passes for Grok + Devin + OpenAI + local Qwen + GLM, or unavailable
+      providers are explicitly documented with primary evidence.
+- [ ] External dogfood trace is reviewed and contains no provider credential
+      values.
 - [ ] Best Route demo runs and stays separate from Agent Chat.
 - [ ] Agent Chat demo runs and clearly states experimental explicit opt-in.
 - [ ] README quickstart works.
 - [ ] README GIFs render.
-- [ ] npm latest remains `0.1.3`.
+- [ ] npm latest points to the approved external-dogfood package version after
+      explicit publish approval.
 - [ ] No false open-source claim.
 - [ ] No production autonomous runtime claim.
 - [ ] No service-role/live Supabase runtime claim.
-- [ ] No secrets or credentials required.
+- [ ] No secrets or credentials required for fixture smoke / CI.
+- [ ] External provider credentials are required only for manual opt-in external
+      dogfood and are never committed.
 - [ ] At least one non-author manual test session passes end-to-end.
 
 ## Should-fix before public posting
@@ -66,6 +80,9 @@ Record exact values:
 | npm latest               |                  |
 | NPX latest smoke         |                  |
 | NPX pinned smoke         |                  |
+| External provider check  |                  |
+| External provider once   |                  |
+| External dogfood trace   |                  |
 | Best Route demo          |                  |
 | Agent Chat demo          |                  |
 | Non-author manual tester |                  |
