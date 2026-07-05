@@ -21,6 +21,12 @@ and at least one external provider dogfood pass is recorded.
 
 ## What the generated project supports
 
+NPX is not the launch goal by itself. The repo-local
+`examples/local-model-dogfood` workspace is the primary internal dogfood path
+for machine-specific OAuth, wrapper, and CLI sessions. The generated scaffold
+exposes the portable fixture smoke and explicit external-provider interface;
+real model access still depends on the user's local auth/session/provider setup.
+
 ```bash
 deno task check
 ```

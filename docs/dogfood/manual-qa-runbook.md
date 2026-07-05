@@ -56,15 +56,16 @@ posting.
 1. Create a fresh QA session log from `manual-session-log-template.md` or
    `out/dogfood/session-log-template.md`.
 2. Run the preflight/readback commands below.
-3. Run NPX latest and pinned install tests.
-4. Run Best Route and Agent Chat demo tests.
-5. Review README, npm, and GitHub release surfaces.
-6. Run external provider dogfood from `external-api-dogfood.md` on a
+3. Run repo-local local model dogfood inventory and health checks.
+4. Run NPX latest and pinned install tests.
+5. Run Best Route and Agent Chat demo tests.
+6. Review README, npm, and GitHub release surfaces.
+7. Run external provider dogfood from `external-api-dogfood.md` on a
    credentialed machine.
-7. Run the claims/safety scan.
-8. Classify every failure with `bug-report-template.md`.
-9. Complete `go-no-go-checklist.md` and `out/dogfood/go-no-go-scorecard.md`.
-10. Decide: **GO**, **NO-GO**, or **GO with known limitations**.
+8. Run the claims/safety scan.
+9. Classify every failure with `bug-report-template.md`.
+10. Complete `go-no-go-checklist.md` and `out/dogfood/go-no-go-scorecard.md`.
+11. Decide: **GO**, **NO-GO**, or **GO with known limitations**.
 
 ## Preflight / verification commands
 
@@ -91,7 +92,24 @@ npm view create-fusion-router@0.1.3 name version license bin dist.tarball --json
 npm dist-tag ls create-fusion-router
 ```
 
-Clean latest NPX smoke:
+```bash
+export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
+cd "$FUSION_ROUTER_REPO/examples/local-model-dogfood"
+deno task inventory
+deno task auth:status
+deno task health
+```
+
+Local real-model route once, manual opt-in only:
+
+```bash
+cd "$FUSION_ROUTER_REPO/examples/local-model-dogfood"
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
+```
+
+NPX latest fixture smoke:
 
 ```bash
 tmp="$(mktemp -d)"
