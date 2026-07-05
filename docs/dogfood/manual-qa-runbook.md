@@ -113,7 +113,7 @@ deno task external:check
 ```
 
 Expected on an uncredentialed machine: a fail-closed blocked message such as
-`external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY`.
+`external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY`.
 That is safe but does not satisfy the public launch gate.
 
 External provider dogfood once-only run on a credentialed machine:

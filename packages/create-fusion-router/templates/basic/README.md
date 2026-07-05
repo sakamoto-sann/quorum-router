@@ -64,7 +64,7 @@ provider request. If the credential is missing it fails closed with a message
 such as:
 
 ```text
-external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY
+external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY
 ```
 
 Check the full current-provider set without provider requests:
@@ -110,6 +110,10 @@ RUN_EXTERNAL_MODEL_DOGFOOD=1 \
 
 HTTP providers:
 
+- Generic OpenAI-compatible default: `FUSION_ROUTER_PROVIDER_BASE_URL`,
+  `FUSION_ROUTER_PROVIDER_API_KEY`, `FUSION_ROUTER_PROVIDER_MODEL`, and optional
+  `FUSION_ROUTER_PROVIDER_LABEL`. This is the preferred portable path when you
+  are dogfooding a provider that implements `/chat/completions`.
 - OpenAI: `FUSION_ROUTER_OPENAI_MODE=http`, `FUSION_ROUTER_OPENAI_BASE_URL`,
   `FUSION_ROUTER_OPENAI_API_KEY`, `FUSION_ROUTER_OPENAI_MODEL`; falls back to
   `OPENAI_API_KEY`. Use `FUSION_ROUTER_OPENAI_MODE=cli` to route OpenAI dogfood
