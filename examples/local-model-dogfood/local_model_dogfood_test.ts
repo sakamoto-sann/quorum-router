@@ -6,10 +6,12 @@ import {
   assertThrows,
 } from "@std/assert";
 import { discoverInventory, parseGrokModelList } from "./src/auth_discovery.ts";
+import { selectInvokableCandidates } from "./src/best_route_runner.ts";
 import { chatCompletionsUrl } from "./src/env_fallback_client.ts";
 import { parseAuthMode } from "./src/schema.ts";
 import { redact, redactionOk } from "./src/redact.ts";
 import { buildTrace, writeTrace } from "./src/trace.ts";
+import { buildWrapperArgs } from "./src/wrapper_client.ts";
 
 Deno.test("local model dogfood parses auth modes and rejects invalid values", () => {
   assertEquals(parseAuthMode(undefined), "auto");
@@ -72,6 +74,10 @@ Deno.test("local model dogfood redacts sensitive diagnostics", () => {
   assert(!safe.includes(fixtureSecret));
   assert(!/Authorization: Bearer/i.test(safe));
   assert(!/cookie=session-value/i.test(safe));
+  assertEquals(
+    redact("tool failed session_id=019f345c-46ae-7743-8191-bd448d4a4f0f"),
+    "tool failed [REDACTED]",
+  );
   const jsonSafe = redact(
     JSON.stringify({
       api_key: fixtureSecret,
@@ -106,6 +112,80 @@ Deno.test("local model dogfood parses safe grok model list output", () => {
     "grok-build",
     "grok-composer-2.5-fast",
   ]);
+});
+
+Deno.test("local model dogfood selects requested Grok listed model", () => {
+  const oldLabel = Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL");
+  const oldModel = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL");
+  try {
+    Deno.env.set("FUSION_ROUTER_PROVIDER_LABEL", "grok-cli");
+    Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", "grok-build");
+    const [selected] = selectInvokableCandidates([{
+      provider: "xAI",
+      auth_mode: "oauth",
+      model: "grok-cli",
+      model_id: "xai/grok-cli",
+      source: "oauth_session",
+      available: true,
+      can_list_models: true,
+      listed_models: ["grok-build", "grok-composer-2.5-fast"],
+      can_invoke: true,
+      notes: [],
+      command: "grok",
+      args_template: ["-p", "__PROMPT__"],
+    }]);
+    assertEquals(selected.model, "grok-build");
+    assertEquals(selected.invocation_model, "grok-build");
+    assertEquals(
+      buildWrapperArgs(selected, "hello", "out.txt").slice(0, 2),
+      ["--model", "grok-build"],
+    );
+  } finally {
+    oldLabel === undefined
+      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_LABEL")
+      : Deno.env.set("FUSION_ROUTER_PROVIDER_LABEL", oldLabel);
+    oldModel === undefined
+      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_MODEL")
+      : Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", oldModel);
+  }
+});
+
+Deno.test("local model dogfood fails safely for unknown requested model", () => {
+  const oldModel = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL");
+  try {
+    Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", "missing-grok-model");
+    assertThrows(
+      () =>
+        selectInvokableCandidates([{
+          provider: "xAI",
+          auth_mode: "oauth",
+          model: "grok-cli",
+          model_id: "xai/grok-cli",
+          source: "oauth_session",
+          available: true,
+          can_list_models: true,
+          listed_models: ["grok-build"],
+          can_invoke: true,
+          notes: [],
+          command: "grok",
+        }]),
+      Error,
+      "requested wrapper candidate not available",
+    );
+  } finally {
+    oldModel === undefined
+      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_MODEL")
+      : Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", oldModel);
+  }
+});
+
+Deno.test("local model dogfood wrapper client is non-shell and stdin-closed", async () => {
+  const source = await Deno.readTextFile(
+    "examples/local-model-dogfood/src/wrapper_client.ts",
+  );
+  assertStringIncludes(source, "new Deno.Command(entry.command");
+  assertStringIncludes(source, 'stdin: "null"');
+  assertStringIncludes(source, 'child.kill("SIGKILL")');
 });
 
 Deno.test("local model dogfood trace schema stays sanitized", async () => {

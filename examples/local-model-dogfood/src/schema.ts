@@ -21,6 +21,7 @@ export type ModelInventoryEntry = {
   notes: string[];
   command?: string;
   args_template?: string[];
+  invocation_model?: string;
 };
 
 export type ModelInventory = {

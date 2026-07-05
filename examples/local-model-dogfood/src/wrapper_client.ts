@@ -1,12 +1,12 @@
 import type { ModelInventoryEntry, ProviderResult } from "./schema.ts";
 import { redact, summarize } from "./redact.ts";
 
-function argsFor(
+export function buildWrapperArgs(
   entry: ModelInventoryEntry,
   prompt: string,
   outPath: string,
 ): string[] {
-  return (entry.args_template ?? []).map((arg) =>
+  const args = (entry.args_template ?? []).map((arg) =>
     arg === "__PROMPT__"
       ? prompt
       : arg === "__CWD__"
@@ -15,6 +15,10 @@ function argsFor(
       ? outPath
       : arg
   );
+  if (entry.command === "grok" && entry.invocation_model) {
+    return ["--model", entry.invocation_model, ...args];
+  }
+  return args;
 }
 
 async function outputWithTimeout(
@@ -66,8 +70,9 @@ export async function callWrapper(
     `../../out/dogfood/local-model-dogfood/tmp-${crypto.randomUUID()}.txt`;
   try {
     const child = new Deno.Command(entry.command, {
-      args: argsFor(entry, prompt, outPath),
+      args: buildWrapperArgs(entry, prompt, outPath),
       cwd: Deno.cwd(),
+      stdin: "null",
       stdout: "piped",
       stderr: "piped",
     }).spawn();

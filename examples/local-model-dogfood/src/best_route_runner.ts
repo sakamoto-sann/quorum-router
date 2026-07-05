@@ -1,16 +1,107 @@
-import { discoverInventory, invokableEntries } from "./auth_discovery.ts";
+import {
+  discoverInventoryWithModelListing,
+  invokableEntries,
+} from "./auth_discovery.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
-import { assertOptIn, parseAuthMode, type ProviderResult } from "./schema.ts";
+import {
+  assertOptIn,
+  type ModelInventoryEntry,
+  parseAuthMode,
+  type ProviderResult,
+} from "./schema.ts";
 import { buildTrace, score, writeTrace } from "./trace.ts";
 import { callWrapper } from "./wrapper_client.ts";
+
+function normalized(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed ? trimmed : undefined;
+}
+
+function providerAliases(entry: ModelInventoryEntry): string[] {
+  return [
+    entry.provider,
+    entry.model,
+    entry.model_id,
+    entry.source,
+    entry.command,
+  ].filter((value): value is string => Boolean(value)).map((value) =>
+    value.toLowerCase()
+  );
+}
+
+function modelAliases(entry: ModelInventoryEntry): string[] {
+  return [
+    entry.model,
+    entry.model_id,
+    ...(entry.listed_models ?? []),
+  ].map((value) => value.toLowerCase());
+}
+
+function withRequestedListedModel(
+  entry: ModelInventoryEntry,
+  requestedModel: string | undefined,
+): ModelInventoryEntry {
+  if (!requestedModel) return entry;
+  const listed = entry.listed_models ?? [];
+  const selected = listed.find((model) =>
+    model.toLowerCase() === requestedModel
+  );
+  if (!selected) return entry;
+  return {
+    ...entry,
+    model: selected,
+    model_id: `${entry.provider.toLowerCase()}/${selected}`,
+    invocation_model: selected,
+    notes: [
+      ...entry.notes,
+      `Selected listed model ${selected} for this invocation.`,
+    ],
+  };
+}
+
+export function selectInvokableCandidates(
+  candidates: ModelInventoryEntry[],
+): ModelInventoryEntry[] {
+  const requestedProvider = normalized(
+    Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL"),
+  );
+  const requestedModel = normalized(
+    Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL"),
+  );
+  if (!requestedProvider && !requestedModel) return candidates;
+
+  const filtered = candidates.filter((entry) => {
+    const providerMatches = !requestedProvider ||
+      providerAliases(entry).some((alias) => alias === requestedProvider);
+    const modelMatches = !requestedModel ||
+      modelAliases(entry).some((alias) => alias === requestedModel);
+    return providerMatches && modelMatches;
+  }).map((entry) => withRequestedListedModel(entry, requestedModel));
+
+  if (filtered.length > 0) return filtered;
+
+  const requested = [
+    requestedProvider ? `provider=${requestedProvider}` : undefined,
+    requestedModel ? `model=${requestedModel}` : undefined,
+  ].filter(Boolean).join(" ");
+  const available = candidates.map((entry) => {
+    const listed = entry.listed_models?.length
+      ? ` listed=[${entry.listed_models.join(",")}]`
+      : "";
+    return `${entry.provider}/${entry.model} (${entry.model_id})${listed}`;
+  }).join("; ");
+  throw new Error(
+    `Local real model dogfood still blocked: requested wrapper candidate not available (${requested}); candidates: ${available}`,
+  );
+}
 
 export async function invokeSelected(
   prompt: string,
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
-  const inventory = discoverInventory(authMode);
-  const candidates = invokableEntries(inventory);
+  const inventory = await discoverInventoryWithModelListing(authMode);
+  const candidates = selectInvokableCandidates(invokableEntries(inventory));
   if (candidates.length === 0) {
     throw new Error(
       "Local real model dogfood still blocked: no available local wrapper/session/provider capability",
@@ -39,8 +130,8 @@ export async function runBestRoute(
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
-  const inventory = discoverInventory(authMode);
-  const candidates = invokableEntries(inventory);
+  const inventory = await discoverInventoryWithModelListing(authMode);
+  const candidates = selectInvokableCandidates(invokableEntries(inventory));
   if (candidates.length === 0) {
     throw new Error(
       "Local real model dogfood still blocked: best-route has no available invokable models",

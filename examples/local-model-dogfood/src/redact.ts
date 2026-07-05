@@ -1,5 +1,6 @@
 const REDACTION_PATTERNS: RegExp[] = [
   /Bearer\s+[A-Za-z0-9._~+\/-]+=*/gi,
+  /session[_-]?id\s*[=:]\s*[0-9a-f]{8,}(?:-[0-9a-f]{4,})*/gi,
   /["']?authorization["']?\s*[:=]\s*["']?[^"'\n\r,}]+["']?/gi,
   /["']?refresh[_-]?token["']?\s*[:=]\s*["']?[^"'\n\r,}]+["']?/gi,
   /["']?access[_-]?token["']?\s*[:=]\s*["']?[^"'\n\r,}]+["']?/gi,
