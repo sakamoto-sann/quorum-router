@@ -47,6 +47,10 @@ Provider selection:
 
 HTTP provider env:
 
+- Generic OpenAI-compatible default: `FUSION_ROUTER_PROVIDER_BASE_URL`,
+  `FUSION_ROUTER_PROVIDER_API_KEY`, `FUSION_ROUTER_PROVIDER_MODEL`, and optional
+  `FUSION_ROUTER_PROVIDER_LABEL`. Prefer this path for user-supplied external
+  providers that implement `/chat/completions`.
 - OpenAI: `FUSION_ROUTER_OPENAI_MODE=http`, `FUSION_ROUTER_OPENAI_BASE_URL`,
   `FUSION_ROUTER_OPENAI_API_KEY`, `FUSION_ROUTER_OPENAI_MODEL`; falls back to
   `OPENAI_API_KEY`. Use `FUSION_ROUTER_OPENAI_MODE=cli` to route OpenAI dogfood
@@ -80,7 +84,7 @@ deno task external:check
 Expected on an uncredentialed machine:
 
 ```text
-external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY
+external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY
 ```
 
 Full current-provider preflight with no provider requests:

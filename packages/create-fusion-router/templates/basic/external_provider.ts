@@ -350,24 +350,25 @@ export async function loadExternalProviderConfig(
 
   return httpConfig(
     id,
-    stringField(providerConfig, "provider_label", "providerLabel") ??
+    firstEnv("FUSION_ROUTER_PROVIDER_LABEL") ??
+      stringField(providerConfig, "provider_label", "providerLabel") ??
       stringField(merged, "provider_label", "providerLabel") ??
       "OpenAI-compatible provider",
-    firstEnv("FUSION_ROUTER_OPENAI_MODEL", "FUSION_ROUTER_PROVIDER_MODEL") ??
+    firstEnv("FUSION_ROUTER_PROVIDER_MODEL", "FUSION_ROUTER_OPENAI_MODEL") ??
       stringField(providerConfig, "model") ?? stringField(merged, "model") ??
       "gpt-4o-mini",
     firstEnv(
-      "FUSION_ROUTER_OPENAI_BASE_URL",
       "FUSION_ROUTER_PROVIDER_BASE_URL",
+      "FUSION_ROUTER_OPENAI_BASE_URL",
     ) ?? stringField(providerConfig, "base_url", "baseUrl") ??
       stringField(merged, "base_url", "baseUrl") ?? "https://api.openai.com/v1",
     firstEnv(
-      "FUSION_ROUTER_OPENAI_API_KEY",
       "FUSION_ROUTER_PROVIDER_API_KEY",
+      "FUSION_ROUTER_OPENAI_API_KEY",
       "OPENAI_API_KEY",
     ),
-    "FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
-    "FUSION_ROUTER_OPENAI_BASE_URL",
+    "FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
+    "FUSION_ROUTER_PROVIDER_BASE_URL or FUSION_ROUTER_OPENAI_BASE_URL",
   );
 }
 

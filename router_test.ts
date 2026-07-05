@@ -6461,7 +6461,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
       new TextDecoder().decode(externalCheck.stderr);
     assertStringIncludes(
       externalCheckOutput,
-      "external dogfood blocked: missing FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
+      "external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
     );
     assert(!externalCheckOutput.includes("credential-fixture-value"));
 
@@ -6587,6 +6587,7 @@ Deno.test("generated external dogfood writes redacted trace with mock provider",
         FUSION_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
         [genericProviderCredentialEnv]: fixtureCredential,
         FUSION_ROUTER_PROVIDER_MODEL: "mock-external-model",
+        FUSION_ROUTER_PROVIDER_LABEL: "Mock OpenAI-compatible",
       },
       stdout: "piped",
       stderr: "piped",
