@@ -13,6 +13,64 @@ import { redact, redactionOk } from "./src/redact.ts";
 import { buildTrace, writeTrace } from "./src/trace.ts";
 import { buildWrapperArgs } from "./src/wrapper_client.ts";
 
+function setEnvForTest(
+  values: Record<string, string | undefined>,
+  run: () => void,
+): void {
+  const previous = Object.fromEntries(
+    Object.keys(values).map((key) => [key, Deno.env.get(key)]),
+  );
+  try {
+    for (const [key, value] of Object.entries(values)) {
+      value === undefined ? Deno.env.delete(key) : Deno.env.set(key, value);
+    }
+    run();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      value === undefined ? Deno.env.delete(key) : Deno.env.set(key, value);
+    }
+  }
+}
+
+function fixtureCandidates() {
+  return [{
+    provider: "OpenAI",
+    auth_mode: "oauth" as const,
+    model: "codex-cli",
+    model_id: "openai/codex-cli",
+    source: "oauth_session" as const,
+    available: true,
+    can_list_models: false,
+    can_invoke: true,
+    notes: [],
+    command: "codex",
+    args_template: ["exec", "__PROMPT__"],
+  }, {
+    provider: "xAI",
+    auth_mode: "oauth" as const,
+    model: "grok-cli",
+    model_id: "xai/grok-cli",
+    source: "oauth_session" as const,
+    available: true,
+    can_list_models: true,
+    listed_models: ["grok-build", "grok-composer-2.5-fast"],
+    can_invoke: true,
+    notes: [],
+    command: "grok",
+    args_template: ["-p", "__PROMPT__"],
+  }, {
+    provider: "OpenAI-compatible env fallback",
+    auth_mode: "env" as const,
+    model: "env-model",
+    model_id: "env/env-model",
+    source: "env_fallback" as const,
+    available: true,
+    can_list_models: false,
+    can_invoke: true,
+    notes: [],
+  }];
+}
+
 Deno.test("local model dogfood parses auth modes and rejects invalid values", () => {
   assertEquals(parseAuthMode(undefined), "auto");
   assertEquals(parseAuthMode("wrapper"), "wrapper");
@@ -112,6 +170,93 @@ Deno.test("local model dogfood parses safe grok model list output", () => {
     "grok-build",
     "grok-composer-2.5-fast",
   ]);
+});
+
+Deno.test("local model dogfood selection honors provider label aliases", () => {
+  for (const label of ["grok-cli", "xAI", "xai"]) {
+    setEnvForTest({
+      FUSION_ROUTER_PROVIDER_LABEL: label,
+      FUSION_ROUTER_PROVIDER_MODEL: undefined,
+    }, () => {
+      const [selected] = selectInvokableCandidates(fixtureCandidates());
+      assertEquals(selected.provider, "xAI");
+      assertEquals(selected.model, "grok-cli");
+    });
+  }
+  setEnvForTest({
+    FUSION_ROUTER_PROVIDER_LABEL: "codex-cli",
+    FUSION_ROUTER_PROVIDER_MODEL: undefined,
+  }, () => {
+    const [selected] = selectInvokableCandidates(fixtureCandidates());
+    assertEquals(selected.provider, "OpenAI");
+    assertEquals(selected.model, "codex-cli");
+  });
+});
+
+Deno.test("local model dogfood selection honors Grok listed model aliases", () => {
+  for (const model of ["grok-build", "grok-composer-2.5-fast"]) {
+    setEnvForTest({
+      FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+      FUSION_ROUTER_PROVIDER_MODEL: model,
+    }, () => {
+      const [selected] = selectInvokableCandidates(fixtureCandidates());
+      assertEquals(selected.provider, "xAI");
+      assertEquals(selected.model, model);
+      assertEquals(selected.invocation_model, model);
+      assertEquals(
+        buildWrapperArgs(selected, "hello", "out.txt")[0],
+        "--model",
+      );
+      assertEquals(buildWrapperArgs(selected, "hello", "out.txt")[1], model);
+    });
+  }
+});
+
+Deno.test("local model dogfood unknown requested provider fails safely", () => {
+  setEnvForTest({
+    FUSION_ROUTER_PROVIDER_LABEL: "missing-provider",
+    FUSION_ROUTER_PROVIDER_MODEL: undefined,
+  }, () => {
+    assertThrows(
+      () => selectInvokableCandidates(fixtureCandidates()),
+      Error,
+      "requested wrapper candidate not available",
+    );
+  });
+});
+
+Deno.test("local model dogfood requested wrapper does not silently use env fallback", () => {
+  setEnvForTest({
+    FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+    FUSION_ROUTER_PROVIDER_MODEL: "env-model",
+  }, () => {
+    assertThrows(
+      () => selectInvokableCandidates(fixtureCandidates()),
+      Error,
+      "requested wrapper candidate not available",
+    );
+  });
+});
+
+Deno.test("local model dogfood env fallback is available only in env mode", () => {
+  const providerKey = ["FUSION", "ROUTER", "PROVIDER", "API", "KEY"].join("_");
+  setEnvForTest({
+    FUSION_ROUTER_AUTH_MODE: "env",
+    FUSION_ROUTER_PROVIDER_BASE_URL: "https://example.invalid/v1",
+    [providerKey]: ["fixture", "secret", "value"].join("-"),
+    FUSION_ROUTER_PROVIDER_MODEL: "env-model",
+  }, () => {
+    const inventory = discoverInventory();
+    assertEquals(inventory.env_fallback_configured, true);
+    assertEquals(inventory.env_fallback_used, true);
+    const fallback = inventory.entries.find((entry) =>
+      entry.source === "env_fallback"
+    );
+    assert(fallback);
+    assertEquals(fallback.available, true);
+    assertEquals(fallback.can_invoke, true);
+    assertEquals(fallback.model, "env-model");
+  });
 });
 
 Deno.test("local model dogfood selects requested Grok listed model", () => {
