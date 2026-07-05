@@ -5,7 +5,7 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { discoverInventory } from "./src/auth_discovery.ts";
+import { discoverInventory, parseGrokModelList } from "./src/auth_discovery.ts";
 import { chatCompletionsUrl } from "./src/env_fallback_client.ts";
 import { parseAuthMode } from "./src/schema.ts";
 import { redact, redactionOk } from "./src/redact.ts";
@@ -97,6 +97,15 @@ Deno.test("local model dogfood env fallback URL handling preserves query", () =>
     ),
     "https://example.invalid/v1/chat/completions?api-version=1",
   );
+});
+
+Deno.test("local model dogfood parses safe grok model list output", () => {
+  const output =
+    `You are logged in with grok.com.\n\nDefault model: grok-composer-2.5-fast\n\nAvailable models:\n  * grok-composer-2.5-fast (default)\n  - grok-build\n`;
+  assertEquals(parseGrokModelList(output), [
+    "grok-build",
+    "grok-composer-2.5-fast",
+  ]);
 });
 
 Deno.test("local model dogfood trace schema stays sanitized", async () => {

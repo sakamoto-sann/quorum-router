@@ -15,6 +15,8 @@ export type ModelInventoryEntry = {
   available: boolean;
   blocked_reason?: string;
   can_list_models: boolean;
+  listed_models?: string[];
+  list_blocked_reason?: string;
   can_invoke: boolean;
   notes: string[];
   command?: string;

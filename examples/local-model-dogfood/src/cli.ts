@@ -1,4 +1,8 @@
-import { discoverInventory, invokableEntries } from "./auth_discovery.ts";
+import {
+  discoverInventory,
+  discoverInventoryWithModelListing,
+  invokableEntries,
+} from "./auth_discovery.ts";
 import { runAgentChat } from "./agent_chat_runner.ts";
 import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
 import { inventoryCommand, writeInventory } from "./model_inventory.ts";
@@ -31,8 +35,14 @@ function printInventorySummary(
   for (const entry of inventory.entries) {
     console.log(
       `- ${entry.provider}/${entry.model}: available=${entry.available}; source=${entry.source}; can_list_models=${entry.can_list_models}; can_invoke=${entry.can_invoke}${
-        entry.blocked_reason ? `; blocked=${entry.blocked_reason}` : ""
-      }`,
+        entry.listed_models?.length
+          ? `; listed_models=${entry.listed_models.join(",")}`
+          : ""
+      }${
+        entry.list_blocked_reason
+          ? `; list_blocked=${entry.list_blocked_reason}`
+          : ""
+      }${entry.blocked_reason ? `; blocked=${entry.blocked_reason}` : ""}`,
     );
   }
 }
@@ -48,7 +58,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "auth:status") {
-    const inventory = discoverInventory();
+    const inventory = await discoverInventoryWithModelListing();
     await writeInventory(inventory);
     printInventorySummary(inventory);
     if (invokableEntries(inventory).length === 0) {

@@ -10,6 +10,9 @@ confirms a real local multi-model dogfood pass and reviews the sanitized trace.
 
 ## Commands
 
+`inventory` and `auth:status` may run safe list-only probes such as
+`grok models`; they do not invoke model generation and they redact diagnostics.
+
 ```bash
 deno task inventory
 deno task auth:status

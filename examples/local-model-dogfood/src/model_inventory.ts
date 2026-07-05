@@ -1,5 +1,5 @@
 import type { ModelInventory } from "./schema.ts";
-import { discoverInventory } from "./auth_discovery.ts";
+import { discoverInventoryWithModelListing } from "./auth_discovery.ts";
 import { OUT_DIR } from "./trace.ts";
 
 export async function writeInventory(inventory: ModelInventory): Promise<void> {
@@ -19,12 +19,14 @@ export async function writeInventory(inventory: ModelInventory): Promise<void> {
     `Env fallback configured: ${inventory.env_fallback_configured}`,
     `Env fallback used: ${inventory.env_fallback_used}`,
     "",
-    "| provider | model | source | auth | available | can_list_models | can_invoke | blocked_reason |",
-    "| --- | --- | --- | --- | ---: | ---: | ---: | --- |",
+    "| provider | model | listed_models | source | auth | available | can_list_models | can_invoke | blocked_reason | list_blocked_reason |",
+    "| --- | --- | --- | --- | --- | ---: | ---: | ---: | --- | --- |",
     ...inventory.entries.map((entry) =>
-      `| ${entry.provider} | ${entry.model} | ${entry.source} | ${entry.auth_mode} | ${entry.available} | ${entry.can_list_models} | ${entry.can_invoke} | ${
+      `| ${entry.provider} | ${entry.model} | ${
+        (entry.listed_models ?? []).join(", ")
+      } | ${entry.source} | ${entry.auth_mode} | ${entry.available} | ${entry.can_list_models} | ${entry.can_invoke} | ${
         entry.blocked_reason ?? ""
-      } |`
+      } | ${entry.list_blocked_reason ?? ""} |`
     ),
     "",
   ];
@@ -36,7 +38,7 @@ export async function writeInventory(inventory: ModelInventory): Promise<void> {
 }
 
 export async function inventoryCommand(): Promise<ModelInventory> {
-  const inventory = discoverInventory();
+  const inventory = await discoverInventoryWithModelListing();
   await writeInventory(inventory);
   return inventory;
 }

@@ -1,4 +1,9 @@
-import { envFallbackEntry, LOCAL_PROVIDER_SPECS } from "./provider_registry.ts";
+import {
+  envFallbackEntry,
+  LOCAL_PROVIDER_SPECS,
+  type ProviderSpec,
+} from "./provider_registry.ts";
+import { redact, summarize } from "./redact.ts";
 import {
   type AuthMode,
   type ModelInventory,
@@ -44,6 +49,16 @@ function includeForMode(entryAuth: string, mode: AuthMode): boolean {
   return entryAuth === "env";
 }
 
+function specKey(spec: ProviderSpec): string {
+  return `${spec.provider}\u0000${spec.model_id}`;
+}
+
+function specForEntry(entry: ModelInventoryEntry): ProviderSpec | undefined {
+  return LOCAL_PROVIDER_SPECS.find((spec) =>
+    specKey(spec) === `${entry.provider}\u0000${entry.model_id}`
+  );
+}
+
 export function discoverInventory(
   mode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE")),
 ): ModelInventory {
@@ -61,7 +76,11 @@ export function discoverInventory(
       blocked_reason: exists
         ? undefined
         : `missing local command: ${spec.command}`,
-      can_list_models: spec.can_list_models,
+      can_list_models: false,
+      list_blocked_reason: spec.list_blocked_reason ??
+        (spec.list_models_args
+          ? "model listing not run in sync inventory path"
+          : "no safe non-interactive model list command configured"),
       can_invoke: exists,
       command: spec.command,
       args_template: spec.args_template,
@@ -97,6 +116,114 @@ export function discoverInventory(
     blocked_count: entries.filter((entry) => !entry.available).length,
     env_fallback_configured: envFallbackConfigured(),
     env_fallback_used: mode === "env" && envFallbackConfigured(),
+  };
+}
+
+async function outputWithTimeout(
+  command: string,
+  args: string[],
+  timeoutMs: number,
+): Promise<Deno.CommandOutput> {
+  const child = new Deno.Command(command, {
+    args,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let killId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      child.output(),
+      new Promise<Deno.CommandOutput>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          try {
+            child.kill("SIGTERM");
+          } catch { /* best effort */ }
+          killId = setTimeout(() => {
+            try {
+              child.kill("SIGKILL");
+            } catch { /* best effort */ }
+            reject(new Error("model listing timed out"));
+          }, 1_000);
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (killId) clearTimeout(killId);
+  }
+}
+
+export function parseGrokModelList(output: string): string[] {
+  const models = new Set<string>();
+  for (const rawLine of output.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const match = line.match(/^(?:[*-])\s+([^\s(]+)(?:\s+\(default\))?$/);
+    if (match) models.add(match[1]);
+  }
+  return [...models].sort();
+}
+
+async function enrichModelListing(
+  entry: ModelInventoryEntry,
+): Promise<ModelInventoryEntry> {
+  const spec = specForEntry(entry);
+  if (!entry.available || !entry.command || !spec?.list_models_args) {
+    return entry;
+  }
+  try {
+    const output = await outputWithTimeout(
+      entry.command,
+      spec.list_models_args,
+      10_000,
+    );
+    const stdout = new TextDecoder().decode(output.stdout);
+    const stderr = new TextDecoder().decode(output.stderr);
+    if (output.code !== 0) {
+      return {
+        ...entry,
+        can_list_models: false,
+        list_blocked_reason: summarize(redact(stderr || stdout), 300),
+      };
+    }
+    const listedModels = entry.provider === "xAI"
+      ? parseGrokModelList(stdout)
+      : [];
+    return {
+      ...entry,
+      can_list_models: listedModels.length > 0,
+      listed_models: listedModels,
+      list_blocked_reason: listedModels.length > 0
+        ? undefined
+        : "model list command succeeded but no model ids were parsed",
+      notes: listedModels.length > 0
+        ? [
+          ...entry.notes,
+          `Listed ${listedModels.length} model(s) via safe list-only command.`,
+        ]
+        : entry.notes,
+    };
+  } catch (error) {
+    return {
+      ...entry,
+      can_list_models: false,
+      list_blocked_reason: summarize(
+        redact(error instanceof Error ? error.message : String(error)),
+        300,
+      ),
+    };
+  }
+}
+
+export async function discoverInventoryWithModelListing(
+  mode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE")),
+): Promise<ModelInventory> {
+  const inventory = discoverInventory(mode);
+  const entries = await Promise.all(inventory.entries.map(enrichModelListing));
+  return {
+    ...inventory,
+    entries,
   };
 }
 
