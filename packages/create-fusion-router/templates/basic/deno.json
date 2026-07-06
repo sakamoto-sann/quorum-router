@@ -6,8 +6,13 @@
   "tasks": {
     "check": "deno check main.ts external_provider.ts external_dogfood.ts",
     "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts",
-    "external:check": "deno run --allow-read --allow-env external_dogfood.ts --check-only",
-    "external:once": "deno run --allow-read --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless --allow-write=out/external-dogfood external_dogfood.ts --once",
-    "external:matrix": "deno run --allow-read --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless --allow-write=out/external-dogfood external_dogfood.ts --matrix"
+    "auth:status": "deno run --allow-read --allow-env external_dogfood.ts auth:status",
+    "auth:login": "deno run --allow-read --allow-env --allow-net external_dogfood.ts auth:login",
+    "route:once": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts route:once",
+    "best-route": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts best-route",
+    "agent-chat": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts agent-chat",
+    "external:check": "deno run --allow-read --allow-env external_dogfood.ts external:check",
+    "external:once": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts route:once",
+    "external:matrix": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts best-route"
   }
 }

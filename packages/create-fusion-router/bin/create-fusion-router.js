@@ -54,7 +54,8 @@ function copyRecursive(from, to) {
   if (stat.isDirectory()) {
     fs.mkdirSync(to, { recursive: true });
     for (const entry of fs.readdirSync(from)) {
-      copyRecursive(path.join(from, entry), path.join(to, entry));
+      const targetEntry = entry === "gitignore" ? ".gitignore" : entry;
+      copyRecursive(path.join(from, entry), path.join(to, targetEntry));
     }
     return;
   }
@@ -106,21 +107,28 @@ function main() {
   console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);
   console.log("  deno task check");
   console.log("  deno task smoke");
-  console.log("  deno task external:check");
+  console.log("  deno task auth:status");
+  console.log("  deno task auth:login");
   console.log(
-    "  # Optional one-shot real provider dogfood after local env is configured:",
+    "  # Optional one-shot real provider dogfood after local wrapper/session auth is configured:",
   );
-  console.log("  RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once");
-  console.log("  # Optional full current-provider matrix:");
   console.log(
-    "  FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix",
+    '  FUSION_ROUTER_AUTH_MODE=wrapper RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "hello"',
+  );
+  console.log("  # Optional Best Route over local wrappers:");
+  console.log(
+    '  FUSION_ROUTER_AUTH_MODE=wrapper FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,localqwen RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "hello"',
+  );
+  console.log("  # Experimental Agent Chat stays explicit opt-in:");
+  console.log(
+    '  FUSION_ROUTER_AUTH_MODE=wrapper RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "hello"',
   );
   console.log("");
   console.log(
     "Note: deno task smoke is deterministic fixture-only and does not call a provider API.",
   );
   console.log(
-    "Note: external:once is manual opt-in real provider dogfood and reads credentials only from the local process environment.",
+    "Note: route:once/best-route are manual opt-in real provider dogfood; env fallback requires FUSION_ROUTER_AUTH_MODE=env.",
   );
 }
 
