@@ -7099,6 +7099,219 @@ Deno.test("generated scaffold redaction guard rejects redaction-pattern leaks", 
   );
 });
 
+Deno.test("generated route:once honors forced Grok provider/model and rejects noisy wrapper output", async () => {
+  const cli =
+    `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;
+  const tempDir = await Deno.makeTempDir();
+  try {
+    const create = await new Deno.Command("node", {
+      args: [cli, "demo", "--template", "basic"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(create.code, 0, new TextDecoder().decode(create.stderr));
+
+    const fakeBin = `${tempDir}/bin`;
+    await Deno.mkdir(fakeBin, { recursive: true });
+    const fakeGrok = `${fakeBin}/grok`;
+    await Deno.writeTextFile(
+      fakeGrok,
+      [
+        "#!/bin/sh",
+        'if [ "$1" = "models" ]; then',
+        "  printf '* grok-composer-2.5-fast (default)\\n'",
+        "  printf -- '- grok-build\\n'",
+        "  exit 0",
+        "fi",
+        'printf \'%s\\n\' "$*" >> "$HOME/grok-args.txt"',
+        "if read stdin_line; then",
+        "  printf 'unexpected stdin: %s\\n' \"$stdin_line\" >&2",
+        "  exit 12",
+        "fi",
+        'case " $* " in',
+        '  *"--model grok-build"*)',
+        "    printf 'Grok build fixture answer with enough content for schema validation.\\n'",
+        "    ;;",
+        '  *"--model grok-composer-2.5-fast"*)',
+        "    printf 'Grok composer fixture answer with enough content for schema validation.\\n'",
+        "    ;;",
+        "  *)",
+        "    printf 'missing forced grok model in argv: %s\\n' \"$*\" >&2",
+        "    exit 13",
+        "    ;;",
+        "esac",
+      ].join("\n") + "\n",
+      { mode: 0o700 },
+    );
+    await Deno.chmod(fakeGrok, 0o700);
+
+    const fakeCodex = `${fakeBin}/codex`;
+    await Deno.writeTextFile(
+      fakeCodex,
+      [
+        "#!/bin/sh",
+        "printf 'codex was invoked\\n' >> \"$HOME/codex-called.txt\"",
+        "printf 'Reading additional input from stdin...\\n'",
+        "printf 'OpenAI Codex v0.136.0\\n'",
+        "printf 'ERROR rmcp::transport::worker AuthRequiredError\\n' >&2",
+        "exit 0",
+      ].join("\n") + "\n",
+      { mode: 0o700 },
+    );
+    await Deno.chmod(fakeCodex, 0o700);
+
+    const baseEnv = {
+      PATH: `${fakeBin}:${Deno.env.get("PATH") ?? ""}`,
+      HOME: tempDir,
+      TMPDIR: tempDir,
+      RUN_EXTERNAL_MODEL_DOGFOOD: "1",
+      FUSION_ROUTER_AUTH_MODE: "wrapper",
+    };
+
+    for (
+      const requestedModel of [
+        "grok-build",
+        "grok-composer-2.5-fast",
+      ]
+    ) {
+      const once = await new Deno.Command("deno", {
+        args: ["task", "route:once", "--prompt", "forced grok"],
+        cwd: `${tempDir}/demo`,
+        clearEnv: true,
+        env: {
+          ...baseEnv,
+          FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+          FUSION_ROUTER_PROVIDER_MODEL: requestedModel,
+        },
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      const combined = new TextDecoder().decode(once.stdout) +
+        new TextDecoder().decode(once.stderr);
+      assertEquals(once.code, 0, combined);
+      assertStringIncludes(combined, "provider: xAI");
+      assertStringIncludes(combined, `model: ${requestedModel}`);
+      assertStringIncludes(combined, "response_received: true");
+      assertStringIncludes(combined, "schema_valid: true");
+      assertStringIncludes(combined, "redaction_ok: true");
+      assertStringIncludes(combined, "credential_value_present: false");
+      assertStringIncludes(combined, "sensitive_value_present: false");
+      assert(!combined.includes("provider: OpenAI"));
+      assert(!combined.includes("codex-cli"));
+
+      const trace = JSON.parse(
+        await Deno.readTextFile(`${tempDir}/demo/out/route-once-trace.json`),
+      ) as Record<string, unknown>;
+      assertEquals(trace.requested_provider_label, "grok-cli");
+      assertEquals(trace.requested_model, requestedModel);
+      assertEquals(trace.selected_provider, "xAI");
+      assertEquals(trace.selected_model, requestedModel);
+      assertEquals(trace.provider_selection_honored, true);
+      assertEquals(trace.fallback_used, false);
+      assertEquals(trace.redaction_ok, true);
+    }
+
+    const grokArgs = await Deno.readTextFile(`${tempDir}/grok-args.txt`);
+    assertStringIncludes(grokArgs, "--model grok-build");
+    assertStringIncludes(grokArgs, "--deny *");
+    assertStringIncludes(grokArgs, "--no-subagents");
+    assertStringIncludes(grokArgs, "--model grok-composer-2.5-fast");
+    await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
+
+    const unknownProvider = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "unknown provider"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "zcode-headless",
+        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const unknownProviderOutput =
+      new TextDecoder().decode(unknownProvider.stdout) +
+      new TextDecoder().decode(unknownProvider.stderr);
+    assert(unknownProvider.code !== 0);
+    assertStringIncludes(
+      unknownProviderOutput,
+      "requested provider/model unavailable",
+    );
+    assertStringIncludes(
+      unknownProviderOutput,
+      "Available candidates and blockers",
+    );
+    assert(!unknownProviderOutput.includes("provider: OpenAI"));
+
+    const unknownModel = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "unknown model"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+        FUSION_ROUTER_PROVIDER_MODEL: "not-a-real-grok-model",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const unknownModelOutput = new TextDecoder().decode(unknownModel.stdout) +
+      new TextDecoder().decode(unknownModel.stderr);
+    assert(unknownModel.code !== 0);
+    assertStringIncludes(
+      unknownModelOutput,
+      "requested provider/model unavailable",
+    );
+    assert(!unknownModelOutput.includes("provider: OpenAI"));
+
+    const wrapperWithEnvFallbackConfigured = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "env fallback should not run"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "env-only-fixture",
+        FUSION_ROUTER_PROVIDER_MODEL: "env-only-model",
+        FUSION_ROUTER_PROVIDER_BASE_URL: "http://127.0.0.1:9/v1",
+        ["FUSION_ROUTER_PROVIDER_" + "API_KEY"]: "credential-fixture-value",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const wrapperFallbackOutput =
+      new TextDecoder().decode(wrapperWithEnvFallbackConfigured.stdout) +
+      new TextDecoder().decode(wrapperWithEnvFallbackConfigured.stderr);
+    assert(wrapperWithEnvFallbackConfigured.code !== 0);
+    assertStringIncludes(
+      wrapperFallbackOutput,
+      "requested provider/model unavailable",
+    );
+    assert(!wrapperFallbackOutput.includes("credential-fixture-value"));
+
+    const noisyCodex = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "codex noise"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "codex-cli",
+        FUSION_ROUTER_PROVIDER_MODEL: "codex-cli",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const noisyCodexOutput = new TextDecoder().decode(noisyCodex.stdout) +
+      new TextDecoder().decode(noisyCodex.stderr);
+    assert(noisyCodex.code !== 0);
+    assertStringIncludes(noisyCodexOutput, "CLI runtime/auth error noise");
+    assert(!noisyCodexOutput.includes("schema_valid: true"));
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
 Deno.test("generated scaffold writes redacted trace with explicit env fallback mock provider", async () => {
   const cli =
     `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;

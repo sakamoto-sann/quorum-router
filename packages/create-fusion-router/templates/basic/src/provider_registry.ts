@@ -13,6 +13,108 @@ export type ProviderSpec = {
   notes: string[];
 };
 
+export type ProviderSelectionRequest = {
+  providerLabel?: string;
+  model?: string;
+};
+
+export function normalizeSelectionValue(
+  value: string | undefined,
+): string | undefined {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed ? trimmed : undefined;
+}
+
+export function readProviderSelectionRequest(): ProviderSelectionRequest {
+  return {
+    providerLabel: Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL")?.trim() ||
+      Deno.env.get("FUSION_ROUTER_WRAPPER_PROVIDER_LABEL")?.trim() ||
+      undefined,
+    model: Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL")?.trim() ||
+      Deno.env.get("FUSION_ROUTER_WRAPPER_PROVIDER_MODEL")?.trim() ||
+      undefined,
+  };
+}
+
+function aliasSet(values: Array<string | undefined>): string[] {
+  return [
+    ...new Set(
+      values.map(normalizeSelectionValue).filter((value) =>
+        Boolean(value)
+      ) as string[],
+    ),
+  ];
+}
+
+export function providerAliasesForCommand(
+  provider: string,
+  model: string,
+  modelId: string,
+  source: string,
+  command?: string,
+): string[] {
+  const commandAliases: Record<string, string[]> = {
+    grok: ["grok", "grok-cli", "xai", "xai-cli"],
+    codex: ["openai", "codex", "codex-cli", "openai-codex"],
+    claude: ["anthropic", "claude", "claude-code"],
+    gemini: ["google", "gemini", "gemini-cli"],
+    devin: ["cognition", "devin", "devin-cli"],
+    qwen: ["alibaba", "qwen", "qwen-cli"],
+  };
+  const providerAliases: Record<string, string[]> = {
+    xai: ["grok", "grok-cli", "xai", "xai-cli"],
+    openai: ["openai", "codex", "codex-cli", "openai-codex"],
+    anthropic: ["anthropic", "claude", "claude-code"],
+    google: ["google", "gemini", "gemini-cli"],
+    cognition: ["cognition", "devin", "devin-cli"],
+    alibaba: ["alibaba", "qwen", "qwen-cli"],
+  };
+  const normalizedProvider = normalizeSelectionValue(provider);
+  return aliasSet([
+    provider,
+    model,
+    modelId,
+    source,
+    command,
+    ...(command ? commandAliases[command] ?? [] : []),
+    ...(normalizedProvider ? providerAliases[normalizedProvider] ?? [] : []),
+  ]);
+}
+
+export function providerSelectionMatches(
+  entry: {
+    provider: string;
+    model: string;
+    model_id: string;
+    source: string;
+    command?: string;
+  },
+  requestedProviderLabel: string | undefined,
+): boolean {
+  const requested = normalizeSelectionValue(requestedProviderLabel);
+  if (!requested) return true;
+  return providerAliasesForCommand(
+    entry.provider,
+    entry.model,
+    entry.model_id,
+    entry.source,
+    entry.command,
+  ).includes(requested);
+}
+
+export function modelSelectionMatches(
+  entry: { model: string; model_id: string; listed_models?: string[] },
+  requestedModel: string | undefined,
+): boolean {
+  const requested = normalizeSelectionValue(requestedModel);
+  if (!requested) return true;
+  return aliasSet([
+    entry.model,
+    entry.model_id,
+    ...(entry.listed_models ?? []),
+  ]).includes(requested);
+}
+
 export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
   {
     provider: "OpenAI",

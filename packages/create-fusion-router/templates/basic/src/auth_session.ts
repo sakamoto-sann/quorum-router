@@ -1,6 +1,8 @@
 import {
   envFallbackEntry,
   LOCAL_PROVIDER_SPECS,
+  providerSelectionMatches,
+  type ProviderSelectionRequest,
   type ProviderSpec,
 } from "./provider_registry.ts";
 import { redact, summarize } from "./redact.ts";
@@ -241,9 +243,18 @@ async function enrichModelListing(
 
 export async function discoverInventoryWithModelListing(
   mode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE")),
+  request: ProviderSelectionRequest = {},
 ): Promise<ModelInventory> {
   const inventory = discoverInventory(mode);
-  const entries = await Promise.all(inventory.entries.map(enrichModelListing));
+  const entries = await Promise.all(inventory.entries.map((entry) => {
+    if (
+      request.providerLabel &&
+      !providerSelectionMatches(entry, request.providerLabel)
+    ) {
+      return Promise.resolve(entry);
+    }
+    return enrichModelListing(entry);
+  }));
   return {
     ...inventory,
     entries,

@@ -78,6 +78,33 @@ Behavior:
   Only use this with repositories you are allowed to send to the selected
   provider.
 
+### Forced wrapper provider/model selection
+
+Use these only when you want a specific local wrapper/model. The scaffold fails
+closed if the requested provider or model is unavailable; it never silently
+falls back to OpenAI/Codex or private env fallback unless
+`FUSION_ROUTER_AUTH_MODE=env` is explicit.
+
+```bash
+FUSION_ROUTER_AUTH_MODE=wrapper \
+FUSION_ROUTER_PROVIDER_LABEL=grok-cli \
+FUSION_ROUTER_PROVIDER_MODEL=grok-build \
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+  deno task route:once --prompt "Review this README for risky claims."
+
+FUSION_ROUTER_AUTH_MODE=wrapper \
+FUSION_ROUTER_PROVIDER_LABEL=grok-cli \
+FUSION_ROUTER_PROVIDER_MODEL=grok-composer-2.5-fast \
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+  deno task route:once --prompt "Review this README for usability."
+```
+
+Supported provider aliases include `grok-cli`, `grok`, `xai`, `xAI`, `OpenAI`,
+`codex-cli`, `claude-code`, `gemini-cli`, `devin-cli`, and `qwen-cli`. Wrapper
+invocations use argv arrays, closed stdin, timeout guards, and sanitized
+stdout/stderr; CLI banners or auth/runtime errors are not accepted as valid
+model answers.
+
 ## Auth and inventory
 
 ```bash
