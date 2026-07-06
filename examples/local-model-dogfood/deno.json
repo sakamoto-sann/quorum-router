@@ -1,8 +1,11 @@
 {
   "lock": false,
   "tasks": {
-    "inventory": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts inventory",
+    "intake": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts intake",
     "auth:status": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts auth:status",
+    "auth:login": "deno run src/cli.ts auth:login",
+    "auth:logout": "deno run src/cli.ts auth:logout",
+    "models:list": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts models:list",
     "health": "deno run --allow-env --allow-read --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts health",
     "route:once": "deno run --allow-env --allow-read --allow-run=codex,claude,gemini,grok,devin,qwen --allow-net --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts route:once",
     "best-route": "deno run --allow-env --allow-read --allow-run=codex,claude,gemini,grok,devin,qwen --allow-net --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts best-route",

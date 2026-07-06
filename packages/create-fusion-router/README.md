@@ -13,96 +13,64 @@ product/service use requires prior written permission.
 npx --yes create-fusion-router@latest my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
+deno task intake
 ```
 
 npm package target for this PR: `create-fusion-router@0.1.4`. Do not publish
 this version until the PR is merged, v0.1.4 release/tag handling is approved,
-and at least one external provider dogfood pass is recorded.
+and the user personally approves local pre-release workspace dogfood results.
 
 ## What the generated project supports
 
-NPX is not the launch goal by itself. The repo-local
-`examples/local-model-dogfood` workspace is the primary internal dogfood path
-for machine-specific OAuth, wrapper, and CLI sessions. The generated scaffold
-exposes the portable fixture smoke and explicit external-provider interface;
-real model access still depends on the user's local auth/session/provider setup.
+`deno task smoke` is deterministic fixture-only and does not call a provider
+API.
+
+`deno task intake` is the first real setup command. It detects local provider
+wrappers, checks OAuth/session status, runs safe list-only model inventory where
+possible, writes redacted local health artifacts under `out/`, and recommends
+the next command.
 
 ```bash
 deno task check
-```
-
-Checks the generated fixture and external dogfood TypeScript files.
-
-```bash
 deno task smoke
+deno task intake
+deno task auth:status
+deno task auth:login
+deno task auth:logout
+deno task models:list
+deno task health
 ```
 
-Runs deterministic fixture smoke only. It does not call an external provider API
-and does not require provider credentials.
+Real provider use is OAuth/session/wrapper-first:
 
 ```bash
-deno task external:check
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
 ```
 
-Checks local env/config shape and verifies provider readiness without printing
-credential values. It sends no provider request.
+`auth:login` does not ask for API keys as the primary path. If OAuth/browser
+login is not wired in the generated scaffold, it fails closed and tells the user
+to use an installed provider CLI login, then rerun `deno task intake`.
 
-```bash
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once
-```
+## Private/manual env fallback
 
-Manual opt-in real provider dogfood. It makes exactly one selected provider
-call, validates response shape, redacts diagnostics, and writes a local trace
-under `out/external-dogfood/`.
+Generic env fallback exists only as an explicit private/manual fallback with
+`FUSION_ROUTER_AUTH_MODE=env`. It is never used silently, and it is not the
+preferred public dogfood path.
 
-```bash
-FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix
-```
+Do not commit `.env`, `router.config.local.json`, `.fusion-router/`, or `out/`.
+Do not paste tokens into chat/logs.
 
-Manual opt-in full current-provider dogfood. It supports Grok, Devin, OpenAI,
-local Qwen, and GLM, making one call per selected provider.
+## Runtime boundaries
 
-## External provider env
-
-Provider selection:
-
-- `FUSION_ROUTER_EXTERNAL_PROVIDER` for `external:once`.
-- `FUSION_ROUTER_EXTERNAL_PROVIDERS` for `external:matrix`.
-
-HTTP provider env:
-
-- Generic OpenAI-compatible default: `FUSION_ROUTER_PROVIDER_BASE_URL`,
-  `FUSION_ROUTER_PROVIDER_API_KEY`, `FUSION_ROUTER_PROVIDER_MODEL`, and optional
-  `FUSION_ROUTER_PROVIDER_LABEL`. Use this for user-provided external providers
-  that implement `/chat/completions`.
-- OpenAI: `FUSION_ROUTER_OPENAI_MODE=http`, `FUSION_ROUTER_OPENAI_BASE_URL`,
-  `FUSION_ROUTER_OPENAI_API_KEY`, `FUSION_ROUTER_OPENAI_MODEL`; falls back to
-  `OPENAI_API_KEY`. Use `FUSION_ROUTER_OPENAI_MODE=cli` to route OpenAI dogfood
-  through Codex CLI with `FUSION_ROUTER_OPENAI_COMMAND` or `codex`.
-- Grok HTTP: `FUSION_ROUTER_GROK_MODE=http`, `FUSION_ROUTER_GROK_BASE_URL`,
-  `FUSION_ROUTER_GROK_API_KEY`, `FUSION_ROUTER_GROK_MODEL`; falls back to
-  `XAI_API_KEY` / `GROK_API_KEY`.
-- GLM: `FUSION_ROUTER_GLM_BASE_URL`, `FUSION_ROUTER_GLM_API_KEY`,
-  `FUSION_ROUTER_GLM_MODEL`; falls back to `GLM_API_KEY`, `ZHIPUAI_API_KEY`, or
-  `BIGMODEL_API_KEY`. Use `FUSION_ROUTER_GLM_MODE=cli` with
-  `FUSION_ROUTER_GLM_COMMAND` for zcode-compatible local GLM dogfood.
-
-CLI provider env:
-
-- Grok: `FUSION_ROUTER_GROK_COMMAND` or `grok`.
-- Devin: `FUSION_ROUTER_DEVIN_COMMAND` or `devin`.
-- local Qwen: `FUSION_ROUTER_LOCALQWEN_COMMAND` or `qwen`, with optional
-  `FUSION_ROUTER_LOCALQWEN_MODEL`.
-
-Do not commit `.env` files and do not print provider credentials.
-
-## Runtime tag note
-
-The generated fixture smoke currently imports the latest published runtime tag
-`v0.1.3` for local PR verification. Before publishing
-`create-fusion-router@0.1.4`, release closeout must create/update the `v0.1.4`
-runtime tag/release flow and align the generated import with that release.
+- Best Route/direct is production-ready best-answer routing.
+- `agent_chat` is experimental explicit opt-in only.
+- No production autonomous runtime.
+- No service-role runtime.
+- No live Supabase Agent Bus runtime writes.
+- Public Product Hunt/X launch remains blocked until the user personally runs a
+  local pre-release workspace and approves release continuation.
 
 ## CLI
 

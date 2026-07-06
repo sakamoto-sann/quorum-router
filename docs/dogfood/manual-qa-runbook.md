@@ -120,39 +120,40 @@ deno task check
 deno task smoke
 ```
 
-External provider dogfood preflight, no provider request:
+Generated scaffold intake/onboarding, no provider generation request:
 
 ```bash
 tmp="$(mktemp -d)"
 cd "$tmp"
 npx --yes create-fusion-router@latest my-fusion-router-demo
 cd my-fusion-router-demo
-deno task external:check
+deno task intake
+deno task auth:status
+deno task models:list
+deno task health
 ```
 
-Expected on an uncredentialed machine: a fail-closed blocked message such as
-`external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY`.
-That is safe but does not satisfy the public launch gate.
+Expected on an uncredentialed machine: a safe blocked/no-provider recommendation
+that prints no credential values. That is safe but does not satisfy the public
+launch gate.
 
-External provider dogfood once-only run on a credentialed machine:
+Generated once-only run on a credentialed machine:
 
 ```bash
 cd my-fusion-router-demo
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
 ```
 
-Full current-provider matrix on a credentialed machine:
+Generated Best Route run on a credentialed machine:
 
 ```bash
 cd my-fusion-router-demo
-FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
-RUN_EXTERNAL_MODEL_DOGFOOD=1 \
-  deno task external:matrix -- -- "Compare direct fix vs refactor."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Compare direct fix vs refactor."
 ```
 
-This must write `out/external-dogfood/external-once-trace.json` or
-`out/external-dogfood/external-matrix-trace.json` without provider credential
-values. It is manual opt-in only and must not run in CI.
+This must write `out/route-once-trace.json` or `out/best-route-trace.json`
+without provider credential values. It is manual opt-in only and must not run in
+CI.
 
 Best Route demo:
 

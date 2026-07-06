@@ -1,5 +1,5 @@
 .env
 out/
 router.config.local.json
-.fusion-router/
 provider_config.json
+.fusion-router/

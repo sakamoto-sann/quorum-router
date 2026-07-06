@@ -41,7 +41,7 @@ async function outputWithTimeout(
             } catch { /* best effort */ }
             reject(
               new Error(
-                "local model dogfood blocked: wrapper timed out after 120000ms",
+                "Fusion Router blocked: wrapper timed out after 120000ms",
               ),
             );
           }, 2_000);
@@ -55,21 +55,20 @@ async function outputWithTimeout(
 }
 
 function safeWrapperEnv(): Record<string, string> {
+  const allowed = [
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "XDG_CONFIG_HOME",
+    "XDG_CACHE_HOME",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+  ];
   const env: Record<string, string> = {};
-  for (
-    const name of [
-      "PATH",
-      "HOME",
-      "TMPDIR",
-      "TMP",
-      "TEMP",
-      "XDG_CONFIG_HOME",
-      "XDG_CACHE_HOME",
-      "LANG",
-      "LC_ALL",
-      "TERM",
-    ]
-  ) {
+  for (const name of allowed) {
     const value = Deno.env.get(name);
     if (value) env[name] = value;
   }
@@ -82,14 +81,13 @@ export async function callWrapper(
 ): Promise<ProviderResult> {
   if (!entry.command) {
     throw new Error(
-      `local model dogfood blocked: ${entry.provider} has no command`,
+      `Fusion Router blocked: ${entry.provider} has no command`,
     );
   }
-  await Deno.mkdir("../../out/dogfood/local-model-dogfood", {
+  await Deno.mkdir("out", {
     recursive: true,
   });
-  const outPath =
-    `../../out/dogfood/local-model-dogfood/tmp-${crypto.randomUUID()}.txt`;
+  const outPath = `out/tmp-${crypto.randomUUID()}.txt`;
   try {
     const child = new Deno.Command(entry.command, {
       args: buildWrapperArgs(entry, prompt, outPath),
@@ -106,7 +104,7 @@ export async function callWrapper(
     const fileOutput = await Deno.readTextFile(outPath).catch(() => "");
     if (output.code !== 0) {
       throw new Error(
-        `local model dogfood blocked: ${entry.provider}/${entry.model} exited ${output.code}: ${
+        `Fusion Router blocked: ${entry.provider}/${entry.model} exited ${output.code}: ${
           summarize(redact(stderr || stdout || fileOutput), 400)
         }`,
       );
@@ -114,7 +112,7 @@ export async function callWrapper(
     const content = (fileOutput || stdout || stderr).trim();
     if (!content) {
       throw new Error(
-        `local model dogfood blocked: ${entry.provider}/${entry.model} returned empty stdout`,
+        `Fusion Router blocked: ${entry.provider}/${entry.model} returned empty stdout`,
       );
     }
     return {

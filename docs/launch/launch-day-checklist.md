@@ -16,18 +16,19 @@ distribution/demo surface after repo-local dogfood is usable.
 ## External dogfood gate
 
 - [ ] Generated `deno task smoke` passes and is recorded as fixture-only.
-- [ ] Repo-local `examples/local-model-dogfood deno task inventory` reads actual
+- [ ] Repo-local `examples/local-model-dogfood deno task intake` reads actual
       local wrapper/session/provider state.
 - [ ] Repo-local `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes with
       a real local wrapper/session/provider.
 - [ ] Generic API-key env fallback is not used as the primary launch proof.
-- [ ] Generated `deno task external:check` passes on a credentialed machine.
-- [ ] `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once` passes once with a
-      real external provider.
-- [ ] `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix` passes for the
-      current-provider gate: Grok + Devin + OpenAI + local Qwen + GLM, or every
-      unavailable provider is explicitly documented.
-- [ ] `out/external-dogfood/external-once-trace.json` exists.
+- [ ] Generated `deno task intake`, `deno task auth:status`,
+      `deno task models:list`, and `deno task health` pass without secrets.
+- [ ] `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes once with a
+      real OAuth/session/wrapper provider.
+- [ ] `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route` passes for the
+      current-provider gate, or every unavailable provider is explicitly
+      documented.
+- [ ] `out/route-once-trace.json` or `out/best-route-trace.json` exists.
 - [ ] Trace has `schema_valid: true`.
 - [ ] Trace has `redaction_ok: true`.
 - [ ] Trace has the no-API-key boolean set to true.

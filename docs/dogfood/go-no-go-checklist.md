@@ -20,19 +20,20 @@ manual session log.
 - [ ] Generated demo `deno task smoke` passes.
 - [ ] Generated demo `deno task smoke` is understood as fixture-only, not real
       provider dogfood.
-- [ ] Repo-local `(cd examples/local-model-dogfood && deno task inventory)`
+- [ ] Repo-local `(cd examples/local-model-dogfood && deno task intake)`
       reflects the user's actual local wrapper/session/provider state.
+- [ ] Generated demo `deno task intake`, `deno task auth:status`,
+      `deno task models:list`, and `deno task health` pass without printing
+      provider credentials.
 - [ ] Repo-local `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes with
       a local wrapper/session provider, or unavailable providers are marked with
       exact blockers.
 - [ ] Generic API-key env fallback is not treated as the primary launch proof.
-- [ ] Generated demo `deno task external:check` passes on a credentialed machine
-      without printing provider credentials.
-- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once`
-      passes at least once with a real external provider.
-- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix`
-      passes for Grok + Devin + OpenAI + local Qwen + GLM, or unavailable
-      providers are explicitly documented with primary evidence.
+- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once` passes
+      at least once with a real external provider.
+- [ ] Generated demo `RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route` passes
+      for Grok + Devin + Codex/OpenAI + local Qwen + Claude/Gemini, or
+      unavailable providers are explicitly documented with primary evidence.
 - [ ] External dogfood trace is reviewed and contains no provider credential
       values.
 - [ ] Best Route demo runs and stays separate from Agent Chat.
@@ -70,8 +71,7 @@ These can be documented and accepted if must-pass items are green:
 - [ ] Network required for remote module resolution.
 - [ ] `agent_chat` is a deterministic demo fixture / experimental.
 - [ ] Source-Available Non-Commercial may limit commercial use.
-- [ ] v0.1.3 tag predates PR #40 demo files, while README/main has latest demo
-      docs.
+- [ ] npm latest may remain 0.1.3 until explicit v0.1.4 publish approval.
 
 ## Required readbacks before GO
 

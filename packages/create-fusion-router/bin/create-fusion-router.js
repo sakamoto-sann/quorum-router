@@ -100,6 +100,8 @@ function main() {
   const templateDir = path.join(__dirname, "..", "templates", parsed.template);
   fs.mkdirSync(targetDir, { recursive: true });
   copyRecursive(templateDir, targetDir);
+  fs.mkdirSync(path.join(targetDir, "out"), { recursive: true });
+  fs.writeFileSync(path.join(targetDir, "out", ".gitkeep"), "");
 
   console.log(`Created Fusion Router evaluation demo in ${targetDir}`);
   console.log("");
@@ -107,28 +109,30 @@ function main() {
   console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);
   console.log("  deno task check");
   console.log("  deno task smoke");
+  console.log("  deno task intake");
   console.log("  deno task auth:status");
-  console.log("  deno task auth:login");
+  console.log("  deno task models:list");
+  console.log("  deno task health");
   console.log(
-    "  # Optional one-shot real provider dogfood after local wrapper/session auth is configured:",
+    "  # Optional one-shot real provider dogfood after intake reports a usable OAuth/session/wrapper provider:",
   );
   console.log(
-    '  FUSION_ROUTER_AUTH_MODE=wrapper RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "hello"',
+    '  RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."',
   );
   console.log("  # Optional Best Route over local wrappers:");
   console.log(
-    '  FUSION_ROUTER_AUTH_MODE=wrapper FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,localqwen RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "hello"',
+    '  RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."',
   );
   console.log("  # Experimental Agent Chat stays explicit opt-in:");
   console.log(
-    '  FUSION_ROUTER_AUTH_MODE=wrapper RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "hello"',
+    '  RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."',
   );
   console.log("");
   console.log(
     "Note: deno task smoke is deterministic fixture-only and does not call a provider API.",
   );
   console.log(
-    "Note: route:once/best-route are manual opt-in real provider dogfood; env fallback requires FUSION_ROUTER_AUTH_MODE=env.",
+    "Note: intake is the first real setup command; route:once/best-route are manual opt-in real provider dogfood; env fallback requires FUSION_ROUTER_AUTH_MODE=env.",
   );
 }
 

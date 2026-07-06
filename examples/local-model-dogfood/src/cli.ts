@@ -49,12 +49,32 @@ function printInventorySummary(
 
 async function main(): Promise<void> {
   const command = Deno.args[0] ?? "help";
-  if (command === "inventory") {
+  if (command === "inventory" || command === "models:list") {
     const inventory = await inventoryCommand();
+    console.log("Generation endpoint called: false");
     printInventorySummary(inventory);
     console.log(
       "wrote: ../../out/dogfood/local-model-dogfood/model-inventory.json",
     );
+    return;
+  }
+  if (command === "intake") {
+    const inventory = await discoverInventoryWithModelListing();
+    await writeInventory(inventory);
+    console.log("Fusion Router intake");
+    console.log("Step 1 — Detect local providers");
+    printInventorySummary(inventory);
+    console.log("Step 2 — Recommended next action");
+    if (invokableEntries(inventory).length === 0) {
+      console.log("Fusion Router intake blocked");
+      console.log("No usable OAuth/session/wrapper provider is available yet.");
+      console.log("Next:");
+      console.log("  deno task auth:login");
+    } else {
+      console.log(
+        'RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."',
+      );
+    }
     return;
   }
   if (command === "auth:status") {
@@ -66,6 +86,24 @@ async function main(): Promise<void> {
         "next_action: install/login to a local provider CLI, or explicitly set FUSION_ROUTER_AUTH_MODE=env with generic provider env",
       );
     }
+    return;
+  }
+  if (command === "auth:login") {
+    console.error(
+      "OAuth/session login is not configured for this repo-local dogfood helper.",
+    );
+    console.error("Use an installed provider CLI login, then rerun:");
+    console.error("  deno task intake");
+    console.error(
+      "Generic env fallback exists, but it is private/manual and not the preferred path.",
+    );
+    Deno.exit(1);
+  }
+  if (command === "auth:logout") {
+    console.log(
+      "Provider CLI/browser sessions are managed by each provider CLI and were not modified.",
+    );
+    console.log("Credential values printed: false");
     return;
   }
   if (command === "health") {
@@ -117,7 +155,7 @@ async function main(): Promise<void> {
     return;
   }
   throw new Error(
-    "usage: deno task inventory|auth:status|health|route:once|best-route|agent-chat",
+    "usage: deno task intake|auth:status|auth:login|auth:logout|models:list|health|route:once|best-route|agent-chat",
   );
 }
 

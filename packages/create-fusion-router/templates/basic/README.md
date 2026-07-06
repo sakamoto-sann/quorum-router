@@ -1,120 +1,91 @@
-# Fusion Router evaluation demo
+# Fusion Router generated workspace
 
 This generated workspace is for local, non-commercial evaluation of Fusion
-Router v0.1 Public RC. It is intended to be usable before release: fixture smoke
-works without credentials, and real-provider dogfood is exposed through
-explicit, fail-closed commands.
+Router v0.1 Public RC. npm latest is still v0.1.3 until release approval.
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Production, commercial, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is **Source-Available Non-Commercial**. It is **not open source**.
+Production, commercial, hosted-service/SaaS/API, redistribution, sublicensing,
+derivative commercialization, or competing product/service use requires prior
+written permission.
 
 ## Security and runtime boundaries
 
 - Non-commercial evaluation only.
+- `deno task smoke` is fixture-only and credential-free.
+- `deno task intake` is the first real setup command.
+- Real provider use is OAuth/session/wrapper-first.
+- API key env fallback is private/manual only and never used silently.
+- Never commit `.env`, `router.config.local.json`, `provider_config.json`,
+  `.fusion-router/`, or `out/` traces.
+- Never paste tokens into chat/logs.
 - No production autonomous runtime.
 - No service-role runtime.
 - No live Supabase runtime writes.
-- No Supabase Realtime subscriber.
-- `direct` / Best Route is the production-ready best-answer routing path.
+- No live Supabase Agent Bus runtime writes.
+- Best Route/direct is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.
-- Do not paste API keys into chat or logs.
-- Do not commit `.env`, `router.config.local.json`, `.fusion-router/`, or
-  `out/`.
-- Public Product Hunt/X launch remains blocked until real local dogfood passes.
 
-## Quick start: deterministic fixture smoke
+## First launch
 
 ```bash
-deno task check
 deno task smoke
+deno task intake
+deno task auth:status
+deno task models:list
+deno task health
 ```
 
-`deno task smoke` is fixture-only and credential-free. It does **not** call a
-real provider API and is not external provider dogfood.
+`smoke` proves the local scaffold runs with deterministic fixtures only. It does
+**not** call a real provider API.
 
-This generated project currently imports `router.ts` from the published `v0.1.3`
-Git tag:
+`intake` detects local provider wrappers, checks OAuth/session status, runs safe
+model inventory/list-only probes where possible, writes local health traces
+under `out/`, and recommends the next command.
 
-```text
-https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.3/router.ts
-```
+In short: intake is the first real setup command before `route:once`,
+`best-route`, or experimental `agent-chat`.
 
-This is intentional for the pre-release local source scaffold: `v0.1.4` is not
-published yet, so the generated smoke stays pinned to the latest published
-runtime tag until release closeout aligns package/runtime versions.
+## Real provider dogfood commands
 
-## Usable OAuth/session-first dogfood commands
-
-The generated scaffold exposes the same task surface that the v0.1.4 release
-contract requires:
+Run only after `intake` reports a usable OAuth/session/wrapper provider:
 
 ```bash
-deno task auth:status
-deno task auth:login
-deno task route:once --prompt "Review this launch copy for risky claims."
-deno task best-route --prompt "Choose the safer tagline."
-deno task agent-chat --prompt "Review this local dogfood result."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
 ```
 
 Behavior:
 
-- `auth:status` reports local session/config status safely and never prints
-  tokens, secrets, or provider credential values.
-- `auth:login` fails closed in this generated scaffold unless local
-  OAuth/session setup has been explicitly wired. It points you to repo-local
-  dogfood or explicit private fallback instead of asking you to paste API keys.
-- `route:once` requires `RUN_EXTERNAL_MODEL_DOGFOOD=1` before any real provider
-  call. By default it tries OAuth/session/local-wrapper style providers first.
-- `best-route` also requires `RUN_EXTERNAL_MODEL_DOGFOOD=1`; with multiple
-  configured wrapper providers it compares them, and with one provider it runs a
-  single-route dogfood pass.
+- `route:once` requires `RUN_EXTERNAL_MODEL_DOGFOOD=1`.
+- `best-route` requires `RUN_EXTERNAL_MODEL_DOGFOOD=1`.
 - `agent-chat` requires both `RUN_EXTERNAL_MODEL_DOGFOOD=1` and
-  `RUN_EXPERIMENTAL_AGENT_CHAT=1`, and prints that it is experimental explicit
-  opt-in. It does not imply production-ready Agent Chat.
+  `RUN_EXPERIMENTAL_AGENT_CHAT=1`.
+- Default auth mode is OAuth/session/wrapper-first.
+- Env fallback is used only with `FUSION_ROUTER_AUTH_MODE=env` and local private
+  credential environment.
+- Traces are redacted and written under `out/`.
 
-## Preferred local wrapper/session path
-
-Use local wrapper/session providers first. Examples include Grok CLI, Devin CLI,
-and local Qwen CLI when those wrappers are already authenticated on your
-machine. The default generated `route:once` blocks safely until an OAuth/session
-marker is present; to use an already-authenticated local CLI wrapper before
-release, select wrapper mode explicitly:
+## Auth and inventory
 
 ```bash
-FUSION_ROUTER_AUTH_MODE=wrapper \
-RUN_EXTERNAL_MODEL_DOGFOOD=1 \
-  deno task route:once --prompt "Review this README for risky launch claims."
+deno task auth:status
+deno task auth:login
+deno task auth:logout
+deno task models:list
 ```
 
-To choose another wrapper provider:
+`auth:login` does not ask for API keys as the primary path. If OAuth/browser
+login is not wired in this scaffold, it fails closed and tells you to use an
+installed provider CLI login, then rerun `deno task intake`.
 
-```bash
-FUSION_ROUTER_AUTH_MODE=wrapper \
-FUSION_ROUTER_EXTERNAL_PROVIDER=localqwen \
-RUN_EXTERNAL_MODEL_DOGFOOD=1 \
-  deno task route:once --prompt "Review this implementation plan."
-```
+Browser/device login handling is safe-by-default: the scaffold does not open a
+browser automatically. Provider CLIs own their own login flows.
 
-For Best Route over multiple local wrappers:
+## Private/manual env fallback
 
-```bash
-FUSION_ROUTER_AUTH_MODE=wrapper \
-FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,localqwen \
-RUN_EXTERNAL_MODEL_DOGFOOD=1 \
-  deno task best-route --prompt "Pick the safer launch claim."
-```
-
-If no local wrapper/session provider is available, these commands fail closed
-and print the blocker without exposing secrets.
-
-## Explicit private env fallback
-
-Generic OpenAI-compatible env fallback is private/manual only. It is not the
-primary public path and is never used silently in default `auto` mode.
-
-Use it only when you intentionally select it in your local shell:
+Generic OpenAI-compatible env fallback exists only as an explicit private
+fallback:
 
 ```bash
 FUSION_ROUTER_AUTH_MODE=env \
@@ -123,32 +94,27 @@ RUN_EXTERNAL_MODEL_DOGFOOD=1 \
 ```
 
 Credential values must come from your local environment or secret manager. Do
-not paste them into chat/logs, do not store them in `provider_config.json`, and
-do not commit `.env`.
-
-## Backward-compatible external aliases
-
-These aliases remain for older docs and scripts:
-
-```bash
-deno task external:check
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once --prompt "hello"
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix --prompt "hello"
-```
-
-`external:check` sends no provider request. `external:once` maps to
-`route:once`. `external:matrix` maps to `best-route`.
+not paste them into chat/logs and do not commit `.env`.
 
 ## Generated files
 
 - `main.ts` — deterministic fixture smoke only.
-- `external_provider.ts` — local wrapper and explicit env provider adapters.
-- `external_dogfood.ts` — auth/status/login/route/best-route/agent-chat task
-  surface.
-- `provider_config.example.json` — non-secret labels/models/commands only.
-- `.gitignore` — excludes `.env`, `.fusion-router/`, `router.config.local.json`,
-  `provider_config.json`, and `out/`.
+- `deno.json` — generated task surface.
+- `README.md` — practical first-launch guide.
+- `.gitignore` — excludes `.env`, `out/`, `router.config.local.json`,
+  `provider_config.json`, and `.fusion-router/`.
+- `router.config.example.json` — non-secret example boundaries.
+- `src/cli.ts` — command dispatcher.
+- `src/intake.ts` — first-run onboarding.
+- `src/auth.ts`, `src/auth_oauth.ts`, `src/auth_session.ts`,
+  `src/auth_env_fallback.ts` — auth/session/fallback boundaries.
+- `src/provider_registry.ts`, `src/model_inventory.ts`, `src/wrapper_client.ts`,
+  `src/provider_client.ts` — provider discovery and safe invocation.
+- `src/best_route.ts`, `src/agent_chat.ts` — gated dogfood commands.
+- `src/trace.ts`, `src/redact.ts`, `src/schema.ts`, `src/fixture_smoke.ts` —
+  trace/redaction/schema/fixture support.
+- `out/.gitkeep` — local output directory placeholder.
 
-Product Hunt/X public launch remains blocked until a human records a real local
-dogfood pass. This scaffold does not publish npm, create a GitHub release, or
-mutate tags/dist-tags.
+Public Product Hunt/X launch remains blocked until the user personally runs a
+local pre-release workspace and approves release continuation. This scaffold
+does not publish npm, create a GitHub release, or mutate tags/dist-tags.

@@ -4,15 +4,16 @@
     "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
   },
   "tasks": {
-    "check": "deno check main.ts external_provider.ts external_dogfood.ts",
-    "smoke": "deno run --allow-net=raw.githubusercontent.com main.ts",
-    "auth:status": "deno run --allow-read --allow-env external_dogfood.ts auth:status",
-    "auth:login": "deno run --allow-read --allow-env --allow-net external_dogfood.ts auth:login",
-    "route:once": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts route:once",
-    "best-route": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts best-route",
-    "agent-chat": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts agent-chat",
-    "external:check": "deno run --allow-read --allow-env external_dogfood.ts external:check",
-    "external:once": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts route:once",
-    "external:matrix": "deno run --allow-read --allow-write=out/external-dogfood --allow-env --allow-net --allow-run=grok,devin,qwen,codex,zcode-headless external_dogfood.ts best-route"
+    "check": "deno check main.ts src/*.ts",
+    "smoke": "deno run main.ts",
+    "intake": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts intake",
+    "auth:status": "deno run --allow-read --allow-env --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts auth:status",
+    "auth:login": "deno run src/cli.ts auth:login",
+    "auth:logout": "deno run --allow-read --allow-write --allow-env src/cli.ts auth:logout",
+    "models:list": "deno run --allow-read --allow-write --allow-env --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts models:list",
+    "health": "deno run --allow-read --allow-write --allow-env --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts health",
+    "route:once": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts route:once",
+    "best-route": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts best-route",
+    "agent-chat": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts agent-chat"
   }
 }
