@@ -16,6 +16,26 @@ export function buildWrapperArgs(
       : arg
   );
   if (entry.command === "grok" && entry.invocation_model) {
+    if (entry.invocation_model === "grok-build") {
+      const withoutPlanMode: string[] = [];
+      for (let index = 0; index < args.length; index += 1) {
+        if (args[index] === "--permission-mode") {
+          index += 1;
+          continue;
+        }
+        withoutPlanMode.push(args[index]);
+      }
+      return [
+        "--model",
+        entry.invocation_model,
+        ...withoutPlanMode,
+        "--permission-mode",
+        "bypassPermissions",
+        "--deny",
+        "*",
+        "--no-subagents",
+      ];
+    }
     return ["--model", entry.invocation_model, ...args];
   }
   return args;
@@ -75,6 +95,55 @@ function safeWrapperEnv(): Record<string, string> {
   return env;
 }
 
+const FATAL_CLI_NOISE = [
+  /AuthRequiredError/i,
+  /authentication required/i,
+  /not logged in/i,
+  /^ERROR\s/mi,
+  /rmcp::transport::worker/i,
+];
+
+const BANNER_OR_RUNTIME_LINE = [
+  /^Reading additional input from stdin\.?$/i,
+  /^OpenAI Codex v\S+/i,
+  /^ERROR\s/i,
+  /rmcp::transport::worker/i,
+  /AuthRequiredError/i,
+];
+
+function stripRuntimeNoise(text: string): string {
+  return text.split(/\r?\n/).map((line) => line.trim()).filter((line) =>
+    line && !BANNER_OR_RUNTIME_LINE.some((pattern) => pattern.test(line))
+  ).join("\n").trim();
+}
+
+export function extractUsableWrapperContent(args: {
+  provider: string;
+  model: string;
+  fileOutput: string;
+  stdout: string;
+  stderr: string;
+}): string {
+  const diagnosticSurface = `${args.stdout}\n${args.stderr}`;
+  const fatal = FATAL_CLI_NOISE.find((pattern) =>
+    pattern.test(diagnosticSurface)
+  );
+  if (fatal) {
+    throw new Error(
+      `Fusion Router blocked: ${args.provider}/${args.model} emitted CLI runtime/auth error noise`,
+    );
+  }
+
+  for (const candidate of [args.fileOutput, args.stdout]) {
+    const cleaned = stripRuntimeNoise(candidate);
+    if (cleaned.length >= 3) return cleaned;
+  }
+
+  throw new Error(
+    `Fusion Router blocked: ${args.provider}/${args.model} returned no usable model answer after sanitizing CLI banner/runtime output`,
+  );
+}
+
 export async function callWrapper(
   entry: ModelInventoryEntry,
   prompt: string,
@@ -109,12 +178,13 @@ export async function callWrapper(
         }`,
       );
     }
-    const content = (fileOutput || stdout || stderr).trim();
-    if (!content) {
-      throw new Error(
-        `Fusion Router blocked: ${entry.provider}/${entry.model} returned empty stdout`,
-      );
-    }
+    const content = extractUsableWrapperContent({
+      provider: entry.provider,
+      model: entry.model,
+      fileOutput,
+      stdout,
+      stderr,
+    });
     return {
       provider: entry.provider,
       model: entry.model,

@@ -67,6 +67,10 @@ export async function buildTrace(args: {
   scores?: ScoreRow[];
   errors?: string[];
   agentChat?: boolean;
+  requestedProviderLabel?: string;
+  requestedModel?: string;
+  providerSelectionHonored?: boolean;
+  fallbackUsed?: boolean;
 }): Promise<DogfoodTrace> {
   const responseSummary = args.results?.map((r) =>
     `[${r.provider}/${r.model}] ${r.response_summary}`
@@ -79,6 +83,12 @@ export async function buildTrace(args: {
     auth_mode: args.authMode,
     provider: args.selected?.provider ?? args.results?.[0]?.provider,
     model: args.selected?.model ?? args.results?.[0]?.model,
+    requested_provider_label: args.requestedProviderLabel,
+    requested_model: args.requestedModel,
+    selected_provider: args.selected?.provider ?? args.results?.[0]?.provider,
+    selected_model: args.selected?.model ?? args.results?.[0]?.model,
+    provider_selection_honored: args.providerSelectionHonored ?? true,
+    fallback_used: args.fallbackUsed ?? false,
     prompt_hash: args.prompt ? await promptHash(args.prompt) : undefined,
     prompt_summary: args.prompt ? summarize(args.prompt, 160) : undefined,
     response_summary: responseSummary

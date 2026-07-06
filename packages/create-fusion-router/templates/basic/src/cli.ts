@@ -101,12 +101,17 @@ try {
   else if (command === "models:list") await runModelsList();
   else if (command === "health") await runHealth();
   else if (command === "route:once") {
-    const { results, tracePath } = await invokeSelected(promptFromArgs());
+    const { results, tracePath, trace } = await invokeSelected(
+      promptFromArgs(),
+    );
     console.log("Fusion Router route:once");
     console.log(`provider: ${results[0].provider}`);
     console.log(`model: ${results[0].model}`);
     console.log(`response_received: ${results[0].response_received}`);
     console.log(`schema_valid: ${results[0].schema_valid}`);
+    console.log(`redaction_ok: ${trace.redaction_ok}`);
+    console.log(`credential_value_present: ${trace.credential_value_present}`);
+    console.log(`sensitive_value_present: ${trace.sensitive_value_present}`);
     console.log(`final: ${summarize(results[0].response_summary, 500)}`);
     console.log(`trace: ${tracePath}`);
   } else if (command === "best-route") {
