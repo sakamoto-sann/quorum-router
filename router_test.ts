@@ -6241,6 +6241,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "packages/create-fusion-router/bin/create-fusion-router.js",
     "packages/create-fusion-router/README.md",
     "packages/create-fusion-router/LICENSE",
+    "packages/create-fusion-router/templates/basic/gitignore",
     "packages/create-fusion-router/templates/basic/README.md",
     "packages/create-fusion-router/templates/basic/deno.json",
     "packages/create-fusion-router/templates/basic/external_dogfood.ts",
@@ -6277,11 +6278,34 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   assertStringIncludes(String(templateTasks.check), "external_provider.ts");
   assertStringIncludes(String(templateTasks.check), "external_dogfood.ts");
   assert(!String(templateTasks.smoke).includes("--allow-env"));
-  assertStringIncludes(String(templateTasks["external:check"]), "--check-only");
+  for (
+    const task of [
+      "auth:status",
+      "auth:login",
+      "route:once",
+      "best-route",
+      "agent-chat",
+      "external:check",
+      "external:once",
+    ]
+  ) {
+    assert(task in templateTasks, `missing generated task ${task}`);
+  }
+  assertStringIncludes(String(templateTasks["auth:status"]), "auth:status");
+  assertStringIncludes(String(templateTasks["auth:login"]), "auth:login");
+  assert(!String(templateTasks["auth:login"]).includes("--allow-write"));
+  assertStringIncludes(String(templateTasks["route:once"]), "route:once");
+  assertStringIncludes(String(templateTasks["best-route"]), "best-route");
+  assertStringIncludes(String(templateTasks["agent-chat"]), "agent-chat");
+  assertStringIncludes(String(templateTasks["agent-chat"]), "--allow-run=");
+  assertStringIncludes(
+    String(templateTasks["external:check"]),
+    "external:check",
+  );
   assert(!String(templateTasks["external:check"]).includes("--allow-net"));
   assertStringIncludes(
     String(templateTasks["external:once"]),
-    "--once",
+    "route:once",
   );
   assertStringIncludes(
     String(templateTasks["external:once"]),
@@ -6291,7 +6315,17 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "packages/create-fusion-router/templates/basic/external_dogfood.ts",
   );
   assertStringIncludes(templateDogfood, "RUN_EXTERNAL_MODEL_DOGFOOD");
-  assertStringIncludes(templateDogfood, "external:matrix");
+  assertStringIncludes(templateDogfood, "RUN_EXPERIMENTAL_AGENT_CHAT");
+  assertStringIncludes(
+    templateDogfood,
+    "OAuth/session-first provider unavailable",
+  );
+  assertStringIncludes(templateDogfood, "FUSION_ROUTER_AUTH_MODE=env");
+  assertStringIncludes(
+    templateDogfood,
+    'return splitProviderList(env("FUSION_ROUTER_EXTERNAL_PROVIDER"), ["grok"])',
+  );
+  assertStringIncludes(templateDogfood, ".slice(");
   const rootDenoJson = await readJsonRecord("deno.json");
   const rootTasks = rootDenoJson.tasks as Record<string, unknown>;
   assert(!String(rootTasks.test).includes("external:once"));
@@ -6331,6 +6365,7 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
     "templates/basic/deno.json",
     "templates/basic/external_dogfood.ts",
     "templates/basic/external_provider.ts",
+    "templates/basic/gitignore",
     "templates/basic/main.ts",
     "templates/basic/provider_config.example.json",
   ]);
@@ -6360,13 +6395,19 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "v0.1.3");
   assert(!templateReadme.includes("v0.1.2"));
   assertStringIncludes(templateReadme, "fixture-only");
+  assertStringIncludes(templateReadme, "auth:status");
+  assertStringIncludes(templateReadme, "auth:login");
+  assertStringIncludes(templateReadme, "route:once");
+  assertStringIncludes(templateReadme, "best-route");
+  assertStringIncludes(templateReadme, "agent-chat");
   assertStringIncludes(templateReadme, "external:check");
   assertStringIncludes(templateReadme, "external:once");
   assertStringIncludes(templateReadme, "external:matrix");
-  for (const provider of ["Grok", "Devin", "OpenAI", "local Qwen", "GLM"]) {
+  for (const provider of ["Grok", "Devin", "local Qwen"]) {
     assertStringIncludes(templateReadme, provider);
   }
   assertStringIncludes(templateReadme, "fails closed");
+  assertStringIncludes(templateReadme, "FUSION_ROUTER_AUTH_MODE=env");
 });
 
 Deno.test("create-fusion-router CLI is static safe and functional", async () => {
@@ -6420,6 +6461,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     assertEquals(create.code, 0);
     for (
       const file of [
+        ".gitignore",
         "README.md",
         "deno.json",
         "main.ts",
@@ -6430,6 +6472,22 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     ) {
       assert((await Deno.stat(`${tempDir}/demo/${file}`)).isFile);
     }
+    const generatedGitignore = await Deno.readTextFile(
+      `${tempDir}/demo/.gitignore`,
+    );
+    for (
+      const ignored of [
+        ".env",
+        ".fusion-router/",
+        "router.config.local.json",
+        "out/",
+      ]
+    ) {
+      assertStringIncludes(generatedGitignore, ignored);
+    }
+    await assertRejects(() => Deno.stat(`${tempDir}/demo/.env`));
+    await assertRejects(() => Deno.stat(`${tempDir}/demo/.fusion-router`));
+
     const generatedDenoJson = JSON.parse(
       await Deno.readTextFile(`${tempDir}/demo/deno.json`),
     ) as Record<string, unknown>;
@@ -6450,19 +6508,128 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     }).output();
     assertEquals(check.code, 0, new TextDecoder().decode(check.stderr));
 
-    const externalCheck = await new Deno.Command("deno", {
-      args: ["task", "external:check"],
+    const noProviderPath = Deno.execPath().replace(/[/\\][^/\\]+$/, "");
+    const cleanEnv: Record<string, string> = { PATH: noProviderPath };
+    for (const key of ["HOME", "DENO_DIR", "TMPDIR"]) {
+      const value = Deno.env.get(key);
+      if (value) cleanEnv[key] = value;
+    }
+
+    const authStatus = await new Deno.Command("deno", {
+      args: ["task", "auth:status"],
       cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: cleanEnv,
       stdout: "piped",
       stderr: "piped",
     }).output();
-    assert(externalCheck.code !== 0);
+    const authStatusOutput = new TextDecoder().decode(authStatus.stdout) +
+      new TextDecoder().decode(authStatus.stderr);
+    assertEquals(authStatus.code, 0, authStatusOutput);
+    assertStringIncludes(authStatusOutput, "Credential values printed: false");
+    assertStringIncludes(authStatusOutput, "Next step: deno task auth:login");
+
+    const authLogin = await new Deno.Command("deno", {
+      args: ["task", "auth:login"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: cleanEnv,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const authLoginOutput = new TextDecoder().decode(authLogin.stdout) +
+      new TextDecoder().decode(authLogin.stderr);
+    assert(authLogin.code !== 0);
+    assertStringIncludes(
+      authLoginOutput,
+      "OAuth/session login is not configured",
+    );
+    assert(!authLoginOutput.includes("credential-fixture-value"));
+
+    const routeWithoutOptIn = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "hello"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: cleanEnv,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const routeWithoutOptInOutput =
+      new TextDecoder().decode(routeWithoutOptIn.stdout) +
+      new TextDecoder().decode(routeWithoutOptIn.stderr);
+    assert(routeWithoutOptIn.code !== 0);
+    assertStringIncludes(
+      routeWithoutOptInOutput,
+      "RUN_EXTERNAL_MODEL_DOGFOOD=1",
+    );
+
+    const routeNoSession = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "hello"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...cleanEnv,
+        RUN_EXTERNAL_MODEL_DOGFOOD: "1",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const routeNoSessionOutput =
+      new TextDecoder().decode(routeNoSession.stdout) +
+      new TextDecoder().decode(routeNoSession.stderr);
+    assert(routeNoSession.code !== 0);
+    assertStringIncludes(
+      routeNoSessionOutput,
+      "OAuth/session-first provider unavailable",
+    );
+    assert(!routeNoSessionOutput.includes("credential-fixture-value"));
+
+    const bestRouteNoProvider = await new Deno.Command("deno", {
+      args: ["task", "best-route", "--prompt", "hello"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...cleanEnv,
+        RUN_EXTERNAL_MODEL_DOGFOOD: "1",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const bestRouteNoProviderOutput =
+      new TextDecoder().decode(bestRouteNoProvider.stdout) +
+      new TextDecoder().decode(bestRouteNoProvider.stderr);
+    assert(bestRouteNoProvider.code !== 0);
+    assertStringIncludes(
+      bestRouteNoProviderOutput,
+      "OAuth/session-first provider unavailable",
+    );
+
+    const agentChatWithoutExperimental = await new Deno.Command("deno", {
+      args: ["task", "agent-chat", "--prompt", "hello"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: { ...cleanEnv, RUN_EXTERNAL_MODEL_DOGFOOD: "1" },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const agentChatOutput =
+      new TextDecoder().decode(agentChatWithoutExperimental.stdout) +
+      new TextDecoder().decode(agentChatWithoutExperimental.stderr);
+    assert(agentChatWithoutExperimental.code !== 0);
+    assertStringIncludes(agentChatOutput, "RUN_EXPERIMENTAL_AGENT_CHAT=1");
+
+    const externalCheck = await new Deno.Command("deno", {
+      args: ["task", "external:check"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: cleanEnv,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
     const externalCheckOutput = new TextDecoder().decode(externalCheck.stdout) +
       new TextDecoder().decode(externalCheck.stderr);
-    assertStringIncludes(
-      externalCheckOutput,
-      "external dogfood blocked: missing FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
-    );
+    assertEquals(externalCheck.code, 0, externalCheckOutput);
+    assertStringIncludes(externalCheckOutput, "Provider request sent: false");
     assert(!externalCheckOutput.includes("credential-fixture-value"));
 
     const exampleConfig = await Deno.readTextFile(
@@ -6513,19 +6680,20 @@ Deno.test("generated demo documents fixture-only smoke and external dogfood gate
   const normalizedReadme = readme.replace(/\s+/g, " ");
   assertStringIncludes(
     normalizedReadme,
-    "deno task smoke` imports `router.ts` from the published `v0.1.3` Git tag",
+    "This generated project currently imports `router.ts` from the published `v0.1.3` Git tag",
   );
   assert(!normalizedReadme.includes("v0.1.2"));
   assert(!main.includes("v0.1.2"));
   assertStringIncludes(normalizedReadme, "fixture-only");
   assertStringIncludes(normalizedReadme, "not external provider dogfood");
   assertStringIncludes(normalizedReadme, "RUN_EXTERNAL_MODEL_DOGFOOD=1");
-  assertStringIncludes(normalizedReadme, "external-once-trace.json");
-  assertStringIncludes(normalizedReadme, "external-matrix-trace.json");
-  assertStringIncludes(
-    normalizedReadme,
-    "Grok + Devin + OpenAI + local Qwen + GLM",
-  );
+  assertStringIncludes(normalizedReadme, "auth:status");
+  assertStringIncludes(normalizedReadme, "auth:login");
+  assertStringIncludes(normalizedReadme, "route:once");
+  assertStringIncludes(normalizedReadme, "best-route");
+  assertStringIncludes(normalizedReadme, "agent-chat");
+  assertStringIncludes(normalizedReadme, "OAuth/session/local-wrapper");
+  assertStringIncludes(normalizedReadme, "FUSION_ROUTER_AUTH_MODE=env");
 });
 
 Deno.test("generated external dogfood writes redacted trace with mock provider", async () => {
@@ -6584,6 +6752,7 @@ Deno.test("generated external dogfood writes redacted trace with mock provider",
       cwd: `${tempDir}/demo`,
       env: {
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
+        FUSION_ROUTER_AUTH_MODE: "env",
         FUSION_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
         [genericProviderCredentialEnv]: fixtureCredential,
         FUSION_ROUTER_PROVIDER_MODEL: "mock-external-model",
@@ -6599,7 +6768,7 @@ Deno.test("generated external dogfood writes redacted trace with mock provider",
     assert(!combined.includes(fixtureCredential));
 
     const trace = await Deno.readTextFile(
-      `${tempDir}/demo/out/external-dogfood/external-once-trace.json`,
+      `${tempDir}/demo/out/external-dogfood/route_once-trace.json`,
     );
     assert(!trace.includes(fixtureCredential));
     const parsed = JSON.parse(trace) as Record<string, unknown>;
@@ -6613,6 +6782,7 @@ Deno.test("generated external dogfood writes redacted trace with mock provider",
       cwd: `${tempDir}/demo`,
       env: {
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
+        FUSION_ROUTER_AUTH_MODE: "env",
         FUSION_ROUTER_EXTERNAL_PROVIDERS: "openai,glm",
         FUSION_ROUTER_OPENAI_BASE_URL: `http://127.0.0.1:${port}/v1`,
         [openAiCredentialEnv]: fixtureCredential,
@@ -6631,7 +6801,7 @@ Deno.test("generated external dogfood writes redacted trace with mock provider",
     assert(!matrixCombined.includes(fixtureCredential));
 
     const matrixTrace = await Deno.readTextFile(
-      `${tempDir}/demo/out/external-dogfood/external-matrix-trace.json`,
+      `${tempDir}/demo/out/external-dogfood/best_route-trace.json`,
     );
     assert(!matrixTrace.includes(fixtureCredential));
     const parsedMatrix = JSON.parse(matrixTrace) as Record<string, unknown>;
