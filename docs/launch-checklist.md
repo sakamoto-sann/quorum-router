@@ -36,13 +36,18 @@ deno task check
 deno task smoke
 ```
 
-- [ ] Confirm generated files are exactly:
+- [ ] Confirm generated scaffold includes at least:
 
 ```text
 ./README.md
 ./deno.json
 ./main.ts
+./src/context.ts
+./src/cli.ts
 ```
+
+Full package contents are gated by the create-fusion-router tarball whitelist in
+`publish.yml` / `deno task test` (27 pack entries for 0.1.4).
 
 - [ ] Confirm `deno task check` passes.
 - [ ] Confirm `deno task smoke` passes.

@@ -92,12 +92,35 @@ function githubHeaders(): HeadersInit {
   return headers;
 }
 
+/** Only allow authenticated GitHub API requests to api.github.com. */
+export function assertGitHubApiUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("GitHub context fetch rejected invalid URL");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("GitHub context fetch rejected non-HTTPS URL");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("GitHub context fetch rejected credentialed URL");
+  }
+  if (parsed.hostname !== "api.github.com") {
+    throw new Error(
+      `GitHub context fetch rejected non-api.github.com host: ${parsed.hostname}`,
+    );
+  }
+  return parsed.toString();
+}
+
 async function fetchJson(
   fetchFn: FetchLike,
   url: string,
   signal?: AbortSignal,
 ): Promise<unknown> {
-  const response = await fetchFn(url, {
+  const safeUrl = assertGitHubApiUrl(url);
+  const response = await fetchFn(safeUrl, {
     headers: githubHeaders(),
     signal,
   });
@@ -158,7 +181,15 @@ function pathPriority(path: string): number {
 
 function decodeBase64(content: string): string {
   const compact = content.replace(/\s+/g, "");
+  // Base64 expands ~4/3; reject oversized payloads before atob/Uint8Array.
+  const maxBase64Chars = Math.ceil(MAX_FILE_BYTES * 4 / 3) + 64;
+  if (compact.length > maxBase64Chars) {
+    throw new Error("GitHub context fetch rejected oversized base64 blob");
+  }
   const binary = atob(compact);
+  if (binary.length > MAX_FILE_BYTES) {
+    throw new Error("GitHub context fetch rejected oversized decoded blob");
+  }
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
   return new TextDecoder().decode(bytes);
 }
@@ -168,15 +199,16 @@ async function fetchBlobText(
   url: string,
   signal?: AbortSignal,
 ): Promise<string> {
+  // Re-validate blob URL so a spoofed tree entry cannot send GITHUB_TOKEN off-host.
+  assertGitHubApiUrl(url);
   const blob = asRecord(await fetchJson(fetchFn, url, signal));
   if (blob.encoding !== "base64") {
     throw new Error("GitHub context fetch returned unsupported blob encoding");
   }
   if (typeof blob.content !== "string") {
-    throw new Error("GitHub context fetch returned empty blob");
+    throw new Error("GitHub context fetch returned non-string blob content");
   }
-  const content = blob.content;
-  return decodeBase64(content);
+  return decodeBase64(blob.content);
 }
 
 function embeddedUserPrompt(prompt: string): {

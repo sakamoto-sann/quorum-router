@@ -6548,6 +6548,102 @@ Deno.test("generated prompt context falls back and traces truncation", async () 
   assertStringIncludes(prepared.context.context_fetch_error ?? "", "HTTP 429");
 });
 
+Deno.test("generated prompt context rejects off-host blob URLs and oversized blobs", async () => {
+  const { assertGitHubApiUrl, preparePromptWithContext } = await import(
+    "./packages/create-fusion-router/templates/basic/src/context.ts"
+  );
+
+  let threw = false;
+  try {
+    assertGitHubApiUrl("http://169.254.169.254/latest/meta-data/");
+  } catch {
+    threw = true;
+  }
+  assert(threw);
+
+  threw = false;
+  try {
+    assertGitHubApiUrl("https://evil.example/steal");
+  } catch {
+    threw = true;
+  }
+  assert(threw);
+  assertEquals(
+    assertGitHubApiUrl("https://api.github.com/repos/o/r"),
+    "https://api.github.com/repos/o/r",
+  );
+
+  const requested: string[] = [];
+  const small = "ok\n";
+  const fetchFn = (async (input: string | URL | Request) => {
+    const url = String(input);
+    requested.push(url);
+    await Promise.resolve();
+    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+      return new Response(JSON.stringify({ default_branch: "main" }), {
+        status: 200,
+      });
+    }
+    if (url.includes("/git/trees/main?recursive=1")) {
+      return new Response(
+        JSON.stringify({
+          truncated: false,
+          tree: [
+            {
+              path: "evil.ts",
+              type: "blob",
+              size: 10,
+              url: "https://evil.example/blob/evil",
+            },
+            {
+              path: "huge.ts",
+              type: "blob",
+              size: 10,
+              url: "https://api.github.com/blob/huge",
+            },
+            {
+              path: "ok.ts",
+              type: "blob",
+              size: small.length,
+              url: "https://api.github.com/blob/ok",
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/huge")) {
+      return new Response(
+        JSON.stringify({
+          encoding: "base64",
+          content: btoa("H".repeat(50_000)),
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/ok")) {
+      return new Response(
+        JSON.stringify({ encoding: "base64", content: btoa(small) }),
+        { status: 200 },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  const prepared = await preparePromptWithContext(
+    "https://github.com/sakamoto-sann/fusion-router review",
+    { fetchFn },
+  );
+  assert(prepared.context.prompt_has_context);
+  assertEquals(prepared.context.files_included, ["ok.ts"]);
+  assertEquals(
+    requested.some((url) => url.includes("evil.example")),
+    false,
+    "off-host blob URL must not be fetched with GitHub auth headers",
+  );
+  assertStringIncludes(prepared.prompt, JSON.stringify("ok.ts"));
+});
+
 Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
   const npmProbe = await new Deno.Command("npm", {
     args: ["--version"],

@@ -46,9 +46,8 @@ deno task smoke
 The scaffold does not fetch remote code during creation and does not install
 dependencies automatically. `0.1.4` is an engineering patch for the NPX scaffold
 and generated-demo compatibility, not a separate product milestone. The
-generated smoke task imports Fusion Router from the published `v0.1.4` Git tag
-at runtime, so it requires network access to `raw.githubusercontent.com` and the
-release tag must exist.
+generated `deno task smoke` path is offline/fixture-only and does not call a
+provider API or `raw.githubusercontent.com`.
 
 ## Install helper dry run
 
