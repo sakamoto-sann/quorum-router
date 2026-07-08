@@ -99,6 +99,7 @@ Adjust the paths if you installed with a different `--prefix`.
 - Clone or checkout errors for `v0.1.4`: verify network access and the ref
   spelling.
 - `fusion-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
-- Network failures during `deno task smoke` in the scaffold usually mean
-  `raw.githubusercontent.com` is unreachable or the tagged runtime import cannot
-  be fetched.
+- Scaffold `deno task smoke` is offline/fixture-only. If it fails, check local
+  Deno install / permissions first; do not debug `raw.githubusercontent.com` for
+  smoke. Network is only required for install-helper clone and optional external
+  provider dogfood (`RUN_EXTERNAL_MODEL_DOGFOOD=1`).
