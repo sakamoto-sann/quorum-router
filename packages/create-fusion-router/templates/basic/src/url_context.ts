@@ -13,6 +13,7 @@ type GitHubRepoMeta = {
 const MAX_CONTEXT_CHARS = 28_000;
 const MAX_FILE_CHARS = 6_000;
 const MAX_FILES = 18;
+const MAX_FETCHABLE_FILE_BYTES = MAX_FILE_CHARS * 4;
 const FETCH_TIMEOUT_MS = 15_000;
 
 const CODE_EXTENSIONS = new Set([
@@ -129,10 +130,15 @@ export async function buildGitHubRepoContext(
       encodeURIComponent(branch)
     }?recursive=1`,
   );
-  const files = (tree.tree ?? [])
+  const eligibleFiles = (tree.tree ?? [])
     .filter((item) =>
       item.type === "blob" && item.path && shouldIncludePath(item.path)
-    )
+    );
+  const skippedLargeFiles = eligibleFiles.filter((item) =>
+    (item.size ?? 0) > MAX_FETCHABLE_FILE_BYTES
+  );
+  const files = eligibleFiles
+    .filter((item) => (item.size ?? 0) <= MAX_FETCHABLE_FILE_BYTES)
     .sort((a, b) =>
       priority(a.path!) - priority(b.path!) || a.path!.localeCompare(b.path!)
     )
@@ -148,6 +154,15 @@ export async function buildGitHubRepoContext(
   if (tree.truncated) {
     sections.push(
       "tree_truncated: true — GitHub returned a partial recursive tree; files_included is not complete repo coverage.",
+    );
+  }
+  if (skippedLargeFiles.length > 0) {
+    sections.push(
+      `large_files_skipped: ${
+        skippedLargeFiles.map((file) =>
+          `${file.path}(${file.size ?? "unknown"} bytes)`
+        ).join(", ")
+      }`,
     );
   }
   sections.push(`files_included: ${files.map((file) => file.path).join(", ")}`);
