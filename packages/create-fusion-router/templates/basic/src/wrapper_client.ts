@@ -107,6 +107,13 @@ const FATAL_CLI_NOISE = [
   /^ERROR\s/mi,
 ];
 
+const STDOUT_FATAL_CLI_DIAGNOSTIC_LINE = [
+  /^\s*AuthRequiredError\s*$/i,
+  /rmcp::transport::worker/i,
+  /^\s*authentication required\s*$/i,
+  /^\s*not logged in\s*$/i,
+];
+
 const BANNER_OR_RUNTIME_LINE = [
   ...SHARED_RUNTIME_NOISE,
   /^Reading additional input from stdin\.?$/i,
@@ -128,11 +135,13 @@ export function extractUsableWrapperContent(args: {
   stdout: string;
   stderr: string;
 }): string {
-  const diagnosticSurface = args.stderr;
-  const fatal = FATAL_CLI_NOISE.find((pattern) =>
-    pattern.test(diagnosticSurface)
+  const stderrFatal = FATAL_CLI_NOISE.find((pattern) =>
+    pattern.test(args.stderr)
   );
-  if (fatal) {
+  const stdoutFatal = args.stdout.split(/\r?\n/).find((line) =>
+    STDOUT_FATAL_CLI_DIAGNOSTIC_LINE.some((pattern) => pattern.test(line))
+  );
+  if (stderrFatal || stdoutFatal) {
     throw new Error(
       `Fusion Router blocked: ${args.provider}/${args.model} emitted CLI runtime/auth error noise`,
     );

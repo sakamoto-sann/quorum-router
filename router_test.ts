@@ -7130,6 +7130,12 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         "  exit 12",
         "fi",
         'case " $* " in',
+        '  *"stdout auth failure"*)',
+        "    printf 'not logged in\\n'",
+        "    ;;",
+        '  *"valid stdout auth phrase"*)',
+        "    printf 'Not logged in users are redirected to the login page.\\n'",
+        "    ;;",
         '  *"--model grok-build"*)',
         "    printf 'Grok build fixture answer with enough content for schema validation.\\n'",
         "    ;;",
@@ -7176,6 +7182,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         ["grok-composer-2.5-fast", "grok-composer-2.5-fast"],
       ]
     ) {
+      await Deno.remove(`${tempDir}/grok-args.txt`).catch(() => {});
       const once = await new Deno.Command("deno", {
         args: ["task", "route:once", "--prompt", "forced grok"],
         cwd: `${tempDir}/demo`,
@@ -7211,18 +7218,65 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       assertEquals(trace.provider_selection_honored, true);
       assertEquals(trace.fallback_used, false);
       assertEquals(trace.redaction_ok, true);
+
+      const grokArgLines = (await Deno.readTextFile(`${tempDir}/grok-args.txt`))
+        .trim()
+        .split("\n");
+      assert(grokArgLines.includes("--model"));
+      assert(grokArgLines.includes(expectedModel));
+      if (expectedModel === "grok-build") {
+        assert(grokArgLines.includes("--deny"));
+        assert(grokArgLines.includes("*"));
+        assert(grokArgLines.includes("--no-subagents"));
+      } else {
+        assert(!grokArgLines.includes("--deny"));
+        assert(!grokArgLines.includes("--no-subagents"));
+      }
     }
 
-    const grokArgLines = (await Deno.readTextFile(`${tempDir}/grok-args.txt`))
-      .trim()
-      .split("\n");
-    assert(grokArgLines.includes("--model"));
-    assert(grokArgLines.includes("grok-build"));
-    assert(grokArgLines.includes("grok-composer-2.5-fast"));
-    assert(grokArgLines.includes("--deny"));
-    assert(grokArgLines.includes("*"));
-    assert(grokArgLines.includes("--no-subagents"));
     await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
+
+    const stdoutAuthFailure = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "stdout auth failure"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const stdoutAuthFailureOutput =
+      new TextDecoder().decode(stdoutAuthFailure.stdout) +
+      new TextDecoder().decode(stdoutAuthFailure.stderr);
+    assert(stdoutAuthFailure.code !== 0);
+    assertStringIncludes(
+      stdoutAuthFailureOutput,
+      "emitted CLI runtime/auth error noise",
+    );
+
+    const validStdoutAuthPhrase = await new Deno.Command("deno", {
+      args: ["task", "route:once", "--prompt", "valid stdout auth phrase"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
+        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const validStdoutAuthPhraseOutput =
+      new TextDecoder().decode(validStdoutAuthPhrase.stdout) +
+      new TextDecoder().decode(validStdoutAuthPhrase.stderr);
+    assertEquals(validStdoutAuthPhrase.code, 0, validStdoutAuthPhraseOutput);
+    assertStringIncludes(
+      validStdoutAuthPhraseOutput,
+      "Not logged in users are redirected to the login page.",
+    );
 
     const unknownProvider = await new Deno.Command("deno", {
       args: ["task", "route:once", "--prompt", "unknown provider"],
