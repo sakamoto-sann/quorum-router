@@ -37,6 +37,10 @@ export type ModelInventory = {
 export type ProviderResult = {
   provider: string;
   model: string;
+  model_id?: string;
+  source?: string;
+  command?: string;
+  listed_models?: string[];
   response_received: boolean;
   schema_valid: boolean;
   response_summary: string;

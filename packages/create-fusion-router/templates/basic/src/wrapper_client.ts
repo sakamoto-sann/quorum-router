@@ -19,7 +19,7 @@ export function buildWrapperArgs(
     if (entry.invocation_model === "grok-build") {
       const withoutPlanMode: string[] = [];
       for (let index = 0; index < args.length; index += 1) {
-        if (args[index] === "--permission-mode") {
+        if (args[index] === "--permission-mode" && args[index + 1] === "plan") {
           index += 1;
           continue;
         }
@@ -95,26 +95,30 @@ function safeWrapperEnv(): Record<string, string> {
   return env;
 }
 
-const FATAL_CLI_NOISE = [
+const SHARED_RUNTIME_NOISE = [
   /AuthRequiredError/i,
+  /rmcp::transport::worker/i,
+];
+
+const FATAL_CLI_NOISE = [
+  ...SHARED_RUNTIME_NOISE,
   /authentication required/i,
   /not logged in/i,
   /^ERROR\s/mi,
-  /rmcp::transport::worker/i,
 ];
 
 const BANNER_OR_RUNTIME_LINE = [
+  ...SHARED_RUNTIME_NOISE,
   /^Reading additional input from stdin\.?$/i,
   /^OpenAI Codex v\S+/i,
   /^ERROR\s/i,
-  /rmcp::transport::worker/i,
-  /AuthRequiredError/i,
 ];
 
 function stripRuntimeNoise(text: string): string {
-  return text.split(/\r?\n/).map((line) => line.trim()).filter((line) =>
-    line && !BANNER_OR_RUNTIME_LINE.some((pattern) => pattern.test(line))
-  ).join("\n").trim();
+  return text.split(/\r?\n/).filter((line) => {
+    const trimmed = line.trim();
+    return !BANNER_OR_RUNTIME_LINE.some((pattern) => pattern.test(trimmed));
+  }).join("\n").trim();
 }
 
 export function extractUsableWrapperContent(args: {
@@ -124,7 +128,7 @@ export function extractUsableWrapperContent(args: {
   stdout: string;
   stderr: string;
 }): string {
-  const diagnosticSurface = `${args.stdout}\n${args.stderr}`;
+  const diagnosticSurface = args.stderr;
   const fatal = FATAL_CLI_NOISE.find((pattern) =>
     pattern.test(diagnosticSurface)
   );
@@ -136,7 +140,7 @@ export function extractUsableWrapperContent(args: {
 
   for (const candidate of [args.fileOutput, args.stdout]) {
     const cleaned = stripRuntimeNoise(candidate);
-    if (cleaned.length >= 3) return cleaned;
+    if (cleaned.length > 0) return cleaned;
   }
 
   throw new Error(
@@ -188,6 +192,10 @@ export async function callWrapper(
     return {
       provider: entry.provider,
       model: entry.model,
+      model_id: entry.model_id,
+      source: entry.source,
+      command: entry.command,
+      listed_models: entry.listed_models,
       response_received: true,
       schema_valid: true,
       response_summary: summarize(content),

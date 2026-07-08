@@ -67,6 +67,8 @@ export async function callEnvFallback(prompt: string): Promise<ProviderResult> {
   return {
     provider,
     model,
+    model_id: `env/${model}`,
+    source: "env_fallback",
     response_received: true,
     schema_valid: true,
     response_summary: summarize(content),

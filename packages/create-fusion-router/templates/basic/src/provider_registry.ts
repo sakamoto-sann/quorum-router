@@ -50,7 +50,7 @@ export function providerAliasesForCommand(
   provider: string,
   model: string,
   modelId: string,
-  source: string,
+  _source: string,
   command?: string,
 ): string[] {
   const commandAliases: Record<string, string[]> = {
@@ -74,7 +74,6 @@ export function providerAliasesForCommand(
     provider,
     model,
     modelId,
-    source,
     command,
     ...(command ? commandAliases[command] ?? [] : []),
     ...(normalizedProvider ? providerAliases[normalizedProvider] ?? [] : []),
@@ -103,15 +102,28 @@ export function providerSelectionMatches(
 }
 
 export function modelSelectionMatches(
-  entry: { model: string; model_id: string; listed_models?: string[] },
+  entry: {
+    provider?: string;
+    model: string;
+    model_id: string;
+    listed_models?: string[];
+  },
   requestedModel: string | undefined,
 ): boolean {
   const requested = normalizeSelectionValue(requestedModel);
   if (!requested) return true;
+  const providerPrefix = normalizeSelectionValue(entry.provider)?.replace(
+    /[^a-z0-9]+/g,
+    "",
+  );
+  const listedModels = entry.listed_models ?? [];
   return aliasSet([
     entry.model,
     entry.model_id,
-    ...(entry.listed_models ?? []),
+    ...listedModels,
+    ...(providerPrefix
+      ? listedModels.map((model) => `${providerPrefix}/${model}`)
+      : []),
   ]).includes(requested);
 }
 

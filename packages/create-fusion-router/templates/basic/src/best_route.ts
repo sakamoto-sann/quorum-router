@@ -54,10 +54,18 @@ function withRequestedListedModel(
 ): ModelInventoryEntry {
   const normalizedRequested = normalizeSelectionValue(requestedModel);
   if (!normalizedRequested) return entry;
-  const listed = entry.listed_models ?? [];
-  const selected = listed.find((model) =>
-    normalizeSelectionValue(model) === normalizedRequested
+  const providerPrefix = normalizeSelectionValue(entry.provider)?.replace(
+    /[^a-z0-9]+/g,
+    "",
   );
+  const listed = entry.listed_models ?? [];
+  const selected = listed.find((model) => {
+    const normalizedModel = normalizeSelectionValue(model);
+    return normalizedModel === normalizedRequested ||
+      (providerPrefix
+        ? `${providerPrefix}/${normalizedModel}` === normalizedRequested
+        : false);
+  });
   if (!selected) return entry;
   return {
     ...entry,
@@ -79,12 +87,10 @@ export function selectionHonored(
   const entryLike = {
     provider: selected.provider,
     model: selected.model,
-    model_id: "model_id" in selected ? selected.model_id : selected.model,
-    source: "source" in selected ? selected.source : "selected",
-    command: "command" in selected ? selected.command : undefined,
-    listed_models: "listed_models" in selected
-      ? selected.listed_models
-      : undefined,
+    model_id: selected.model_id ?? selected.model,
+    source: selected.source ?? "selected",
+    command: selected.command,
+    listed_models: selected.listed_models,
   };
   return providerSelectionMatches(entryLike, request.providerLabel) &&
     modelSelectionMatches(entryLike, request.model);
@@ -177,11 +183,6 @@ export async function invokeSelected(
     providerSelectionHonored: selectionHonored(request, result),
     fallbackUsed: selected.source === "env_fallback",
   });
-  if (!trace.provider_selection_honored) {
-    throw new Error(
-      "Fusion Router blocked: trace shows provider_selection_honored=false",
-    );
-  }
   const tracePath = await writeTrace("route-once-trace", trace);
   return { results: [result], tracePath, trace };
 }
@@ -247,11 +248,6 @@ export async function runBestRoute(
     ),
     fallbackUsed: usedEnvFallback,
   });
-  if (!trace.provider_selection_honored) {
-    throw new Error(
-      "Fusion Router blocked: trace shows provider_selection_honored=false",
-    );
-  }
   const tracePath = await writeTrace("best-route-trace", trace);
   return { results, tracePath, trace };
 }

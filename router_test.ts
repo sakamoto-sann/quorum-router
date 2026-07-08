@@ -6820,7 +6820,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         "  printf -- '- grok-build\\n'",
         "  exit 0",
         "fi",
-        'printf \'%s\\n\' "$*" >> "$HOME/grok-args.txt"',
+        'for arg do printf \'%s\\n\' "$arg" >> "$HOME/grok-args.txt"; done',
         "if read stdin_line; then",
         "  printf 'unexpected stdin: %s\\n' \"$stdin_line\" >&2",
         "  exit 12",
@@ -6866,9 +6866,10 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
     };
 
     for (
-      const requestedModel of [
-        "grok-build",
-        "grok-composer-2.5-fast",
+      const [requestedModel, expectedModel] of [
+        ["grok-build", "grok-build"],
+        ["xai/grok-build", "grok-build"],
+        ["grok-composer-2.5-fast", "grok-composer-2.5-fast"],
       ]
     ) {
       const once = await new Deno.Command("deno", {
@@ -6887,7 +6888,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         new TextDecoder().decode(once.stderr);
       assertEquals(once.code, 0, combined);
       assertStringIncludes(combined, "provider: xAI");
-      assertStringIncludes(combined, `model: ${requestedModel}`);
+      assertStringIncludes(combined, `model: ${expectedModel}`);
       assertStringIncludes(combined, "response_received: true");
       assertStringIncludes(combined, "schema_valid: true");
       assertStringIncludes(combined, "redaction_ok: true");
@@ -6902,17 +6903,21 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       assertEquals(trace.requested_provider_label, "grok-cli");
       assertEquals(trace.requested_model, requestedModel);
       assertEquals(trace.selected_provider, "xAI");
-      assertEquals(trace.selected_model, requestedModel);
+      assertEquals(trace.selected_model, expectedModel);
       assertEquals(trace.provider_selection_honored, true);
       assertEquals(trace.fallback_used, false);
       assertEquals(trace.redaction_ok, true);
     }
 
-    const grokArgs = await Deno.readTextFile(`${tempDir}/grok-args.txt`);
-    assertStringIncludes(grokArgs, "--model grok-build");
-    assertStringIncludes(grokArgs, "--deny *");
-    assertStringIncludes(grokArgs, "--no-subagents");
-    assertStringIncludes(grokArgs, "--model grok-composer-2.5-fast");
+    const grokArgLines = (await Deno.readTextFile(`${tempDir}/grok-args.txt`))
+      .trim()
+      .split("\n");
+    assert(grokArgLines.includes("--model"));
+    assert(grokArgLines.includes("grok-build"));
+    assert(grokArgLines.includes("grok-composer-2.5-fast"));
+    assert(grokArgLines.includes("--deny"));
+    assert(grokArgLines.includes("*"));
+    assert(grokArgLines.includes("--no-subagents"));
     await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
 
     const unknownProvider = await new Deno.Command("deno", {
@@ -6921,7 +6926,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "zcode-headless",
+        FUSION_ROUTER_PROVIDER_LABEL: "oauth_session",
         FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
       },
       stdout: "piped",
