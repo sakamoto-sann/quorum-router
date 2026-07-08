@@ -21,11 +21,6 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Setup Node for create-fusion-router package checks
-        uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-
       - name: Check lockfile
         run: deno task lock:check
 
@@ -46,54 +41,6 @@ jobs:
 
       - name: v0.1 smoke
         run: deno task smoke:v0.1
-
-      - name: Verify create-fusion-router tarball contents
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd packages/create-fusion-router
-          npm pack --dry-run --json > /tmp/create-fusion-router-pack.json
-          node - <<'NODE'
-          const fs = require("fs");
-          const data = JSON.parse(
-            fs.readFileSync("/tmp/create-fusion-router-pack.json", "utf8"),
-          );
-          const actual = data[0].files.map((file) => file.path).sort();
-          const expected = [
-            "LICENSE",
-            "README.md",
-            "bin/create-fusion-router.js",
-            "package.json",
-            "templates/basic/README.md",
-            "templates/basic/deno.json",
-            "templates/basic/gitignore",
-            "templates/basic/main.ts",
-            "templates/basic/out/.gitkeep",
-            "templates/basic/router.config.example.json",
-            "templates/basic/src/agent_chat.ts",
-            "templates/basic/src/auth.ts",
-            "templates/basic/src/auth_env_fallback.ts",
-            "templates/basic/src/auth_oauth.ts",
-            "templates/basic/src/auth_session.ts",
-            "templates/basic/src/best_route.ts",
-            "templates/basic/src/cli.ts",
-            "templates/basic/src/context.ts",
-            "templates/basic/src/fixture_smoke.ts",
-            "templates/basic/src/intake.ts",
-            "templates/basic/src/model_inventory.ts",
-            "templates/basic/src/provider_client.ts",
-            "templates/basic/src/provider_registry.ts",
-            "templates/basic/src/redact.ts",
-            "templates/basic/src/schema.ts",
-            "templates/basic/src/trace.ts",
-            "templates/basic/src/wrapper_client.ts",
-          ];
-          if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-            console.error("Unexpected tarball contents:", actual);
-            process.exit(1);
-          }
-          console.log(actual.join("\n"));
-          NODE
 
   secret-scan:
     runs-on: ubuntu-latest

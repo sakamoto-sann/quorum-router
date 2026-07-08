@@ -190,8 +190,8 @@ two jobs:
 
 - `deno-checks`: runs `deno task lock:check`, `deno task check`,
   `deno task lint`, `deno fmt --check`, `deno task test`, `deno task doctor`,
-  `deno task smoke:v0.1`, and create-fusion-router tarball whitelist
-  verification via `npm pack --dry-run`.
+  and `deno task smoke:v0.1` under Deno only. create-fusion-router tarball
+  whitelist coverage lives in `deno task test` (and release `publish.yml`).
 - `secret-scan`: installs gitleaks, checks out full git history, and runs
   `gitleaks git --redact --no-banner`.
 

@@ -64,8 +64,9 @@ AgentRuntime threshold.
       written permission.
 - [ ] GitHub Actions workflow `.github/workflows/ci.yml` runs `deno-checks` and
       `secret-scan` jobs on pull requests and pushes to `main`.
-- [ ] `deno-checks` runs lock, check, lint, fmt, test, doctor, v0.1 smoke, and
-      create-fusion-router `npm pack --dry-run` whitelist verification.
+- [ ] `deno-checks` runs lock, check, lint, fmt, test, doctor, and v0.1 smoke
+      under Deno only (create-fusion-router tarball whitelist is covered by
+      `deno task test`, not a Node CI job).
 - [ ] CI `secret-scan` installs gitleaks and runs
       `gitleaks git --redact --no-banner` on full history.
 - [ ] Local release verification still requires the gitleaks range scan.
