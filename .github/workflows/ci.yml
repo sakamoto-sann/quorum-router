@@ -42,7 +42,9 @@ jobs:
       - name: v0.1 smoke
         run: deno task smoke:v0.1
 
-  secret-scan:
+  # Job id kept as optional-secret-scan for branch protection required checks.
+  # Behavior is fail-closed: gitleaks is installed and always run.
+  optional-secret-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

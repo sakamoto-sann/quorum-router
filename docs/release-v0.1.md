@@ -192,8 +192,10 @@ two jobs:
   `deno task lint`, `deno fmt --check`, `deno task test`, `deno task doctor`,
   and `deno task smoke:v0.1` under Deno only. create-fusion-router tarball
   whitelist coverage lives in `deno task test` (and release `publish.yml`).
-- `secret-scan`: installs gitleaks, checks out full git history, and runs
-  `gitleaks git --redact --no-banner`.
+- `optional-secret-scan`: installs gitleaks, checks out full git history, and
+  runs `gitleaks git --redact --no-banner`. The job id stays
+  `optional-secret-scan` for branch-protection compatibility, but the scan is
+  fail-closed (gitleaks is installed in CI and always executed).
 
 Local release verification still requires the gitleaks range scan below to pass.
 
