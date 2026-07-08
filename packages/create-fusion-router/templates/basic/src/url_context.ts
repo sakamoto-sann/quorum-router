@@ -160,12 +160,16 @@ export async function buildGitHubRepoContext(
     sections.push(
       `large_files_skipped: ${
         skippedLargeFiles.map((file) =>
-          `${file.path}(${file.size ?? "unknown"} bytes)`
+          `${JSON.stringify(file.path)}(${file.size ?? "unknown"} bytes)`
         ).join(", ")
       }`,
     );
   }
-  sections.push(`files_included: ${files.map((file) => file.path).join(", ")}`);
+  sections.push(
+    `files_included: ${
+      files.map((file) => JSON.stringify(file.path)).join(", ")
+    }`,
+  );
 
   let used = sections.join("\n").length;
   for (const file of files) {
@@ -176,14 +180,16 @@ export async function buildGitHubRepoContext(
       }/${path.split("/").map(encodeURIComponent).join("/")}`;
     try {
       const text = truncate(await fetchText(rawUrl), MAX_FILE_CHARS);
-      const section = `\n\n## ${path}\n\nfile_content_json: ${
-        fileContentAsQuotedJson(text)
-      }`;
+      const section = `\n\n## file_path_json: ${
+        JSON.stringify(path)
+      }\n\nfile_content_json: ${fileContentAsQuotedJson(text)}`;
       if (used + section.length > MAX_CONTEXT_CHARS) break;
       sections.push(section);
       used += section.length;
     } catch (error) {
-      const section = `\n\n## ${path}\n[fetch failed: ${
+      const section = `\n\n## file_path_json: ${
+        JSON.stringify(path)
+      }\n[fetch failed: ${
         error instanceof Error ? error.message : String(error)
       }]`;
       if (used + section.length > MAX_CONTEXT_CHARS) break;
