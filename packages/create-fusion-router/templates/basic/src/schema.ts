@@ -56,6 +56,20 @@ export type ScoreRow = {
   final_score: number;
 };
 
+export type PromptContextTrace = {
+  prompt_has_context: boolean;
+  original_prompt_chars: number;
+  effective_prompt_chars: number;
+  prompt_truncated: boolean;
+  context_chars: number;
+  github_repo?: string;
+  github_default_branch?: string;
+  files_included: string[];
+  files_considered: number;
+  tree_truncated: boolean;
+  context_fetch_error?: string;
+};
+
 export type DogfoodTrace = {
   run_id: string;
   timestamp: string;
@@ -66,6 +80,7 @@ export type DogfoodTrace = {
   model?: string;
   prompt_hash?: string;
   prompt_summary?: string;
+  prompt_context?: PromptContextTrace;
   response_summary?: string;
   schema_valid: boolean;
   redaction_ok: boolean;

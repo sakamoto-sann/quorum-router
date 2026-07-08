@@ -10,12 +10,13 @@ tags, release notes, npm scaffold packaging, and compatibility patches.
 
 ## Current public artifacts
 
-- `v0.1.2` is the GitHub security hardening release used by the generated demo's
-  tagged runtime import.
-- `create-fusion-router@0.1.3` is the first live NPX package.
-- `create-fusion-router@latest` currently resolves to `0.1.3`.
-- `0.1.3` is an engineering patch for NPX scaffold / generated-demo
-  compatibility, not a separate product milestone.
+- `v0.1.4` is the current Public RC release line target for GitHub release tags,
+  install-helper docs, and generated scaffold packaging.
+- `create-fusion-router@0.1.4` is the current NPX package target.
+- `create-fusion-router@latest` should resolve to `0.1.4` after release
+  approval.
+- `0.1.4` is an engineering patch for NPX scaffold / generated-demo
+  compatibility, GitHub URL context dogfood, and release packaging hardening.
 
 ## Public quickstart
 
@@ -28,7 +29,7 @@ deno task smoke
 Fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```

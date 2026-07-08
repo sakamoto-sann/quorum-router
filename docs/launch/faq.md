@@ -62,13 +62,14 @@ No. The launch path and generated demo do not require service-role credentials.
 
 The runtime boundary explicitly excludes service-role runtime.
 
-## Why npm version 0.1.3 but label v0.1 Public RC?
+## Why npm version 0.1.4 but label v0.1 Public RC?
 
 The external launch label is **Fusion Router v0.1 Public RC**.
 
-The npm package is `create-fusion-router@0.1.3` with `latest -> 0.1.3`. Version
-`0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+The npm package is `create-fusion-router@0.1.4` with `latest -> 0.1.4`. Version
+`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
+the v0.1 Public RC line with GitHub URL context dogfood and release packaging
+hardening, not a separate product milestone.
 
 ## Why NPX?
 
@@ -88,14 +89,14 @@ The generated demo is intentionally small and inspectable.
 Use the fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
 
 For release reproducibility, also verify the GitHub release/tag metadata:
 
-https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
+https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
 
 ## How do I uninstall generated demo files?
 
@@ -118,7 +119,7 @@ Common issues:
 - Deno import-map resolution fails if you run outside the generated demo
   directory or delete `deno.json`.
 - future npm/package versions may change generated-demo behavior; pin
-  `create-fusion-router@0.1.3` to reproduce this Public RC scaffold.
+  `create-fusion-router@0.1.4` to reproduce this Public RC scaffold.
 
 ## How do I report issues?
 

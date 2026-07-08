@@ -12,6 +12,7 @@ product/service use requires prior written permission.
 ```bash
 npx --yes create-fusion-router@latest my-fusion-router-demo
 cd my-fusion-router-demo
+deno --version
 deno task smoke
 deno task intake
 ```
@@ -45,6 +46,9 @@ Real provider use is OAuth/session/wrapper-first:
 
 ```bash
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "https://github.com/sakamoto-sann/fusion-router review this repo's launch readiness."
+# GitHub URL prompts fetch bounded repository context before invoking the selected provider.
+# Only use this with repositories you are allowed to send to that provider.
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
 ```

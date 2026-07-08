@@ -8,21 +8,21 @@ Use this checklist before external announcements or operational usage of the
 - [ ] `git fetch --tags --prune`
 - [ ] `git rev-parse HEAD`
 - [ ] `git rev-parse origin/main`
-- [ ] `git rev-parse v0.1.3^{}`
-- [ ] `gh release view v0.1.3 --json tagName,targetCommitish,isDraft,isPrerelease,publishedAt,url`
-- [ ] Confirm `v0.1.3^{}` equals the intended Public RC commit.
+- [ ] `git rev-parse v0.1.4^{}`
+- [ ] `gh release view v0.1.4 --json tagName,targetCommitish,isDraft,isPrerelease,publishedAt,url`
+- [ ] Confirm `v0.1.4^{}` equals the intended Public RC commit.
 - [ ] Confirm the release is not draft.
 - [ ] Confirm the release URL is reachable.
 
 ## 2. npm readback
 
-- [ ] `npm view create-fusion-router@0.1.3 name version license bin dist.tarball --json`
+- [ ] `npm view create-fusion-router@0.1.4 name version license bin dist.tarball --json`
 - [ ] `npm dist-tag ls create-fusion-router`
 - [ ] Confirm package name: `create-fusion-router`.
-- [ ] Confirm package version: `0.1.3`.
+- [ ] Confirm package version: `0.1.4`.
 - [ ] Confirm license: `SEE LICENSE IN LICENSE`.
 - [ ] Confirm bin: `create-fusion-router -> bin/create-fusion-router.js`.
-- [ ] Confirm `latest -> 0.1.3`.
+- [ ] Confirm `latest -> 0.1.4`.
 
 ## 3. NPX smoke
 
@@ -58,9 +58,9 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-- [ ] Fixed quickstart uses `create-fusion-router@0.1.3`.
+- [ ] Fixed quickstart uses `create-fusion-router@0.1.4`.
 - [ ] README labels the external line as **Fusion Router v0.1 Public RC**.
-- [ ] README states `0.1.3` is an engineering NPX scaffold / generated-demo
+- [ ] README states `0.1.4` is an engineering NPX scaffold / generated-demo
       compatibility patch, not a separate product milestone.
 
 ## 5. Product Hunt copy check
@@ -106,6 +106,7 @@ deno task smoke
 - [ ] Do not move, delete, or recreate `v0.1.1`.
 - [ ] Do not move, delete, or recreate `v0.1.2`.
 - [ ] Do not move, delete, or recreate `v0.1.3`.
+- [ ] Do not move, delete, or recreate `v0.1.4`.
 - [ ] Create a new tag only after explicit version approval.
 
 ## 10. No npm dist-tag mutation unless explicitly approved
@@ -113,4 +114,4 @@ deno task smoke
 - [ ] Do not run `npm dist-tag add`, `npm dist-tag rm`, or equivalent registry
       mutation unless explicitly approved.
 - [ ] Readback with `npm dist-tag ls create-fusion-router` is safe.
-- [ ] For this Public RC closeout, expected readback remains `latest: 0.1.3`.
+- [ ] For this Public RC closeout, expected readback remains `latest: 0.1.4`.
