@@ -6832,6 +6832,9 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         '  *"valid stdout auth phrase"*)',
         "    printf 'Not logged in users are redirected to the login page.\\n'",
         "    ;;",
+        '  *"auto route should avoid noisy codex"*)',
+        "    printf 'Grok default fixture answer with enough content for auto route.\\n'",
+        "    ;;",
         '  *"--model grok-build"*)',
         "    printf 'Grok build fixture answer with enough content for schema validation.\\n'",
         "    ;;",
@@ -6870,6 +6873,27 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       RUN_EXTERNAL_MODEL_DOGFOOD: "1",
       FUSION_ROUTER_AUTH_MODE: "wrapper",
     };
+
+    await Deno.remove(`${tempDir}/grok-args.txt`).catch(() => {});
+    const autoRoute = await new Deno.Command("deno", {
+      args: [
+        "task",
+        "route:once",
+        "--prompt",
+        "auto route should avoid noisy codex",
+      ],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: baseEnv,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const autoRouteOutput = new TextDecoder().decode(autoRoute.stdout) +
+      new TextDecoder().decode(autoRoute.stderr);
+    assertEquals(autoRoute.code, 0, autoRouteOutput);
+    assertStringIncludes(autoRouteOutput, "provider: xAI");
+    assert(!autoRouteOutput.includes("provider: OpenAI"));
+    await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
 
     for (
       const [requestedModel, expectedModel] of [

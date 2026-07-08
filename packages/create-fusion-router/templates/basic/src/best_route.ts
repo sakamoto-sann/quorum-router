@@ -48,6 +48,22 @@ function requestedText(request: ProviderSelectionRequest): string {
   ].filter(Boolean).join(" ") || "none";
 }
 
+function autoCandidateScore(entry: ModelInventoryEntry): number {
+  let score = 0;
+  if (entry.can_list_models && entry.listed_models?.length) score += 100;
+  if (entry.source === "env_fallback") score -= 100;
+  return score;
+}
+
+function rankAutoCandidates(
+  candidates: ModelInventoryEntry[],
+): ModelInventoryEntry[] {
+  return candidates.map((entry, index) => ({ entry, index })).sort((a, b) =>
+    autoCandidateScore(b.entry) - autoCandidateScore(a.entry) ||
+    a.index - b.index
+  ).map(({ entry }) => entry);
+}
+
 function withRequestedListedModel(
   entry: ModelInventoryEntry,
   requestedModel: string | undefined,
@@ -102,7 +118,7 @@ export function selectInvokableCandidates(
   request = readProviderSelectionRequest(),
   allEntries: ModelInventoryEntry[] = candidates,
 ): ModelInventoryEntry[] {
-  if (!hasExplicitSelection(request)) return candidates;
+  if (!hasExplicitSelection(request)) return rankAutoCandidates(candidates);
 
   const filtered = candidates.filter((entry) => {
     const providerMatches = providerSelectionMatches(
