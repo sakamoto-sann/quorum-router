@@ -6799,6 +6799,14 @@ Deno.test("generated URL context detects GitHub repository URLs safely", async (
       url: "https://github.com/sakamoto-sann/fusion-router",
     },
   );
+  assertEquals(
+    module.findGitHubRepoUrl("See https://github.com/denoland/deno."),
+    {
+      owner: "denoland",
+      repo: "deno",
+      url: "https://github.com/denoland/deno",
+    },
+  );
   assertEquals(module.findGitHubRepoUrl("no URL here"), undefined);
 });
 
