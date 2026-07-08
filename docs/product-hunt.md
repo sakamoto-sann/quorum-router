@@ -49,19 +49,19 @@ deno task smoke
 Fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
 
-npm package: `create-fusion-router@0.1.3`; npm dist-tag: `latest -> 0.1.3`.
-`0.1.3` is an engineering patch for NPX scaffold / generated-demo compatibility,
+npm package: `create-fusion-router@0.1.4`; npm dist-tag: `latest -> 0.1.4`.
+`0.1.4` is an engineering patch for NPX scaffold / generated-demo compatibility,
 not a separate product milestone.
 
 Inspect the install helper:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
 ## Maker comment draft
@@ -69,9 +69,9 @@ curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/
 Fusion Router v0.1 Public RC is a Deno-based fusion router PoC focused on
 readable safety boundaries: default `direct` routing, Zod-validated outputs,
 fail-closed errors, explicit non-goals, and no hidden production autonomous
-runtime. The live npm scaffold is `create-fusion-router@0.1.3`
+runtime. The live npm scaffold is `create-fusion-router@0.1.4`
 (`latest ->
-0.1.3`), an engineering patch for NPX scaffold / generated-demo
+0.1.4`), an engineering patch for NPX scaffold / generated-demo
 compatibility, not a separate product milestone. It is Source-Available
 Non-Commercial, not open source; commercial or production use requires prior
 written permission.

@@ -54,8 +54,8 @@ The v0.1 Public RC focuses on:
 - clear non-goals: no production autonomous runtime, no live Supabase Agent Bus
   runtime writes, and no service-role runtime.
 
-The live npm scaffold is `create-fusion-router@0.1.3` (`latest -> 0.1.3`).
-Version `0.1.3` is an engineering NPX scaffold / generated-demo compatibility
+The live npm scaffold is `create-fusion-router@0.1.4` (`latest -> 0.1.4`).
+Version `0.1.4` is an engineering NPX scaffold / generated-demo compatibility
 patch in the v0.1 Public RC line, not a separate product milestone.
 
 Fusion Router is Source-Available Non-Commercial. This is not an open source
@@ -74,7 +74,7 @@ deno task smoke
 Fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
@@ -123,7 +123,7 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-The npm package is `create-fusion-router@0.1.3`; `0.1.3` is an engineering NPX
+The npm package is `create-fusion-router@0.1.4`; `0.1.4` is an engineering NPX
 scaffold / generated-demo compatibility patch for the v0.1 Public RC line, not a
 separate milestone.
 

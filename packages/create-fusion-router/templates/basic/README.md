@@ -1,7 +1,7 @@
 # Fusion Router generated workspace
 
 This generated workspace is for local, non-commercial evaluation of Fusion
-Router v0.1 Public RC. npm latest is still v0.1.3 until release approval.
+Router v0.1 Public RC. npm latest targets v0.1.4.
 
 Fusion Router is **Source-Available Non-Commercial**. It is **not open source**.
 Production, commercial, hosted-service/SaaS/API, redistribution, sublicensing,
@@ -23,9 +23,15 @@ written permission.
 - No live Supabase runtime writes.
 - No live Supabase Agent Bus runtime writes.
 - Best Route/direct is the production-ready best-answer routing path.
-- `agent_chat` is experimental explicit opt-in only.
+- `agent-chat` is experimental explicit opt-in only.
 
 ## First launch
+
+Prerequisite: install Deno before running scaffold tasks. Verify with:
+
+```bash
+deno --version
+```
 
 ```bash
 deno task smoke
@@ -65,6 +71,12 @@ Behavior:
 - Env fallback is used only with `FUSION_ROUTER_AUTH_MODE=env` and local private
   credential environment.
 - Traces are redacted and written under `out/`.
+- When the prompt contains a GitHub repository URL like
+  `https://github.com/owner/repo`, `route:once`, `best-route`, and experimental
+  `agent-chat` fetch a bounded, prioritized set of repository text files first,
+  quote them as untrusted JSON data, and record context coverage in the trace.
+  Only use this with repositories you are allowed to send to the selected
+  provider.
 
 ## Auth and inventory
 

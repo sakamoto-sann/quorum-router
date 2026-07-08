@@ -34,34 +34,34 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-npm package: `create-fusion-router@0.1.3`; npm dist-tag: `latest -> 0.1.3`. For
+npm package: `create-fusion-router@0.1.4`; npm dist-tag: `latest -> 0.1.4`. For
 a fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. `0.1.3` is an engineering patch for the NPX scaffold
+dependencies automatically. `0.1.4` is an engineering patch for the NPX scaffold
 and generated-demo compatibility, not a separate product milestone. The
-generated smoke task imports Fusion Router from the published `v0.1.2` Git tag
+generated smoke task imports Fusion Router from the published `v0.1.4` Git tag
 at runtime, so it requires network access to `raw.githubusercontent.com` and the
 release tag must exist.
 
 ## Install helper dry run
 
-For the tagged v0.1.2 install helper, inspect the install plan first:
+For the tagged v0.1.4 install helper, inspect the install plan first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
 ## Install helper actual install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --prefix "$HOME/.local"
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --prefix "$HOME/.local"
 ```
 
 The helper clones the tagged repository into `${PREFIX}/share/fusion-router` and
@@ -82,7 +82,7 @@ source-tree evaluation only, pass an explicit ref:
 sh install.sh --dry-run --ref main
 ```
 
-Stable usage should use the tagged `v0.1.2` URL, not raw `main`.
+Stable usage should use the tagged `v0.1.4` URL, not raw `main`.
 
 ## Uninstall
 
@@ -97,7 +97,7 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.2`: verify network access and the ref
+- Clone or checkout errors for `v0.1.4`: verify network access and the ref
   spelling.
 - `fusion-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Network failures during `deno task smoke` in the scaffold usually mean

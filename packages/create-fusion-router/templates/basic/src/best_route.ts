@@ -11,6 +11,7 @@ import {
 } from "./schema.ts";
 import { buildTrace, score, writeTrace } from "./trace.ts";
 import { callWrapper } from "./wrapper_client.ts";
+import { preparePromptWithContext } from "./context.ts";
 
 function normalized(value: string | undefined): string | undefined {
   const trimmed = value?.trim().toLowerCase();
@@ -106,7 +107,6 @@ export async function invokeSelected(
   prompt: string,
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
-  const safePrompt = prompt.slice(0, 4000);
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
   const inventory = await discoverInventoryWithModelListing(authMode);
   const candidates = selectInvokableCandidates(
@@ -118,6 +118,8 @@ export async function invokeSelected(
       "OAuth/session-first provider unavailable. No usable OAuth/session/wrapper provider is available yet. Next: deno task auth:login",
     );
   }
+  const prepared = await preparePromptWithContext(prompt);
+  const safePrompt = prepared.prompt;
   const selected = candidates[0];
   const result = selected.source === "env_fallback"
     ? await callEnvFallback(safePrompt)
@@ -128,6 +130,7 @@ export async function invokeSelected(
     mode: "route_once",
     authMode,
     prompt: safePrompt,
+    promptContext: prepared.context,
     results: [result],
     selected: row,
     scores: [row],
@@ -140,7 +143,6 @@ export async function runBestRoute(
   prompt: string,
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
-  const safePrompt = prompt.slice(0, 4000);
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
   const inventory = await discoverInventoryWithModelListing(authMode);
   const candidates = selectInvokableCandidates(
@@ -152,6 +154,8 @@ export async function runBestRoute(
       "OAuth/session-first provider unavailable. best-route has no usable OAuth/session/wrapper provider yet. Next: deno task auth:login",
     );
   }
+  const prepared = await preparePromptWithContext(prompt);
+  const safePrompt = prepared.prompt;
   const results: ProviderResult[] = [];
   const errors: string[] = [];
   for (const candidate of candidates) {
@@ -180,6 +184,7 @@ export async function runBestRoute(
     mode: "best_route",
     authMode,
     prompt: safePrompt,
+    promptContext: prepared.context,
     results,
     selected: scores[0],
     scores,

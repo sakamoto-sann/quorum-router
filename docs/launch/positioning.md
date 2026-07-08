@@ -69,8 +69,8 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-The npm package is `create-fusion-router@0.1.3` (`latest -> 0.1.3`). Version
-`0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
+The npm package is `create-fusion-router@0.1.4` (`latest -> 0.1.4`). Version
+`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
 the v0.1 Public RC line, not a separate product milestone.
 
 The release is deliberately narrow: prove the public path, explain the safety

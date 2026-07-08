@@ -189,14 +189,15 @@ The GitHub Actions `ci` workflow runs on pull requests and pushes to `main` with
 two jobs:
 
 - `deno-checks`: runs `deno task lock:check`, `deno task check`,
-  `deno task lint`, `deno task test`, `deno task doctor`, and
-  `deno task smoke:v0.1`.
-- `optional-secret-scan`: checks out full git history and runs
-  `gitleaks git --redact --no-banner` when `gitleaks` is available.
+  `deno task lint`, `deno fmt --check`, `deno task test`, `deno task doctor`,
+  and `deno task smoke:v0.1` under Deno only. create-fusion-router tarball
+  whitelist coverage lives in `deno task test` (and release `publish.yml`).
+- `optional-secret-scan`: installs gitleaks, checks out full git history, and
+  runs `gitleaks git --redact --no-banner`. The job id stays
+  `optional-secret-scan` for branch-protection compatibility, but the scan is
+  fail-closed (gitleaks is installed in CI and always executed).
 
-The CI secret scan is intentionally optional when the runner lacks `gitleaks`:
-in that case it prints an explicit skip message. Local release verification
-still requires the gitleaks range scan below to pass.
+Local release verification still requires the gitleaks range scan below to pass.
 
 ## Verification checklist
 

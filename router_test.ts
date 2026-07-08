@@ -1140,7 +1140,10 @@ Deno.test("agent chat transcript redacts token password and secret patterns", ()
 
 Deno.test("agent chat audit milestones are emitted in order", () => {
   const audit = createInMemoryAgentChatAuditSink();
-  runAgentChatSimulator({ prompt: "audit", auditSink: audit.sink });
+  runAgentChatSimulator({
+    prompt: "audit secret=abc123 Bearer token-fixture",
+    auditSink: audit.sink,
+  });
   assertEquals(audit.events.map((event) => event.milestone), [
     AgentChatAuditMilestone.started,
     AgentChatAuditMilestone.phaseStarted,
@@ -1157,6 +1160,14 @@ Deno.test("agent chat audit milestones are emitted in order", () => {
     AgentChatAuditMilestone.turnRecorded,
     AgentChatAuditMilestone.closeoutReady,
   ]);
+  assertStringIncludes(
+    String(audit.events[0].metadata.prompt),
+    "secret=[REDACTED]",
+  );
+  assertStringIncludes(
+    String(audit.events[0].metadata.prompt),
+    "Bearer [REDACTED]",
+  );
 });
 
 Deno.test("agent chat simulator has no network or process side effects", async () => {
@@ -6258,6 +6269,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "packages/create-fusion-router/templates/basic/src/provider_client.ts",
     "packages/create-fusion-router/templates/basic/src/best_route.ts",
     "packages/create-fusion-router/templates/basic/src/agent_chat.ts",
+    "packages/create-fusion-router/templates/basic/src/context.ts",
     "packages/create-fusion-router/templates/basic/src/trace.ts",
     "packages/create-fusion-router/templates/basic/src/redact.ts",
     "packages/create-fusion-router/templates/basic/src/schema.ts",
@@ -6328,8 +6340,14 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   const templateBestRoute = await Deno.readTextFile(
     "packages/create-fusion-router/templates/basic/src/best_route.ts",
   );
+  const templateAgentChat = await Deno.readTextFile(
+    "packages/create-fusion-router/templates/basic/src/agent_chat.ts",
+  );
   const templateSchema = await Deno.readTextFile(
     "packages/create-fusion-router/templates/basic/src/schema.ts",
+  );
+  const templateContext = await Deno.readTextFile(
+    "packages/create-fusion-router/templates/basic/src/context.ts",
   );
   assertStringIncludes(templateSchema, "RUN_EXTERNAL_MODEL_DOGFOOD");
   assertStringIncludes(templateSchema, "RUN_EXPERIMENTAL_AGENT_CHAT");
@@ -6338,13 +6356,196 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     "OAuth/session-first provider unavailable",
   );
   assertStringIncludes(templateCli, "FUSION_ROUTER_AUTH_MODE");
-  assertStringIncludes(templateBestRoute, ".slice(");
+  assertStringIncludes(templateBestRoute, "preparePromptWithContext");
+  assertStringIncludes(templateAgentChat, "preparePromptWithContext");
+  assertStringIncludes(templateContext, "prompt_truncated");
+  assertStringIncludes(templateContext, "files_included");
   const rootDenoJson = await readJsonRecord("deno.json");
   const rootTasks = rootDenoJson.tasks as Record<string, unknown>;
   assert(!String(rootTasks.test).includes("external:once"));
   assert(!String(rootTasks.check).includes("external:once"));
   assert(!String(rootTasks.test).includes("external:matrix"));
   assert(!String(rootTasks.check).includes("external:matrix"));
+});
+
+Deno.test("generated route prompt context fetches GitHub repository files safely", async () => {
+  const { extractGitHubRepo, preparePromptWithContext } = await import(
+    "./packages/create-fusion-router/templates/basic/src/context.ts"
+  );
+  const detected = extractGitHubRepo(
+    "https://github.com/sakamoto-sann/fusion-routerこれ のレビューをしてください",
+  );
+  assertEquals(detected?.owner, "sakamoto-sann");
+  assertEquals(detected?.repo, "fusion-router");
+
+  const source = "export const meaning = 42;\n";
+  const fetchFn = (async (input: string | URL | Request) => {
+    const url = String(input);
+    await Promise.resolve();
+    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+      return new Response(JSON.stringify({ default_branch: "main" }), {
+        status: 200,
+      });
+    }
+    if (url.includes("/git/trees/main?recursive=1")) {
+      return new Response(
+        JSON.stringify({
+          truncated: false,
+          tree: [
+            {
+              path: "README.md",
+              type: "blob",
+              size: 12,
+              url: "https://api.github.com/blob/readme",
+            },
+            {
+              path: "src/empty.ts",
+              type: "blob",
+              size: 0,
+              url: "https://api.github.com/blob/empty",
+            },
+            {
+              path: "src/router.ts",
+              type: "blob",
+              size: source.length,
+              url: "https://api.github.com/blob/router",
+            },
+            {
+              path: "assets/logo.png",
+              type: "blob",
+              size: 10,
+              url: "https://api.github.com/blob/logo",
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/readme")) {
+      return new Response(
+        JSON.stringify({
+          encoding: "base64",
+          content: btoa("# Fusion Router\n"),
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/empty")) {
+      return new Response(
+        JSON.stringify({ encoding: "base64", content: "" }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/router")) {
+      return new Response(
+        JSON.stringify({ encoding: "base64", content: btoa(source) }),
+        { status: 200 },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  const prepared = await preparePromptWithContext(
+    "https://github.com/sakamoto-sann/fusion-routerこれ のレビューをしてください",
+    { fetchFn },
+  );
+  assert(prepared.context.prompt_has_context);
+  assertEquals(prepared.context.github_repo, "sakamoto-sann/fusion-router");
+  assertEquals(prepared.context.files_included, [
+    "README.md",
+    "src/empty.ts",
+    "src/router.ts",
+  ]);
+  assertStringIncludes(prepared.prompt, "untrusted data");
+  assertStringIncludes(prepared.prompt, JSON.stringify("src/router.ts"));
+  assertStringIncludes(prepared.prompt, JSON.stringify(source).slice(1, -1));
+});
+
+Deno.test("generated prompt context skips oversized candidates and preserves context after long user prompt", async () => {
+  const { preparePromptWithContext } = await import(
+    "./packages/create-fusion-router/templates/basic/src/context.ts"
+  );
+  const largeText = "a".repeat(24_000);
+  const fetchFn = (async (input: string | URL | Request) => {
+    const url = String(input);
+    await Promise.resolve();
+    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+      return new Response(JSON.stringify({ default_branch: "main" }), {
+        status: 200,
+      });
+    }
+    if (url.includes("/git/trees/main?recursive=1")) {
+      return new Response(
+        JSON.stringify({
+          truncated: false,
+          tree: [
+            {
+              path: "LICENSE",
+              type: "blob",
+              size: 24_000,
+              url: "https://api.github.com/blob/license",
+            },
+            {
+              path: "README.md",
+              type: "blob",
+              size: 24_000,
+              url: "https://api.github.com/blob/readme-large",
+            },
+            {
+              path: "package.json",
+              type: "blob",
+              size: 18,
+              url: "https://api.github.com/blob/package",
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/license") || url.endsWith("/blob/readme-large")) {
+      return new Response(
+        JSON.stringify({ encoding: "base64", content: btoa(largeText) }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith("/blob/package")) {
+      return new Response(
+        JSON.stringify({ encoding: "base64", content: btoa('{"ok":true}\n') }),
+        { status: 200 },
+      );
+    }
+    return new Response("not found", { status: 404 });
+  }) as typeof fetch;
+
+  const prepared = await preparePromptWithContext(
+    `${"x".repeat(70_000)} https://github.com/sakamoto-sann/fusion-router`,
+    { fetchFn },
+  );
+  assert(prepared.context.prompt_has_context);
+  assert(prepared.context.prompt_truncated);
+  assertEquals(prepared.context.files_included.includes("package.json"), true);
+  assertStringIncludes(prepared.prompt, "Repository file data JSON");
+  assertStringIncludes(prepared.prompt, JSON.stringify("package.json"));
+  assertStringIncludes(prepared.prompt, "original prompt truncated");
+});
+
+Deno.test("generated prompt context falls back and traces truncation", async () => {
+  const { preparePromptWithContext } = await import(
+    "./packages/create-fusion-router/templates/basic/src/context.ts"
+  );
+  const longPrompt = `${
+    "x".repeat(61_000)
+  } https://github.com/sakamoto-sann/fusion-router`;
+  const prepared = await preparePromptWithContext(longPrompt, {
+    fetchFn: (async () => {
+      await Promise.resolve();
+      return new Response("rate limited", { status: 429 });
+    }) as typeof fetch,
+  });
+  assert(!prepared.context.prompt_has_context);
+  assertEquals(prepared.prompt.length, 60_000);
+  assert(prepared.context.prompt_truncated);
+  assertStringIncludes(prepared.context.context_fetch_error ?? "", "HTTP 429");
 });
 
 Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
@@ -6387,6 +6588,7 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
     "templates/basic/src/auth_session.ts",
     "templates/basic/src/best_route.ts",
     "templates/basic/src/cli.ts",
+    "templates/basic/src/context.ts",
     "templates/basic/src/fixture_smoke.ts",
     "templates/basic/src/intake.ts",
     "templates/basic/src/model_inventory.ts",
@@ -6420,8 +6622,10 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "Non-commercial evaluation only");
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
-  assertStringIncludes(templateReadme, "v0.1.3");
+  assertStringIncludes(templateReadme, "v0.1.4");
+  assertStringIncludes(templateReadme, "deno --version");
   assert(!templateReadme.includes("v0.1.2"));
+  assert(!templateReadme.includes("v0.1.3"));
   assertStringIncludes(templateReadme, "fixture-only");
   assertStringIncludes(
     templateReadme,
@@ -6433,6 +6637,7 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "models:list");
   assertStringIncludes(templateReadme, "health");
   assertStringIncludes(templateReadme, "route:once");
+  assertStringIncludes(templateReadme, "GitHub repository URL");
   assertStringIncludes(templateReadme, "best-route");
   assertStringIncludes(templateReadme, "agent-chat");
   assertStringIncludes(templateReadme, "OAuth/session/wrapper-first");
@@ -6455,6 +6660,8 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
   assert(!cliText.includes("fetch("));
   assert(!cliText.includes("https://"));
   assert(!cliText.includes("http://"));
+  assertStringIncludes(cliText, "Deno was not found on PATH");
+  assertStringIncludes(cliText, "deno.com/install");
 
   const nodeProbe = await new Deno.Command("node", {
     args: ["--version"],
@@ -6501,6 +6708,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
         "main.ts",
         "router.config.example.json",
         "src/cli.ts",
+        "src/context.ts",
         "src/intake.ts",
         "src/auth.ts",
         "src/auth_oauth.ts",

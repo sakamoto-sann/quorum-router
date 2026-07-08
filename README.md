@@ -37,7 +37,7 @@ Best Route/direct remains the production-ready best-answer routing path.
 Dry-run the installer without changing the machine:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.2/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
 ## Demos
@@ -83,7 +83,7 @@ deno task smoke:v0.1
 ## Links
 
 - npm: https://www.npmjs.com/package/create-fusion-router
-- release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
+- release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
 - launch assets: [docs/launch/](docs/launch/)
 - internal dogfood QA:
   [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)

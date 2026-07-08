@@ -21,7 +21,7 @@ The repo should not become a second source of truth for release state. It should
 point back to:
 
 - GitHub release:
-  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
+  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
 - npm package: https://www.npmjs.com/package/create-fusion-router
 - main repository: https://github.com/sakamoto-sann/fusion-router
 
@@ -108,7 +108,7 @@ unless the upstream license decision changes explicitly.
 Before creating or updating the example repo:
 
 - [ ] Confirm upstream npm latest still points to the intended version.
-- [ ] Confirm `create-fusion-router@0.1.3` remains available.
+- [ ] Confirm `create-fusion-router@0.1.4` remains available.
 - [ ] Run the NPX quickstart in a clean temp directory.
 - [ ] Copy generated files only if they match the intended demo.
 - [ ] Run `deno task check`.

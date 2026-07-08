@@ -118,7 +118,7 @@ export function runAgentChatSimulator(
 
   emitAudit(config.auditSink, AgentChatAuditMilestone.started, {
     createdAtMs: startedAtMs,
-    metadata: { prompt: config.prompt },
+    metadata: { prompt: redactAgentChatContent(config.prompt) },
     extraRedactionValues,
   });
 

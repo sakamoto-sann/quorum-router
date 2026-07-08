@@ -30,6 +30,9 @@ jobs:
       - name: Lint
         run: deno task lint
 
+      - name: Format check
+        run: deno fmt --check
+
       - name: Test
         run: deno task test
 
@@ -39,6 +42,8 @@ jobs:
       - name: v0.1 smoke
         run: deno task smoke:v0.1
 
+  # Job id kept as optional-secret-scan for branch protection required checks.
+  # Behavior is fail-closed: gitleaks is installed and always run.
   optional-secret-scan:
     runs-on: ubuntu-latest
     steps:
@@ -47,10 +52,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Optional gitleaks secret scan
+      - name: Install gitleaks
+        shell: bash
         run: |
-          if command -v gitleaks >/dev/null 2>&1; then
-            gitleaks git --redact --no-banner
-          else
-            echo "gitleaks not installed; skipping optional secret scan in CI"
-          fi
+          set -euo pipefail
+          version="8.24.3"
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: gitleaks secret scan
+        run: gitleaks git --redact --no-banner

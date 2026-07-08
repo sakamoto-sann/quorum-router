@@ -1,6 +1,7 @@
 import type {
   AuthMode,
   DogfoodTrace,
+  PromptContextTrace,
   ProviderResult,
   ScoreRow,
 } from "./schema.ts";
@@ -62,6 +63,7 @@ export async function buildTrace(args: {
   mode: DogfoodTrace["mode"];
   authMode: AuthMode;
   prompt?: string;
+  promptContext?: PromptContextTrace;
   results?: ProviderResult[];
   selected?: ScoreRow;
   scores?: ScoreRow[];
@@ -81,6 +83,7 @@ export async function buildTrace(args: {
     model: args.selected?.model ?? args.results?.[0]?.model,
     prompt_hash: args.prompt ? await promptHash(args.prompt) : undefined,
     prompt_summary: args.prompt ? summarize(args.prompt, 160) : undefined,
+    prompt_context: args.promptContext,
     response_summary: responseSummary
       ? summarize(responseSummary, 800)
       : undefined,

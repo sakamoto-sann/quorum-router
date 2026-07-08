@@ -225,8 +225,9 @@ async function invokeWithAbort(
   prompt: string,
   signal: AbortSignal,
 ): Promise<string> {
+  let onAbort: (() => void) | undefined;
   const abortPromise = new Promise<never>((_, reject) => {
-    const onAbort = () => {
+    onAbort = () => {
       reject(
         new RouterError(
           4401,
@@ -241,11 +242,17 @@ async function invokeWithAbort(
       signal.addEventListener("abort", onAbort, { once: true });
     }
   });
-  const output = await Promise.race([
-    binding.adapter.invoke(prompt, signal),
-    abortPromise,
-  ]);
-  return output.content;
+  try {
+    const output = await Promise.race([
+      binding.adapter.invoke(prompt, signal),
+      abortPromise,
+    ]);
+    return output.content;
+  } finally {
+    if (onAbort) {
+      signal.removeEventListener("abort", onAbort);
+    }
+  }
 }
 
 function transcriptMessage(input: {

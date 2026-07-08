@@ -3,8 +3,8 @@
 The npm package already exists:
 
 - package: `create-fusion-router`
-- first live package version: `create-fusion-router@0.1.3`
-- current npm dist-tag: `latest -> 0.1.3`
+- first live package version: `create-fusion-router@0.1.4`
+- current npm dist-tag: `latest -> 0.1.4`
 
 The first manual publish is complete. Do not publish another version unless
 explicitly instructed.
@@ -81,5 +81,6 @@ Before invoking the workflow for a future version:
 
 ## Non-goals for this Public RC closeout
 
-This runbook does not publish npm, bump versions, create `0.1.4`, move tags,
-mutate dist-tags, or expand runtime behavior.
+This runbook covers the `0.1.4` Trusted Publishing path after explicit release
+approval. Do not move tags, mutate dist-tags, or expand runtime behavior outside
+that approved release flow.

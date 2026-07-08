@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const fs = require("fs");
 const path = require("path");
+const { spawnSync } = require("child_process");
 
 const VERSION = "0.1.4";
 const SUPPORTED_TEMPLATES = new Set(["basic"]);
@@ -18,7 +19,13 @@ Usage:
 Creates a local Fusion Router evaluation demo. The scaffold does not fetch remote
 code, install dependencies, ask for credentials, write secrets, enable process
 adapters, or configure live runtime services. Fixture smoke is deterministic;
-external provider dogfood is an explicit manual opt-in path.`;
+external provider dogfood and GitHub URL context fetching are explicit manual
+opt-in paths.`;
+}
+
+function hasCommand(command) {
+  const result = spawnSync(command, ["--version"], { stdio: "ignore" });
+  return !result.error && result.status === 0;
 }
 
 function parseArgs(argv) {
@@ -113,6 +120,14 @@ function main() {
   console.log("  deno task auth:status");
   console.log("  deno task models:list");
   console.log("  deno task health");
+  if (!hasCommand("deno")) {
+    console.log("");
+    console.log("Warning: Deno was not found on PATH.");
+    console.log(
+      "Install Deno before running the tasks above: brew install deno, or use the official installer at deno.com/install.",
+    );
+    console.log("Then verify with: deno --version");
+  }
   console.log(
     "  # Optional one-shot real provider dogfood after intake reports a usable OAuth/session/wrapper provider:",
   );

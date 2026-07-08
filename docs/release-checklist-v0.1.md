@@ -63,10 +63,13 @@ AgentRuntime threshold.
       sublicensing, integration, or derivative commercialization requires prior
       written permission.
 - [ ] GitHub Actions workflow `.github/workflows/ci.yml` runs `deno-checks` and
-      `optional-secret-scan` jobs on pull requests and pushes to `main`.
-- [ ] `deno-checks` runs lock, check, lint, test, doctor, and v0.1 smoke.
-- [ ] CI secret scan behavior is explicit: run `gitleaks` when installed, print
-      a skip message when unavailable.
+      `optional-secret-scan` jobs on pull requests and pushes to `main` (job id
+      kept for branch protection; scan is fail-closed).
+- [ ] `deno-checks` runs lock, check, lint, fmt, test, doctor, and v0.1 smoke
+      under Deno only (create-fusion-router tarball whitelist is covered by
+      `deno task test`, not a Node CI job).
+- [ ] CI `optional-secret-scan` installs gitleaks and runs
+      `gitleaks git --redact --no-banner` on full history.
 - [ ] Local release verification still requires the gitleaks range scan.
 
 ## PR review and GitHub state

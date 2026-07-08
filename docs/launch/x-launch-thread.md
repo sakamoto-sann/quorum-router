@@ -6,7 +6,7 @@
 Links:
 
 - GitHub release:
-  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
+  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
 - npm package: https://www.npmjs.com/package/create-fusion-router
 
 ## Short launch tweet
@@ -42,7 +42,7 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
+Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-fusion-router
 
 ## Two-GIF thread: 7 tweets
@@ -54,7 +54,7 @@ Fusion Router v0.1 Public RC is live.
 It is a source-available routing/runtime framework for builders who want routing
 safety before agent autonomy.
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
+Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-fusion-router
 
 ### 2/7
@@ -103,9 +103,9 @@ Runtime boundaries:
 
 ### 7/7
 
-The npm package is `create-fusion-router@0.1.3`; `latest -> 0.1.3`.
+The npm package is `create-fusion-router@0.1.4`; `latest -> 0.1.4`.
 
-`0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
+`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
 the v0.1 Public RC line, not a separate product milestone.
 
 Source-Available Non-Commercial; not open source.
@@ -161,7 +161,7 @@ Then inspect `main.ts` and `deno.json`.
 
 ### 6/6
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3 npm:
+Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-fusion-router
 
 License: Source-Available Non-Commercial, not open source. Check permissions

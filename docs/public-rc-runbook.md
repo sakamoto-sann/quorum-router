@@ -4,8 +4,8 @@ Fusion Router v0.1 Public RC is the public evaluation line for Fusion Router's
 fail-closed best-answer routing work. The live external label is **Fusion Router
 v0.1 Public RC**.
 
-`create-fusion-router@0.1.3` is the first live NPX package version for this
-Public RC line. Version `0.1.3` is an engineering NPX scaffold / generated-demo
+`create-fusion-router@0.1.4` is the first live NPX package version for this
+Public RC line. Version `0.1.4` is an engineering NPX scaffold / generated-demo
 compatibility patch, not a separate product milestone.
 
 ## Public quickstart
@@ -16,12 +16,12 @@ cd my-fusion-router-demo
 deno task smoke
 ```
 
-Current npm readback: `create-fusion-router@latest -> 0.1.3`.
+Current npm readback: `create-fusion-router@latest -> 0.1.4`.
 
 ## Fixed version quickstart
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 cd my-fusion-router-demo
 deno task smoke
 ```
@@ -73,20 +73,20 @@ If `npx --yes create-fusion-router@latest ...` appears to use an older package,
 verify the registry state:
 
 ```bash
-npm view create-fusion-router@0.1.3 name version license bin dist.tarball --json
+npm view create-fusion-router@0.1.4 name version license bin dist.tarball --json
 npm dist-tag ls create-fusion-router
 ```
 
 Expected:
 
 ```text
-latest: 0.1.3
+latest: 0.1.4
 ```
 
 Then retry with the fixed version command:
 
 ```bash
-npx --yes create-fusion-router@0.1.3 my-fusion-router-demo
+npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
 ```
 
 ### Network issue to raw.githubusercontent.com

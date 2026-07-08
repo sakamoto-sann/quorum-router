@@ -12,13 +12,13 @@ import {
 import { buildTrace, score, writeTrace } from "./trace.ts";
 import { callWrapper } from "./wrapper_client.ts";
 import { selectInvokableCandidates } from "./best_route.ts";
+import { preparePromptWithContext } from "./context.ts";
 
 export async function runAgentChat(
   prompt: string,
 ): Promise<{ tracePath: string }> {
   assertAgentChatOptIn();
   assertOptIn();
-  const safePrompt = prompt.slice(0, 4000);
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
   const inventory = await discoverInventoryWithModelListing(authMode);
   const candidates = selectInvokableCandidates(
@@ -30,6 +30,8 @@ export async function runAgentChat(
       "OAuth/session-first provider unavailable. agent-chat has no usable provider and remains experimental explicit opt-in only. Next: deno task auth:login",
     );
   }
+  const prepared = await preparePromptWithContext(prompt);
+  const safePrompt = prepared.prompt;
   const selected = candidates[0];
   const agentPrompt =
     `Experimental agent_chat review. Label this as experimental and keep concise. Prompt: ${safePrompt}`;
@@ -42,6 +44,7 @@ export async function runAgentChat(
     mode: "agent_chat",
     authMode,
     prompt: safePrompt,
+    promptContext: prepared.context,
     results: [result],
     selected: row,
     scores: [row],
