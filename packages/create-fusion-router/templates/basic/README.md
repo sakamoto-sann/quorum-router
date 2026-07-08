@@ -51,6 +51,7 @@ Run only after `intake` reports a usable OAuth/session/wrapper provider:
 
 ```bash
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "https://github.com/sakamoto-sann/fusion-routerこれ のレビューをしてくださいコードまでしっかり読んでください"
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
 ```
@@ -65,6 +66,10 @@ Behavior:
 - Env fallback is used only with `FUSION_ROUTER_AUTH_MODE=env` and local private
   credential environment.
 - Traces are redacted and written under `out/`.
+- If the prompt contains a GitHub repo URL, `route:once`/`best-route` fetches a
+  bounded repo context via the GitHub API/raw file URLs and appends selected
+  code/docs to the model prompt. The model is not expected to magically browse
+  URLs by itself.
 
 ### Forced wrapper provider/model selection
 
@@ -136,7 +141,8 @@ not paste them into chat/logs and do not commit `.env`.
 - `src/auth.ts`, `src/auth_oauth.ts`, `src/auth_session.ts`,
   `src/auth_env_fallback.ts` — auth/session/fallback boundaries.
 - `src/provider_registry.ts`, `src/model_inventory.ts`, `src/wrapper_client.ts`,
-  `src/provider_client.ts` — provider discovery and safe invocation.
+  `src/provider_client.ts`, `src/url_context.ts` — provider discovery, safe
+  invocation, and bounded GitHub repo URL context fetching.
 - `src/best_route.ts`, `src/agent_chat.ts` — gated dogfood commands.
 - `src/trace.ts`, `src/redact.ts`, `src/schema.ts`, `src/fixture_smoke.ts` —
   trace/redaction/schema/fixture support.

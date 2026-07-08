@@ -6395,6 +6395,7 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
     "templates/basic/src/redact.ts",
     "templates/basic/src/schema.ts",
     "templates/basic/src/trace.ts",
+    "templates/basic/src/url_context.ts",
     "templates/basic/src/wrapper_client.ts",
   ]);
 });
@@ -6777,6 +6778,28 @@ Deno.test("generated demo documents fixture-only smoke and external dogfood gate
   assertStringIncludes(normalizedReadme, "agent-chat");
   assertStringIncludes(normalizedReadme, "OAuth/session/wrapper-first");
   assertStringIncludes(normalizedReadme, "FUSION_ROUTER_AUTH_MODE=env");
+  assertStringIncludes(normalizedReadme, "GitHub repo URL");
+});
+
+Deno.test("generated URL context detects GitHub repository URLs safely", async () => {
+  const module = await import(
+    `./packages/create-fusion-router/templates/basic/src/url_context.ts?${Date.now()}`
+  ) as {
+    findGitHubRepoUrl(
+      prompt: string,
+    ): { owner: string; repo: string; url: string } | undefined;
+  };
+  assertEquals(
+    module.findGitHubRepoUrl(
+      "https://github.com/sakamoto-sann/fusion-routerこれ のレビュー",
+    ),
+    {
+      owner: "sakamoto-sann",
+      repo: "fusion-router",
+      url: "https://github.com/sakamoto-sann/fusion-router",
+    },
+  );
+  assertEquals(module.findGitHubRepoUrl("no URL here"), undefined);
 });
 
 Deno.test("generated scaffold redaction guard rejects redaction-pattern leaks", async () => {
@@ -6892,8 +6915,15 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       new TextDecoder().decode(autoRoute.stderr);
     assertEquals(autoRoute.code, 0, autoRouteOutput);
     assertStringIncludes(autoRouteOutput, "provider: xAI");
+    assertStringIncludes(autoRouteOutput, "model: grok-composer-2.5-fast");
     assert(!autoRouteOutput.includes("provider: OpenAI"));
     await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
+    const autoGrokArgLines =
+      (await Deno.readTextFile(`${tempDir}/grok-args.txt`))
+        .trim()
+        .split("\n");
+    assert(autoGrokArgLines.includes("--model"));
+    assert(autoGrokArgLines.includes("grok-composer-2.5-fast"));
 
     for (
       const [requestedModel, expectedModel] of [
@@ -6950,7 +6980,9 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         assert(grokArgLines.includes("--no-subagents"));
       } else {
         assert(!grokArgLines.includes("--deny"));
-        assert(!grokArgLines.includes("--no-subagents"));
+        assert(grokArgLines.includes("--no-subagents"));
+        assert(grokArgLines.includes("--no-plan"));
+        assert(grokArgLines.includes("--tools"));
       }
     }
 

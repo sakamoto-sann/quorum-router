@@ -16,15 +16,15 @@ export function buildWrapperArgs(
       : arg
   );
   if (entry.command === "grok" && entry.invocation_model) {
-    if (entry.invocation_model === "grok-build") {
-      const withoutPlanMode: string[] = [];
-      for (let index = 0; index < args.length; index += 1) {
-        if (args[index] === "--permission-mode" && args[index + 1] === "plan") {
-          index += 1;
-          continue;
-        }
-        withoutPlanMode.push(args[index]);
+    const withoutPlanMode: string[] = [];
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] === "--permission-mode" && args[index + 1] === "plan") {
+        index += 1;
+        continue;
       }
+      withoutPlanMode.push(args[index]);
+    }
+    if (entry.invocation_model === "grok-build") {
       return [
         "--model",
         entry.invocation_model,
@@ -36,7 +36,15 @@ export function buildWrapperArgs(
         "--no-subagents",
       ];
     }
-    return ["--model", entry.invocation_model, ...args];
+    return [
+      "--model",
+      entry.invocation_model,
+      ...withoutPlanMode,
+      "--no-plan",
+      "--tools",
+      "",
+      "--no-subagents",
+    ];
   }
   return args;
 }

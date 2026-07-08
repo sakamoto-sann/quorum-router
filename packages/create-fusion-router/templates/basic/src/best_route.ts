@@ -18,6 +18,7 @@ import {
   type ProviderResult,
 } from "./schema.ts";
 import { buildTrace, score, writeTrace } from "./trace.ts";
+import { enrichPromptWithUrlContext } from "./url_context.ts";
 import { callWrapper } from "./wrapper_client.ts";
 
 function hasExplicitSelection(request: ProviderSelectionRequest): boolean {
@@ -62,6 +63,26 @@ function rankAutoCandidates(
     autoCandidateScore(b.entry) - autoCandidateScore(a.entry) ||
     a.index - b.index
   ).map(({ entry }) => entry);
+}
+
+function withPreferredAutoListedModel(
+  entry: ModelInventoryEntry,
+): ModelInventoryEntry {
+  const listed = entry.listed_models ?? [];
+  const preferred =
+    listed.find((model) => model === "grok-composer-2.5-fast") ??
+      listed.find((model) => model.includes("composer"));
+  if (!preferred) return entry;
+  return {
+    ...entry,
+    model: preferred,
+    model_id: `${entry.provider.toLowerCase()}/${preferred}`,
+    invocation_model: preferred,
+    notes: [
+      ...entry.notes,
+      `Auto-selected listed model ${preferred} for this invocation.`,
+    ],
+  };
 }
 
 function withRequestedListedModel(
@@ -118,7 +139,9 @@ export function selectInvokableCandidates(
   request = readProviderSelectionRequest(),
   allEntries: ModelInventoryEntry[] = candidates,
 ): ModelInventoryEntry[] {
-  if (!hasExplicitSelection(request)) return rankAutoCandidates(candidates);
+  if (!hasExplicitSelection(request)) {
+    return rankAutoCandidates(candidates).map(withPreferredAutoListedModel);
+  }
 
   const filtered = candidates.filter((entry) => {
     const providerMatches = providerSelectionMatches(
@@ -159,7 +182,10 @@ export async function invokeSelected(
   { results: ProviderResult[]; tracePath: string; trace: DogfoodTrace }
 > {
   assertOptIn();
-  const safePrompt = prompt.slice(0, 4000);
+  const safePrompt = (await enrichPromptWithUrlContext(prompt)).slice(
+    0,
+    30_000,
+  );
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
   const { request, candidates } = await discoverCandidates(authMode);
   if (candidates.length === 0) {
@@ -209,7 +235,10 @@ export async function runBestRoute(
   { results: ProviderResult[]; tracePath: string; trace: DogfoodTrace }
 > {
   assertOptIn();
-  const safePrompt = prompt.slice(0, 4000);
+  const safePrompt = (await enrichPromptWithUrlContext(prompt)).slice(
+    0,
+    30_000,
+  );
   const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
   const { request, candidates } = await discoverCandidates(authMode);
   if (candidates.length === 0) {
