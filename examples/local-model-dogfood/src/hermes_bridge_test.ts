@@ -20,7 +20,7 @@ Deno.test("Hermes bridge rejects oversized stdin before JSON parsing", async () 
       "run",
       "--allow-env",
       "--allow-read",
-      new URL("./hermes_bridge.ts", import.meta.url).pathname,
+      `${import.meta.dirname}/hermes_bridge.ts`,
     ],
     stdin: "piped",
     stdout: "piped",

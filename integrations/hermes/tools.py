@@ -181,16 +181,40 @@ def _run_bridge_process(
         if os.name == "posix":
             try:
                 os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
                 process.wait(timeout=2)
-            except (ProcessLookupError, subprocess.TimeoutExpired):
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
+            except subprocess.TimeoutExpired:
+                pass
+            # Always escalate against the group: the Deno parent may exit while
+            # a provider descendant ignores SIGTERM and keeps pipes open.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        elif os.name == "nt":
+            try:
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                process.kill()
         else:
             process.kill()
-        stdout, stderr = process.communicate()
-        return process.returncode, stdout, stderr, True
+        try:
+            stdout, stderr = process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            try:
+                stdout, stderr = process.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+        return process.returncode if process.returncode is not None else -9, stdout, stderr, True
 
 
 def _invoke(

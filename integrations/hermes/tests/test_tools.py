@@ -71,7 +71,33 @@ class FusionRouterToolsTest(unittest.TestCase):
             )
         self.assertTrue(result[3])
         self.assertTrue(popen.call_args.kwargs["start_new_session"])
-        killpg.assert_called_with(1234, TOOLS.signal.SIGTERM)
+        killpg.assert_has_calls([
+            mock.call(1234, TOOLS.signal.SIGTERM),
+            mock.call(1234, TOOLS.signal.SIGKILL),
+        ])
+
+    def test_timeout_terminates_windows_process_tree(self):
+        process = mock.Mock(pid=4321, returncode=1)
+        cwd = Path("/tmp")
+        process.communicate.side_effect = [
+            TOOLS.subprocess.TimeoutExpired(cmd="deno", timeout=1),
+            ("", ""),
+        ]
+        with mock.patch.object(TOOLS.subprocess, "Popen", return_value=process), \
+             mock.patch.object(TOOLS.os, "name", "nt"), \
+             mock.patch.object(TOOLS.subprocess, "run") as taskkill:
+            result = TOOLS._run_bridge_process(
+                ["deno.exe"],
+                cwd=cwd,
+                env={},
+                input_text="{}",
+                timeout=1,
+            )
+        self.assertTrue(result[3])
+        self.assertEqual(
+            taskkill.call_args.args[0],
+            ["taskkill", "/PID", "4321", "/T", "/F"],
+        )
 
     def test_prompt_is_sent_over_stdin_not_argv(self):
         with tempfile.TemporaryDirectory() as temp:
