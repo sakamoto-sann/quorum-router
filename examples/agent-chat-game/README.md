@@ -1,6 +1,6 @@
 # Agent Chat Shogi demo
 
-This demo is **GIF 2** for Fusion Router v0.1 Public RC.
+This demo is **GIF 2** for Fusion Router v0.1.
 
 It shows **Agent Chat mode** as an **experimental explicit opt-in** conversation
 demo. A deterministic fixture transcript shows `Grok` and `GLM` alternating a

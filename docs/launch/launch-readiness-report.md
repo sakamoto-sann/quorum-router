@@ -1,10 +1,10 @@
-# Launch readiness report — Fusion Router v0.1 Public RC
+# Launch readiness report — Fusion Router v0.1
 
 Prepared for external launch asset closeout.
 
 ## Release identity
 
-- External label: **Fusion Router v0.1 Public RC**
+- External label: **Fusion Router v0.1**
 - GitHub release: `v0.1.3`
 - GitHub release URL:
   https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
@@ -13,7 +13,7 @@ Prepared for external launch asset closeout.
 - npm latest target: `0.1.3`
 
 `0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the v0.1 line, not a separate product milestone.
 
 ## GitHub release readback
 
@@ -46,7 +46,7 @@ Expected package readback:
 {
   "name": "create-fusion-router",
   "version": "0.1.3",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "bin": {
     "create-fusion-router": "bin/create-fusion-router.js"
   },
@@ -92,7 +92,7 @@ Expected verification:
 
 Operational docs already exist:
 
-- `docs/public-rc-runbook.md`
+- `docs/launch-runbook.md`
 - `docs/trusted-publishing.md`
 - `docs/launch-checklist.md`
 
@@ -128,11 +128,10 @@ Expected readiness properties:
 - No production autonomous runtime.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
-- Fusion Router is Source-Available Non-Commercial.
-- This is not an open source license.
-- Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-  integration, derivative commercialization, or competing product/service use
-  requires prior written permission.
+- Fusion Router is open source under the MIT License.
+- This is an open source license.
+- The MIT License permits commercial use, modification, distribution,
+  sublicensing, and sale.
 
 ## Launch blockers
 
@@ -144,7 +143,7 @@ Do not launch externally if any of these become true:
 - GitHub release/tag readback differs from the expected `v0.1.3` state.
 - npm latest no longer resolves to `0.1.3` unexpectedly.
 - NPX smoke fails.
-- docs stop saying the license is not open source.
+- docs stop saying the license is open source.
 - docs stop preserving the no-production-autonomous-runtime boundary.
 - docs stop preserving the no-live-Supabase-runtime-writes boundary.
 - docs stop preserving the no-service-role-runtime boundary.

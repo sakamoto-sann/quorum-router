@@ -166,12 +166,12 @@ deno task doctor
 
 Supabase-related checks mean:
 
-| Check                                                        | Meaning                                                                                                             | Operator action                                                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `supabase_audit_config`, `not configured`, severity `info`   | Neither URL nor anon key is set. This is acceptable for local PoC runs that do not enable Supabase audit transport. | No action unless this host should emit audit records.                                        |
-| `supabase_audit_config`, partial config, severity `warn`     | Only URL or anon key is set. The RPC transport would be incomplete.                                                 | Configure both values or remove the partial config.                                          |
-| `supabase_service_role_absent`, severity `error` when failed | A service-role-like Supabase env var is present in runtime.                                                         | Remove it from runtime. Keep service-role/admin credentials only in migration/admin tooling. |
-| `cli_zcode`, `not found`, severity `warn`                    | Optional GLM/ZCode lane is unavailable on this host.                                                                | Install/configure ZCode only on hosts expected to run that lane.                             |
+| Check                                                        | Meaning                                                                                                                     | Operator action                                                                              |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `supabase_audit_config`, `not configured`, severity `info`   | Neither URL nor anon key is set. This is acceptable for local development runs that do not enable Supabase audit transport. | No action unless this host should emit audit records.                                        |
+| `supabase_audit_config`, partial config, severity `warn`     | Only URL or anon key is set. The RPC transport would be incomplete.                                                         | Configure both values or remove the partial config.                                          |
+| `supabase_service_role_absent`, severity `error` when failed | A service-role-like Supabase env var is present in runtime.                                                                 | Remove it from runtime. Keep service-role/admin credentials only in migration/admin tooling. |
+| `cli_zcode`, `not found`, severity `warn`                    | Optional GLM/ZCode lane is unavailable on this host.                                                                        | Install/configure ZCode only on hosts expected to run that lane.                             |
 
 Doctor must never print credential values. If a Supabase service-role-like env
 var is present, doctor reports the variable name and redacts the value.

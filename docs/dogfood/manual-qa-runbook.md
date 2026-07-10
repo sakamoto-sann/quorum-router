@@ -1,7 +1,7 @@
 # Internal dogfood manual QA runbook
 
-Purpose: prepare Fusion Router v0.1 Public RC for internal manual dogfood before
-Product Hunt, X, or any other external launch surface.
+Purpose: prepare Fusion Router v0.1 for internal manual dogfood before Product
+Hunt, X, or any other external launch surface.
 
 This runbook is verification-only. It must not publish, retag, change npm
 dist-tags, create a new version, create a new repository, or post externally.
@@ -23,15 +23,15 @@ dist-tags, create a new version, create a new repository, or post externally.
 
 Allowed wording:
 
-- Fusion Router is **Source-Available Non-Commercial**.
-- Fusion Router is **not open source**.
+- Fusion Router is **open source under the MIT License**.
+- Fusion Router is **open source**.
 - Best Route / direct mode is the production-ready best-answer routing path.
 - `agent_chat` is experimental, explicit opt-in only.
 - npm / NPX quickstart works for the published package.
 
 Disallowed wording:
 
-- open source, unless the sentence explicitly says it is not open source;
+- claims that Fusion Router is not open source or uses a non-MIT license;
 - production autonomous runtime;
 - live Supabase Agent Bus runtime writes;
 - service-role runtime;

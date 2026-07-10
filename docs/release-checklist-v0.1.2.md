@@ -41,9 +41,9 @@
 
 ## License
 
-- [ ] LICENSE title is `Fusion Router Source-Available Non-Commercial License`
-- [ ] README says this is not an open source license
-- [ ] No project-level “open source” description remains
+- [ ] `LICENSE` begins with `MIT License`
+- [ ] README identifies the project as MIT-licensed open source
+- [ ] Project-level open-source descriptions are accurate
 
 ## Verification
 

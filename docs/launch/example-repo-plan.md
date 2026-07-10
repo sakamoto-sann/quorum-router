@@ -1,14 +1,14 @@
-# Example repo plan — Fusion Router v0.1 Public RC
+# Example repo plan — Fusion Router v0.1
 
 > Proposal only. Do not create a repository unless explicitly approved.
 
 ## Proposed repo name
 
-`fusion-router-public-rc-demo`
+`fusion-router-v0-1-demo`
 
 Alternative names:
 
-- `fusion-router-v0-1-public-rc-demo`
+- `fusion-router-open-source-demo`
 - `create-fusion-router-demo`
 - `fusion-router-direct-demo`
 
@@ -27,8 +27,8 @@ point back to:
 
 ## README structure
 
-1. Title: `Fusion Router v0.1 Public RC demo`
-2. License warning: Source-Available Non-Commercial, not open source.
+1. Title: `Fusion Router v0.1 demo`
+2. License warning: open source under the MIT License.
 3. Runtime boundaries:
    - `direct` production-ready best-answer path.
    - `agent_chat` experimental explicit opt-in only.
@@ -94,14 +94,10 @@ deterministic fixture adapter/synthesis metadata.
 
 The example repo must repeat the same boundary:
 
-Fusion Router is Source-Available Non-Commercial. This is not open source.
+Fusion Router is open source under the MIT License.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
-
-Do not add an MIT, Apache, GPL, or other open source license to the example repo
-unless the upstream license decision changes explicitly.
+Include the project MIT license in the example repo unless the upstream license
+decision changes explicitly.
 
 ## Maintenance checklist
 

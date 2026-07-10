@@ -1,16 +1,12 @@
 # Fusion Router generated workspace
 
-This generated workspace is for local, non-commercial evaluation of Fusion
-Router v0.1 Public RC. npm latest targets v0.1.4.
+This generated workspace is a local Fusion Router v0.1 starter project. npm
+latest targets v0.1.4.
 
-Fusion Router is **Source-Available Non-Commercial**. It is **not open source**.
-Production, commercial, hosted-service/SaaS/API, redistribution, sublicensing,
-derivative commercialization, or competing product/service use requires prior
-written permission.
+Fusion Router is open source under the **MIT License**.
 
 ## Security and runtime boundaries
 
-- Non-commercial evaluation only.
 - `deno task smoke` is fixture-only and credential-free.
 - `deno task intake` is the first real setup command.
 - Real provider use is OAuth/session/wrapper-first.

@@ -1,10 +1,9 @@
-# Terminal demo script — Fusion Router v0.1 Public RC
+# Terminal demo script — Fusion Router v0.1
 
-> Script for recorded or live terminal demos. Do not claim open source
-> licensing. Do not claim production autonomous runtime. Do not claim live
-> Supabase Agent Bus runtime writes. Do not claim service-role runtime. `Grok`
-> and `GLM` are deterministic fixture labels here, not live external model
-> calls.
+> Script for recorded or live terminal demos. State the MIT license accurately.
+> Do not claim production autonomous runtime. Do not claim live Supabase Agent
+> Bus runtime writes. Do not claim service-role runtime. `Grok` and `GLM` are
+> deterministic fixture labels here, not live external model calls.
 
 ## Two separate GIFs
 
@@ -25,7 +24,7 @@ deno task demo
 
 Narration:
 
-- “This is Fusion Router v0.1 Public RC.”
+- “This is Fusion Router v0.1.”
 - “Mode is `best_route`.”
 - “The fixture agents are Grok and GLM; no external model/API call is made.”
 - “The demo shows a simple shogi opening excerpt.”
@@ -78,12 +77,12 @@ positioning.
 - “`agent_chat` is experimental explicit opt-in only.”
 - “Grok and GLM are deterministic fixture labels in the recording, not live API
   calls.”
-- “Fusion Router is Source-Available Non-Commercial, not open source.”
+- “Fusion Router is open source under the MIT License.”
 
 ## What not to claim
 
-- “Fusion Router is open source.”
-- “Fusion Router is MIT” unless a future release actually changes the license.
+- “Fusion Router is not open source.”
+- Any license claim other than MIT.
 - “Grok/GLM were called live in the demo.”
 - “Agent Chat is production-ready.”
 - “Best Route always uses Agent Chat.”

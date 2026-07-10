@@ -147,7 +147,7 @@ async function writeArtifacts() {
   );
 }
 
-console.log("Fusion Router v0.1 Public RC");
+console.log("Fusion Router v0.1");
 console.log("Mode: best_route");
 console.log("Demo: Mini Shogi Opening Excerpt");
 console.log("Fixture agents: Grok vs GLM");

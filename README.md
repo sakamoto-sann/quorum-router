@@ -1,77 +1,179 @@
 # Fusion Router
 
-Source-available Deno routing framework for best-answer routing, with optional
-experimental agent chat.
+[![CI](https://github.com/sakamoto-sann/fusion-router/actions/workflows/ci.yml/badge.svg)](https://github.com/sakamoto-sann/fusion-router/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/create-fusion-router)](https://www.npmjs.com/package/create-fusion-router)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Deno](https://img.shields.io/badge/runtime-Deno-000?logo=deno)](https://deno.com/)
 
-## Quickstart
+**Route one prompt through multiple models, validate every response, and
+synthesize a final answer.**
+
+Fusion Router is an open-source Deno framework for model routing. It gives you a
+inspectable TypeScript components for parallel fan-out, schema validation,
+synthesis, budgets, retries, and fail-closed errors without locking the
+application to one provider.
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-fusion-router@latest my-fusion-router
+cd my-fusion-router
 deno task smoke
 ```
 
-NPX is not the goal. `deno task smoke` is deterministic fixture-only and does
-**not** call a real external provider API. Public Product Hunt/X launch requires
-local real-model dogfood first: the user must personally confirm that Fusion
-Router can discover and invoke the models actually available from this machine's
-existing OAuth, wrapper, CLI session, or explicitly selected env fallback setup.
-Generic API-key env fallback is private/manual only and is not the primary
-launch proof.
+The smoke task is deterministic and does not spend API credits.
 
-Repo-local dogfood workspace:
+![Fusion Router Best Route demo](docs/assets/launch/fusion-router-best-route-game.gif)
+
+## Why Fusion Router?
+
+A single model is fast and simple. Some tasks benefit from independent responses
+and a validated synthesis.
+
+Fusion Router lets an application:
+
+- call several model adapters in parallel;
+- reject malformed output before it reaches synthesis;
+- select providers using readiness, capability, cost, and fallback policy;
+- enforce call and spend budgets;
+- use an optional fail-closed buffered audit sink while keeping telemetry
+  best-effort;
+- run locally through existing CLI or OAuth-backed model sessions.
+
+The routing logic is plain TypeScript. You can inspect it, replace adapters, or
+embed the pieces you need.
+
+## Two ways to use it
+
+| Mode                  | Status                        | What it does                                                        |
+| --------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| Best Route / `direct` | Default, supported path       | Runs validated answer routes and synthesizes a final response       |
+| `agent_chat`          | Experimental, explicit opt-in | Runs a bounded multi-role discussion with review and red-team gates |
+
+Best Route does not silently start an agent workflow. Agent Chat stays behind an
+explicit runtime opt-in.
+
+## Quickstart
+
+### Create a project
+
+```bash
+npx --yes create-fusion-router@latest my-fusion-router
+cd my-fusion-router
+deno task check
+deno task smoke
+deno task intake
+deno task health
+```
+
+### Run the repository examples
+
+```bash
+git clone https://github.com/sakamoto-sann/fusion-router.git
+cd fusion-router
+deno task smoke:v0.1
+```
+
+Inspect the installer without changing your machine:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
+```
+
+### Try a real local provider
+
+The repository can discover supported local wrappers and existing authenticated
+CLI sessions. Real calls require an explicit opt-in.
 
 ```bash
 cd examples/local-model-dogfood
 deno task inventory
 deno task auth:status
 deno task health
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
-RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
-RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once \
+  --prompt "Review this API design and return the three biggest risks."
 ```
 
-Best Route/direct remains the production-ready best-answer routing path.
-`agent_chat` remains experimental explicit opt-in only.
+Prompts sent through a provider leave the local process. Do not include
+credentials or private material unless that provider is approved for it.
 
-Dry-run the installer without changing the machine:
+## How it works
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
+```mermaid
+flowchart LR
+  A[Prompt] --> B[Routing policy]
+  B --> C1[Model adapter A]
+  B --> C2[Model adapter B]
+  B --> C3[Model adapter C]
+  C1 --> D[Schema validation]
+  C2 --> D
+  C3 --> D
+  D --> E[Quorum and fallback]
+  E --> F[Synthesis]
+  F --> G[Validated answer]
 ```
 
-## Demos
+Each adapter returns a structured response. Invalid responses are excluded. The
+router fails closed when it cannot reach the configured quorum or produce a
+schema-valid synthesis.
 
-### GIF 1 — Best Route mode
+## What is included
 
-Best Route mode chooses the best answer path. It does not run the Agent Chat
-conversation loop.
+- parallel adapter execution and synthesis;
+- Zod-validated provider and final outputs;
+- provider registry with readiness and auth hints;
+- retry, timeout, circuit-breaker, and budget controls;
+- adaptive direct-routing and fallback policy;
+- process-backed and direct HTTP adapter examples;
+- optional OTLP telemetry helpers and a fail-closed Supabase audit-sink
+  component;
+- deterministic Best Route and Agent Chat demos;
+- an experimental bounded AgentRuntime;
+- a standalone Hermes plugin for on-demand routing.
 
-![Fusion Router Best Route mode demo](docs/assets/launch/fusion-router-best-route-game.gif)
+## Use it as a library
 
-MP4 fallback:
-[Best Route demo](docs/assets/launch/fusion-router-best-route-game.mp4)
+```ts
+import { FusionRouter } from "./router.ts";
+import {
+  FixtureModelAdapter,
+  FixtureSynthesisAdapter,
+} from "./examples/v0_1_fixtures.ts";
 
-### GIF 2 — Agent Chat mode
+const router = new FusionRouter({
+  modelAdapters: [new FixtureModelAdapter()],
+  synthesisAdapter: new FixtureSynthesisAdapter(),
+  minSuccessfulAdapters: 1,
+  timeoutMs: 1_000,
+  routingModeEnvProvider: () => undefined,
+});
 
-Agent Chat mode is experimental and explicit opt-in. It is separate from Best
-Route mode.
+const result = await router.route(
+  "Find the failure modes in this migration plan.",
+);
 
-![Fusion Router Agent Chat mode demo](docs/assets/launch/fusion-router-agent-chat-game.gif)
+console.log(result.synthesis);
+```
 
-MP4 fallback:
-[Agent Chat demo](docs/assets/launch/fusion-router-agent-chat-game.mp4)
+See [`examples/basic-direct.ts`](examples/basic-direct.ts) and
+[`docs/install.md`](docs/install.md) for complete setup paths.
 
-## Modes
+## Safety boundaries
 
-| Mode                | Status                       | Purpose                      |
-| ------------------- | ---------------------------- | ---------------------------- |
-| Best Route / direct | Production-ready path        | Best-answer routing          |
-| agent_chat          | Experimental explicit opt-in | Multi-role conversation demo |
+Fusion Router is routing infrastructure, not a claim that model output is
+correct.
 
-Agent Chat and Commander contracts do not change default direct routing.
+- Output schemas catch malformed responses, not factual mistakes.
+- Fixture demos do not call the model brands used as fixture labels.
+- `agent_chat` is experimental and disabled by default.
+- The repository does not provide a production autonomous-agent service.
+- It does not perform live Supabase Agent Bus writes or use service-role
+  credentials at runtime.
+- External model calls are opt-in in the dogfood workspace.
 
-## Local checks
+For the threat model and credential rules, read
+[`docs/security.md`](docs/security.md). Audit integration is documented in
+[`docs/supabase-audit-setup.md`](docs/supabase-audit-setup.md).
+
+## Development
 
 ```bash
 deno task fmt
@@ -80,26 +182,32 @@ deno task test
 deno task smoke:v0.1
 ```
 
-## Links
+Current test coverage includes routing modes, malformed provider output, budget
+enforcement, auth failure classification, process cleanup, redaction, Supabase
+audit behavior, generated-project smoke tests, and package contents.
 
-- npm: https://www.npmjs.com/package/create-fusion-router
-- release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
-- launch assets: [docs/launch/](docs/launch/)
-- internal dogfood QA:
-  [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)
-- Hermes Agent on-demand integration:
-  [integrations/hermes/](integrations/hermes/)
-- examples: [examples/](examples/)
-- security notes: [docs/security.md](docs/security.md)
+## Roadmap
 
-## License and boundaries
+Potential next steps include:
 
-Fusion Router is Source-Available Non-Commercial. It is not an open source
-license.
+- persistent budget and circuit-breaker state;
+- app-level rate limiting and stronger process isolation;
+- additional provider adapters and routing evaluations;
+- hardening the experimental AgentRuntime.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission. See [LICENSE](LICENSE).
+Today, Best Route / `direct` remains the default supported path; `agent_chat` is
+experimental.
 
-No production autonomous runtime, no live Supabase Agent Bus runtime writes, and
-no service-role runtime.
+## Contributing
+
+Issues and pull requests are welcome. Include tests for behavior changes, run
+the development checks above, and keep provider credentials out of commits and
+fixtures.
+
+If you build an adapter, evaluation, or integration on top of Fusion Router,
+open a discussion or PR so others can try it.
+
+## License
+
+Fusion Router is open source under the [MIT License](LICENSE). You may use,
+modify, distribute, sublicense, and sell copies under the MIT terms.

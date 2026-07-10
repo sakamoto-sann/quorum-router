@@ -120,8 +120,8 @@ an explicit negation or non-goal context:
 
 Allowed claims:
 
-- Source-Available Non-Commercial;
-- not open source;
+- open source under the MIT License;
+- open source;
 - Best Route/direct is production-ready best-answer routing;
 - `agent_chat` is experimental explicit opt-in only;
 - npm/NPX quickstart works.
@@ -158,5 +158,5 @@ For each manual tester, record:
 | G1      | First-time quickstart | Tester can complete README quickstart without extra help.                           | P1               |
 | G2      | Error comprehension   | Tester can explain any failure and next step from the error message.                | P2               |
 | G3      | Mode comprehension    | Tester can explain Best Route vs Agent Chat after reading README and running demos. | P1/P2            |
-| G4      | Time to success       | Time from first command to successful smoke is acceptable for a public RC.          | P2               |
+| G4      | Time to success       | Time from first command to successful smoke is acceptable for a public launch.      | P2               |
 | G5      | Evidence quality      | Tester records enough logs/screenshots to reproduce failures.                       | P2               |

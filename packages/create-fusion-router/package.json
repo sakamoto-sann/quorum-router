@@ -1,8 +1,8 @@
 {
   "name": "create-fusion-router",
   "version": "0.1.4",
-  "description": "Create a local Fusion Router evaluation demo.",
-  "license": "SEE LICENSE IN LICENSE",
+  "description": "Create a local Fusion Router starter project.",
+  "license": "MIT",
   "bin": {
     "create-fusion-router": "bin/create-fusion-router.js"
   },

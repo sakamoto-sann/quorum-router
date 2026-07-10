@@ -1,4 +1,4 @@
-# Agent Chat Shogi GIF — Fusion Router v0.1 Public RC
+# Agent Chat Shogi GIF — Fusion Router v0.1
 
 > GIF 2. This is the experimental explicit opt-in `agent_chat` conversation
 > demo. Do not describe it as Best Route mode, a live Grok/GLM model call, or
@@ -30,7 +30,7 @@ See
 Required visible markers:
 
 ```text
-Fusion Router v0.1 Public RC
+Fusion Router v0.1
 Mode: agent_chat
 Status: experimental explicit opt-in
 Demo: Mini Shogi Opening Excerpt
@@ -58,7 +58,7 @@ The output must **not** contain a Best Route score table.
 
 ## Alt text
 
-Terminal recording of Fusion Router v0.1 Public RC running
+Terminal recording of Fusion Router v0.1 running
 `cd examples/agent-chat-game && deno task demo`. The output shows
 `Mode: agent_chat`, `Status: experimental explicit opt-in`, fixture agents
 `Grok vs GLM`, a simple mini shogi board, six opening half-moves, a fadeout line
@@ -77,7 +77,7 @@ excerpt, then the demo fades out before the full match.
 
 ## Claims to avoid
 
-- Do not call Fusion Router open source.
+- Do not describe Fusion Router as closed source or non-commercially licensed.
 - Do not claim real Grok or GLM external model/API calls are made.
 - Do not claim `agent_chat` is production-ready.
 - Do not claim production autonomous runtime.

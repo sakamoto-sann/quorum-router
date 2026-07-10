@@ -70,7 +70,7 @@ jobs:
             if (pkg.version !== expectedVersion) {
               throw new Error(`expected version ${expectedVersion}, got ${pkg.version}`);
             }
-            if (pkg.license !== "SEE LICENSE IN LICENSE") {
+            if (pkg.license !== "MIT") {
               throw new Error(`unexpected license: ${pkg.license}`);
             }
             if (!pkg.bin || pkg.bin["create-fusion-router"] !== "bin/create-fusion-router.js") {

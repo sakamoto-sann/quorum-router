@@ -1,11 +1,10 @@
-# Fusion Router v0.1 Public RC runbook
+# Fusion Router v0.1 runbook
 
-Fusion Router v0.1 Public RC is the public evaluation line for Fusion Router's
-fail-closed best-answer routing work. The live external label is **Fusion Router
-v0.1 Public RC**.
+Fusion Router v0.1 is the public release line for Fusion Router's fail-closed
+best-answer routing work. The live external label is **Fusion Router v0.1**.
 
-`create-fusion-router@0.1.4` is the first live NPX package version for this
-Public RC line. Version `0.1.4` is an engineering NPX scaffold / generated-demo
+`create-fusion-router@0.1.4` is the first live NPX package version for this v0.1
+release line. Version `0.1.4` is an engineering NPX scaffold / generated-demo
 compatibility patch, not a separate product milestone.
 
 ## Public quickstart
@@ -119,7 +118,7 @@ Expected files in the generated demo root:
 
 ## Runtime boundaries
 
-No routing behavior changes are implied by this Public RC runbook.
+No routing behavior changes are implied by this v0.1 release runbook.
 
 - `direct` remains the production-ready best-answer routing path.
 - `agent_chat` remains experimental explicit opt-in only.
@@ -131,14 +130,8 @@ No routing behavior changes are implied by this Public RC runbook.
 
 ## License boundary
 
-Fusion Router is **Source-Available Non-Commercial**.
+Fusion Router is **open source under the MIT License**.
 
-This is **not open source**.
-
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
-
-Personal evaluation, academic or non-commercial research, and non-production
-testing are the intended evaluation allowances. See [`../LICENSE`](../LICENSE)
-for the authoritative terms.
+The MIT License permits use, modification, distribution, sublicensing, and sale.
+See [`../LICENSE`](../LICENSE) for the authoritative terms and notice
+requirements.

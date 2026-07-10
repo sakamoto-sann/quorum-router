@@ -1,4 +1,4 @@
-# Product Hunt copy — Fusion Router v0.1 Public RC
+# Product Hunt copy — Fusion Router v0.1
 
 > Draft asset only. Do not create or publish a Product Hunt listing from this
 > file without explicit approval.
@@ -9,7 +9,7 @@ Fusion Router
 
 ## Tagline options
 
-1. Source-available best-answer routing for LLM adapters.
+1. Open-source best-answer routing for LLM adapters.
 2. Fail-closed routing before autonomous agents.
 3. A Deno routing/runtime framework for direct best-answer paths and explicit
    experimental agent routing.
@@ -18,16 +18,16 @@ Fusion Router
 
 ## One-liner
 
-Fusion Router is a source-available routing/runtime framework for
-production-ready `direct` / Best Route best-answer routing and explicit opt-in
-experimental `agent_chat` routing.
+Fusion Router is an open-source routing/runtime framework for production-ready
+`direct` / Best Route best-answer routing and explicit opt-in experimental
+`agent_chat` routing.
 
 ## Short description
 
-Fusion Router v0.1 Public RC gives builders a small, readable Deno framework for
-routing prompts through model adapters, validating outputs, and synthesizing a
-best answer through the production-ready Best Route / `direct` path.
-Experimental `agent_chat` exists only behind explicit opt-in gates.
+Fusion Router v0.1 gives builders a small, readable Deno framework for routing
+prompts through model adapters, validating outputs, and synthesizing a best
+answer through the production-ready Best Route / `direct` path. Experimental
+`agent_chat` exists only behind explicit opt-in gates.
 
 ## Launch media captions
 
@@ -41,10 +41,10 @@ imply `agent_chat`, and `agent_chat` is not the production-ready default path.
 
 ## Long description
 
-Fusion Router is a source-available routing/runtime framework for teams that
-want routing safety before agent autonomy.
+Fusion Router is an open-source routing/runtime framework for teams that want
+routing safety before agent autonomy.
 
-The v0.1 Public RC focuses on:
+The v0.1 focuses on:
 
 - Best Route / `direct` as the production-ready best-answer routing path.
 - Zod-validated adapter and synthesis outputs.
@@ -56,12 +56,9 @@ The v0.1 Public RC focuses on:
 
 The live npm scaffold is `create-fusion-router@0.1.4` (`latest -> 0.1.4`).
 Version `0.1.4` is an engineering NPX scaffold / generated-demo compatibility
-patch in the v0.1 Public RC line, not a separate product milestone.
+patch in the v0.1 line, not a separate product milestone.
 
-Fusion Router is Source-Available Non-Commercial. This is not an open source
-license. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is open source under the MIT License.
 
 ## Clear install command
 
@@ -100,7 +97,7 @@ external Grok/GLM model/API call is made and no credentials are required.
 
 ## Maker comment draft
 
-Thanks for checking out Fusion Router v0.1 Public RC.
+Thanks for checking out Fusion Router v0.1.
 
 The main idea is simple: treat routing as the safety boundary before agents. The
 production-ready path is Best Route / `direct`: compare answer routes, validate
@@ -124,11 +121,10 @@ deno task smoke
 ```
 
 The npm package is `create-fusion-router@0.1.4`; `0.1.4` is an engineering NPX
-scaffold / generated-demo compatibility patch for the v0.1 Public RC line, not a
-separate milestone.
+scaffold / generated-demo compatibility patch for the v0.1 line, not a separate
+milestone.
 
-License note: Fusion Router is Source-Available Non-Commercial, not open source.
-Commercial or production use requires prior written permission.
+License note: Fusion Router is open source under the MIT License.
 
 ## Runtime boundary warning
 
@@ -145,16 +141,11 @@ Commercial or production use requires prior written permission.
 - Builders evaluating fail-closed model routing.
 - Teams that want a readable Deno routing framework before adopting agent
   autonomy.
-- Researchers and non-commercial evaluators comparing direct best-answer routing
-  patterns.
+- Researchers and builders comparing direct best-answer routing patterns.
 - Developers who want deterministic demos to inspect and run locally.
 
 ## Who it is not for
 
-- Teams that require an OSI-approved permissive or copyleft license.
-- Teams needing commercial, production, hosted-service/SaaS/API, redistribution,
-  sublicensing, integration, derivative commercialization, or competing
-  product/service rights without prior written permission.
 - Users looking for a production autonomous agent runtime.
 - Users expecting Supabase Agent Bus writes or privileged runtime credentials in
   the live runtime path.

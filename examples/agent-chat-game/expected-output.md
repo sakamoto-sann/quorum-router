@@ -1,7 +1,7 @@
 # Expected output — Agent Chat Shogi Excerpt
 
 ```text
-Fusion Router v0.1 Public RC
+Fusion Router v0.1
 Mode: agent_chat
 Status: experimental explicit opt-in
 Demo: Mini Shogi Opening Excerpt

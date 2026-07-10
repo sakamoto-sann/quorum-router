@@ -37,8 +37,7 @@ AgentRuntime path.
   - budget exceeded
   - unsafe closeout with objections
 - CI checks added.
-- License changed from MIT to Source-Available Non-Commercial before this
-  AgentRuntime release.
+- Project license is MIT.
 
 ## Routing modes
 
@@ -82,27 +81,14 @@ Not included:
 
 ## License
 
-Fusion Router is Source-Available Non-Commercial.
+Fusion Router is open source under the MIT License.
 
-This is not an open source license.
+This is an open source license.
 
-Allowed:
-
-- source review
-- personal evaluation
-- academic / non-commercial research
-- non-production testing
-
-Restricted without prior written permission:
-
-- commercial use
-- production use
-- hosted-service/SaaS/API use
-- redistribution
-- sublicensing
-- integration
-- derivative commercialization
-- competing product/service use
+The MIT License permits use, modification, distribution, sublicensing, and sale,
+including commercial and production use. Copies or substantial portions must
+retain the copyright and permission notice. The software is provided without
+warranty.
 
 ## Verification target
 
@@ -134,5 +120,5 @@ Do not publish unless:
 - main HEAD matches intended release target
 - CI is green
 - local full verification is green
-- license readback confirms Source-Available Non-Commercial
+- license readback confirms open source under the MIT License
 - existing v0.1.0 is left unchanged

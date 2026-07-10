@@ -42,7 +42,7 @@ manual session log.
 - [ ] README GIFs render.
 - [ ] npm latest points to the approved external-dogfood package version after
       explicit publish approval.
-- [ ] No false open-source claim.
+- [ ] Open-source claims match the MIT license.
 - [ ] No production autonomous runtime claim.
 - [ ] No service-role/live Supabase runtime claim.
 - [ ] No secrets or credentials required for fixture smoke / CI.
@@ -70,7 +70,8 @@ These can be documented and accepted if must-pass items are green:
 - [ ] Deno required.
 - [ ] Network required for remote module resolution.
 - [ ] `agent_chat` is a deterministic demo fixture / experimental.
-- [ ] Source-Available Non-Commercial may limit commercial use.
+- [ ] The MIT License permits commercial use, modification, redistribution,
+      sublicensing, and sale.
 - [ ] npm latest may remain 0.1.3 until explicit v0.1.4 publish approval.
 
 ## Required readbacks before GO

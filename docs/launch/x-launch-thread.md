@@ -1,4 +1,4 @@
-# X launch drafts — Fusion Router v0.1 Public RC
+# X launch drafts — Fusion Router v0.1
 
 > Draft asset only. Do not post automatically from this file without explicit
 > approval.
@@ -11,19 +11,19 @@ Links:
 
 ## Short launch tweet
 
-Fusion Router v0.1 Public RC is live.
+Fusion Router v0.1 is live.
 
-A source-available routing/runtime framework for production-ready Best Route /
+An open-source routing/runtime framework for production-ready Best Route /
 `direct` best-answer routing and explicit opt-in experimental `agent_chat`.
 
 GIF 1 shows Best Route mode choosing a shogi next move. GIF 2 shows experimental
 Agent Chat mode with a short Grok vs GLM shogi excerpt.
 
-Source-Available Non-Commercial; not open source.
+open source under the MIT License.
 
 ## Technical launch tweet
 
-Fusion Router v0.1 Public RC:
+Fusion Router v0.1:
 
 - Best Route / `direct` = production-ready best-answer path
 - Zod-validated adapter + synthesis outputs
@@ -49,9 +49,9 @@ https://www.npmjs.com/package/create-fusion-router
 
 ### 1/7
 
-Fusion Router v0.1 Public RC is live.
+Fusion Router v0.1 is live.
 
-It is a source-available routing/runtime framework for builders who want routing
+It is an open-source routing/runtime framework for builders who want routing
 safety before agent autonomy.
 
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
@@ -106,9 +106,9 @@ Runtime boundaries:
 The npm package is `create-fusion-router@0.1.4`; `latest -> 0.1.4`.
 
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the v0.1 line, not a separate product milestone.
 
-Source-Available Non-Commercial; not open source.
+open source under the MIT License.
 
 ## Builder-focused thread: 6 tweets
 
@@ -120,7 +120,7 @@ If you are building with multiple model adapters, the hard part is not only
 It is deciding which path is allowed to run, validating every output, and
 failing closed when the system cannot prove safety.
 
-That is the focus of Fusion Router v0.1 Public RC.
+That is the focus of Fusion Router v0.1.
 
 ### 2/6
 
@@ -164,5 +164,5 @@ Then inspect `main.ts` and `deno.json`.
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-fusion-router
 
-License: Source-Available Non-Commercial, not open source. Check permissions
-before commercial or production use.
+License: open source under the MIT License. See the MIT License for notice and
+warranty terms.

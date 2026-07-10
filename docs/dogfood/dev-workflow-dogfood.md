@@ -1,8 +1,8 @@
 # Dev workflow dogfood
 
-Fusion Router v0.1 Public RC needs real development dogfood before Product Hunt,
-X, or any external launch. Fixed demos prove mode separation and trace behavior,
-but they do not prove usefulness on unknown development decisions.
+Fusion Router v0.1 needs real development dogfood before Product Hunt, X, or any
+external launch. Fixed demos prove mode separation and trace behavior, but they
+do not prove usefulness on unknown development decisions.
 
 This workflow turns ordinary development tasks into repeatable Fusion Router
 sessions with human scoring and launch impact tracking.
@@ -28,13 +28,13 @@ This is a dogfood workflow, not a release workflow.
 
 Allowed:
 
-- Source-Available Non-Commercial; not open source.
+- open source under the MIT License.
 - Best Route / direct is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.
 
 Reject if a session output claims or implies:
 
-- open source without explicitly saying not open source;
+- a license other than MIT;
 - production autonomous runtime;
 - live Supabase Agent Bus runtime writes;
 - service-role runtime;

@@ -1,11 +1,8 @@
 # Install Fusion Router
 
-External launch label: **Fusion Router v0.1 Public RC**.
+External launch label: **Fusion Router v0.1**.
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is open source under the **MIT License**.
 
 ## Security boundaries
 
@@ -26,7 +23,7 @@ cd fusion-router
 deno task smoke:v0.1
 ```
 
-## Scaffold an evaluation demo with npx
+## Scaffold a starter project with npx
 
 ```bash
 npx --yes create-fusion-router@latest my-fusion-router-demo

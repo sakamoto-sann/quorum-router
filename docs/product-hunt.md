@@ -1,23 +1,20 @@
 # Product Hunt launch notes
 
-External launch label: **Fusion Router v0.1 Public RC**.
+External launch label: **Fusion Router v0.1**.
 
 ## Tagline options
 
 - Fusion Router: fail-closed best-answer routing for LLM adapters.
 - A readable Deno router for comparing model outputs safely.
-- Source-available fusion routing with explicit runtime boundaries.
+- Open-source fusion routing with explicit runtime boundaries.
 
 ## Launch description
 
-Fusion Router is a small, readable proof-of-concept for routing a prompt across
+Fusion Router is a small, readable framework for routing a prompt across
 multiple model adapters, validating outputs, and producing a final synthesis
 through a fail-closed contract.
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is open source under the **MIT License**.
 
 ## Runtime boundaries
 
@@ -38,7 +35,7 @@ cd fusion-router
 deno task smoke:v0.1
 ```
 
-Scaffold an evaluation demo:
+Scaffold a starter project:
 
 ```bash
 npx --yes create-fusion-router@latest my-fusion-router-demo
@@ -66,12 +63,10 @@ curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/
 
 ## Maker comment draft
 
-Fusion Router v0.1 Public RC is a Deno-based fusion router PoC focused on
-readable safety boundaries: default `direct` routing, Zod-validated outputs,
-fail-closed errors, explicit non-goals, and no hidden production autonomous
-runtime. The live npm scaffold is `create-fusion-router@0.1.4`
-(`latest ->
-0.1.4`), an engineering patch for NPX scaffold / generated-demo
-compatibility, not a separate product milestone. It is Source-Available
-Non-Commercial, not open source; commercial or production use requires prior
-written permission.
+Fusion Router v0.1 is a Deno-based fusion router framework focused on readable
+safety boundaries: default `direct` routing, Zod-validated outputs, fail-closed
+errors, explicit non-goals, and no hidden production autonomous runtime. The
+live npm scaffold is `create-fusion-router@0.1.4` (`latest ->
+0.1.4`), an
+engineering patch for NPX scaffold / generated-demo compatibility, not a
+separate product milestone. Fusion Router is open source under the MIT License.

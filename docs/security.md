@@ -1,9 +1,6 @@
 # Fusion Router security status
 
-Fusion Router is **source-available and non-commercial**. It is **not an open
-source license**. Commercial, production, hosted-service, SaaS, API,
-redistribution, sublicensing, or derivative-commercialization use requires prior
-written permission.
+Fusion Router is open source under the **MIT License**.
 
 ## Runtime posture
 

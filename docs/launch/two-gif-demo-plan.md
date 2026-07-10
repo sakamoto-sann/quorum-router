@@ -1,7 +1,7 @@
-# Two-GIF demo plan — Fusion Router v0.1 Public RC
+# Two-GIF demo plan — Fusion Router v0.1
 
 > Launch asset plan only. Do not publish, record, or post media without explicit
-> approval. Fusion Router is Source-Available Non-Commercial, not open source.
+> approval. Fusion Router is open source under the MIT License.
 
 ## Why there are two GIFs
 

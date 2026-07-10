@@ -1,7 +1,7 @@
-# Fusion Router v0.1 Public RC launch checklist
+# Fusion Router v0.1 launch checklist
 
 Use this checklist before external announcements or operational usage of the
-**Fusion Router v0.1 Public RC** line.
+**Fusion Router v0.1** line.
 
 ## 1. GitHub release readback
 
@@ -10,7 +10,7 @@ Use this checklist before external announcements or operational usage of the
 - [ ] `git rev-parse origin/main`
 - [ ] `git rev-parse v0.1.4^{}`
 - [ ] `gh release view v0.1.4 --json tagName,targetCommitish,isDraft,isPrerelease,publishedAt,url`
-- [ ] Confirm `v0.1.4^{}` equals the intended Public RC commit.
+- [ ] Confirm `v0.1.4^{}` equals the intended v0.1 release commit.
 - [ ] Confirm the release is not draft.
 - [ ] Confirm the release URL is reachable.
 
@@ -20,7 +20,7 @@ Use this checklist before external announcements or operational usage of the
 - [ ] `npm dist-tag ls create-fusion-router`
 - [ ] Confirm package name: `create-fusion-router`.
 - [ ] Confirm package version: `0.1.4`.
-- [ ] Confirm license: `SEE LICENSE IN LICENSE`.
+- [ ] Confirm license: `MIT`.
 - [ ] Confirm bin: `create-fusion-router -> bin/create-fusion-router.js`.
 - [ ] Confirm `latest -> 0.1.4`.
 
@@ -64,29 +64,25 @@ deno task smoke
 ```
 
 - [ ] Fixed quickstart uses `create-fusion-router@0.1.4`.
-- [ ] README labels the external line as **Fusion Router v0.1 Public RC**.
+- [ ] README labels the external line as **Fusion Router v0.1**.
 - [ ] README states `0.1.4` is an engineering NPX scaffold / generated-demo
       compatibility patch, not a separate product milestone.
 
 ## 5. Product Hunt copy check
 
-- [ ] Product Hunt copy uses the external label **Fusion Router v0.1 Public
-      RC**.
-- [ ] Copy says Source-Available Non-Commercial.
-- [ ] Copy says not open source.
+- [ ] Product Hunt copy uses the external label **Fusion Router v0.1**.
+- [ ] Copy says open source under the MIT License.
+- [ ] Copy says open source.
 - [ ] Copy does not imply production autonomous runtime.
-- [ ] Copy does not imply commercial/production/SaaS/API use is allowed without
-      permission.
+- [ ] Copy accurately states that MIT permits commercial and production use.
 
 ## 6. License check
 
-- [ ] README license section says Source-Available Non-Commercial.
-- [ ] README says this is not open source.
-- [ ] Package README says Source-Available Non-Commercial.
-- [ ] Generated template README says Source-Available Non-Commercial.
-- [ ] Commercial, production, hosted-service/SaaS/API, redistribution,
-      sublicensing, integration, derivative commercialization, or competing
-      product/service use requires prior written permission.
+- [ ] README license section says open source under the MIT License.
+- [ ] README says this is open source.
+- [ ] Package README says open source under the MIT License.
+- [ ] Generated template README says open source under the MIT License.
+- [ ] Public copy identifies the project as MIT-licensed open source.
 
 ## 7. Security boundary check
 
@@ -119,4 +115,4 @@ deno task smoke
 - [ ] Do not run `npm dist-tag add`, `npm dist-tag rm`, or equivalent registry
       mutation unless explicitly approved.
 - [ ] Readback with `npm dist-tag ls create-fusion-router` is safe.
-- [ ] For this Public RC closeout, expected readback remains `latest: 0.1.4`.
+- [ ] For this v0.1 release closeout, expected readback remains `latest: 0.1.4`.

@@ -34,7 +34,7 @@ posture documentation, and developer-adoption bootstrap paths.
 - Security documentation:
   - added `docs/security.md`
   - README links to security status page
-  - explicit source-available non-commercial license posture
+  - explicit open source under the MIT License license posture
   - explicit runtime boundaries and operational caveats
 - Developer-adoption bootstrap paths:
   - includes npm create package scaffold and install helper scripts
@@ -72,13 +72,9 @@ No routing behavior changes.
 
 ## License
 
-Fusion Router is Source-Available Non-Commercial.
+Fusion Router is open source under the MIT License.
 
-This is not an open source license.
-
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+This is an open source license.
 
 ## Verification target
 
@@ -113,5 +109,5 @@ Do not publish unless:
 - main HEAD matches intended release target
 - CI is green
 - local full verification is green
-- license readback confirms Source-Available Non-Commercial
+- license readback confirms open source under the MIT License
 - existing v0.1.0 and v0.1.1 are left unchanged

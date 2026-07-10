@@ -1,11 +1,8 @@
 # create-fusion-router
 
-Create a local Fusion Router evaluation demo.
+Create a local Fusion Router starter project.
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is open source under the **MIT License**.
 
 ## Usage
 

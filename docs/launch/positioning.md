@@ -1,12 +1,11 @@
-# Positioning — Fusion Router v0.1 Public RC
+# Positioning — Fusion Router v0.1
 
 ## Crisp positioning
 
-Fusion Router is a source-available routing/runtime framework for
-production-ready `direct` best-answer routing and explicit opt-in experimental
-agent routing.
+Fusion Router is an open-source routing/runtime framework for production-ready
+`direct` best-answer routing and explicit opt-in experimental agent routing.
 
-The v0.1 Public RC message is:
+The v0.1 message is:
 
 > Routing first, agents second.
 
@@ -15,15 +14,14 @@ Agent-style routing exists only as an explicitly opted-in experimental surface.
 
 ## Anti-positioning
 
-Fusion Router v0.1 Public RC is not:
+Fusion Router v0.1 is not:
 
-- not an open source project;
+- a hosted autonomous-agent service;
 - not a production autonomous agent runtime;
 - not a full multi-agent production system;
 - not a live Supabase Agent Bus runtime writer;
 - not a service-role runtime;
 - a hosted SaaS/API product;
-- a permissively licensed commercial integration surface;
 - a generic “agent framework” that treats autonomy as the default.
 
 ## Comparison framing against generic agent frameworks
@@ -60,8 +58,7 @@ and bounded.
 
 ## Launch narrative
 
-Fusion Router v0.1 Public RC is ready for external evaluation through the public
-NPX scaffold:
+Fusion Router v0.1 is ready for public use through the public NPX scaffold:
 
 ```bash
 npx --yes create-fusion-router@latest my-fusion-router-demo
@@ -71,7 +68,7 @@ deno task smoke
 
 The npm package is `create-fusion-router@0.1.4` (`latest -> 0.1.4`). Version
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the v0.1 line, not a separate product milestone.
 
 The release is deliberately narrow: prove the public path, explain the safety
 boundaries, and give builders a readable generated demo.
@@ -87,13 +84,13 @@ In Fusion Router:
 - no hidden fallback turns an invalid route into an unsafe route.
 - no production autonomous runtime is claimed.
 
-The agent story is intentionally behind the routing story. That keeps the Public
-RC useful for builders who want reliable adapter routing today while preserving
-a clear path for future explicit agent experiments.
+The agent story is intentionally behind the routing story. That keeps v0.1
+useful for builders who want reliable adapter routing today while preserving a
+clear path for future explicit agent experiments.
 
 ## Safety boundary
 
-The Public RC safety boundary is:
+The v0.1 release safety boundary is:
 
 - `direct` remains the production-ready best-answer routing path.
 - `agent_chat` remains experimental explicit opt-in only.
@@ -105,13 +102,9 @@ The Public RC safety boundary is:
 
 ## License boundary
 
-Fusion Router is Source-Available Non-Commercial.
+Fusion Router is open source under the MIT License.
 
-This is not an open source license.
+This is an open source license.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
-
-Personal evaluation, academic or non-commercial research, and non-production
-testing are the intended evaluation allowances under the license terms.
+The MIT License permits commercial and non-commercial use, modification,
+distribution, sublicensing, and sale.

@@ -1,7 +1,7 @@
 # Internal dogfood summary
 
-This pack prepares Fusion Router v0.1 Public RC for manual internal dogfood
-before Product Hunt/X/external posting.
+This pack prepares Fusion Router v0.1 for manual internal dogfood before Product
+Hunt/X/external posting.
 
 ## What this pack adds
 

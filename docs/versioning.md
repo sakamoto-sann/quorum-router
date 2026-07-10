@@ -1,16 +1,16 @@
-# Versioning and Public RC policy
+# Versioning and v0.1 release policy
 
-External launch label: **Fusion Router v0.1 Public RC**.
+External launch label: **Fusion Router v0.1**.
 
 ## What version numbers mean
 
 Version numbers identify technical artifacts, not product completeness. The
-`v0.1.x` line is the pre-1.0 public-RC engineering release line for repository
-tags, release notes, npm scaffold packaging, and compatibility patches.
+`v0.1.x` is the pre-1.0 public engineering release line for repository tags,
+release notes, npm scaffold packaging, and compatibility patches.
 
 ## Current public artifacts
 
-- `v0.1.4` is the current Public RC release line target for GitHub release tags,
+- `v0.1.4` is the current v0.1 release line target for GitHub release tags,
   install-helper docs, and generated scaffold packaging.
 - `create-fusion-router@0.1.4` is the current NPX package target.
 - `create-fusion-router@latest` should resolve to `0.1.4` after release
@@ -43,10 +43,7 @@ deno task smoke
 
 ## License and runtime boundaries
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Fusion Router is open source under the **MIT License**.
 
 - `direct` is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.

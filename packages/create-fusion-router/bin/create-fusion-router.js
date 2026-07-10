@@ -16,7 +16,7 @@ Usage:
   create-fusion-router --help
   create-fusion-router --version
 
-Creates a local Fusion Router evaluation demo. The scaffold does not fetch remote
+Creates a local Fusion Router starter project. The scaffold does not fetch remote
 code, install dependencies, ask for credentials, write secrets, enable process
 adapters, or configure live runtime services. Fixture smoke is deterministic;
 external provider dogfood and GitHub URL context fetching are explicit manual
@@ -110,7 +110,7 @@ function main() {
   fs.mkdirSync(path.join(targetDir, "out"), { recursive: true });
   fs.writeFileSync(path.join(targetDir, "out", ".gitkeep"), "");
 
-  console.log(`Created Fusion Router evaluation demo in ${targetDir}`);
+  console.log(`Created Fusion Router starter project in ${targetDir}`);
   console.log("");
   console.log("Next steps:");
   console.log(`  cd ${path.relative(process.cwd(), targetDir) || "."}`);

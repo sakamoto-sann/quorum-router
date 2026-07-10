@@ -79,7 +79,7 @@ Before invoking the workflow for a future version:
 5. Confirm no npm token is committed or needed.
 6. Run the local verification stack and package dry-run.
 
-## Non-goals for this Public RC closeout
+## Non-goals for this v0.1 release closeout
 
 This runbook covers the `0.1.4` Trusted Publishing path after explicit release
 approval. Do not move tags, mutate dist-tags, or expand runtime behavior outside

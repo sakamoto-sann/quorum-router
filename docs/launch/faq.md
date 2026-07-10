@@ -1,25 +1,19 @@
-# Fusion Router v0.1 Public RC FAQ
+# Fusion Router v0.1 FAQ
 
 ## Is Fusion Router open source?
 
-No. Fusion Router is Source-Available Non-Commercial. This is not an open source
-license.
-
-The source is available for source review, personal evaluation, academic or
-non-commercial research, and non-production testing under the license terms.
+Yes. Fusion Router is open source under the MIT License.
 
 ## Can I use this commercially?
 
-Not without prior written permission.
-
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Yes. The MIT License permits commercial use, modification, distribution,
+sublicensing, and sale. Preserve the copyright and permission notice as required
+by the license.
 
 ## What is production-ready?
 
 The `direct` path is the production-ready best-answer routing path in the v0.1
-Public RC positioning.
+v0.1 release positioning.
 
 It routes through model adapters, validates structured outputs, and synthesizes
 a final answer through fail-closed behavior.
@@ -47,11 +41,11 @@ It is not the default path and is not claimed as production-ready.
 
 ## Does this run autonomous agents in production?
 
-No. Fusion Router v0.1 Public RC does not claim a production autonomous runtime.
+No. Fusion Router v0.1 does not claim a production autonomous runtime.
 
 ## Does it write to Supabase live runtime?
 
-No. The Public RC does not claim live Supabase Agent Bus runtime writes.
+No. The v0.1 release does not claim live Supabase Agent Bus runtime writes.
 
 Supabase Agent Bus docs describe contracts and future/live-runtime boundaries,
 but the launch positioning does not claim live runtime writes.
@@ -62,14 +56,14 @@ No. The launch path and generated demo do not require service-role credentials.
 
 The runtime boundary explicitly excludes service-role runtime.
 
-## Why npm version 0.1.4 but label v0.1 Public RC?
+## Why npm version 0.1.4 but label v0.1?
 
-The external launch label is **Fusion Router v0.1 Public RC**.
+The external launch label is **Fusion Router v0.1**.
 
 The npm package is `create-fusion-router@0.1.4` with `latest -> 0.1.4`. Version
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line with GitHub URL context dogfood and release packaging
-hardening, not a separate product milestone.
+the v0.1 line with GitHub URL context dogfood and release packaging hardening,
+not a separate product milestone.
 
 ## Why NPX?
 
@@ -119,7 +113,7 @@ Common issues:
 - Deno import-map resolution fails if you run outside the generated demo
   directory or delete `deno.json`.
 - future npm/package versions may change generated-demo behavior; pin
-  `create-fusion-router@0.1.4` to reproduce this Public RC scaffold.
+  `create-fusion-router@0.1.4` to reproduce this v0.1 release scaffold.
 
 ## How do I report issues?
 

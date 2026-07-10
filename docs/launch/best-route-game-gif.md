@@ -1,4 +1,4 @@
-# Best Route Shogi GIF — Fusion Router v0.1 Public RC
+# Best Route Shogi GIF — Fusion Router v0.1
 
 > GIF 1. This is the production-ready best-answer routing path demo. Do not
 > describe it as Agent Chat, a live Grok/GLM model call, or autonomous runtime.
@@ -29,7 +29,7 @@ See
 Required visible markers:
 
 ```text
-Fusion Router v0.1 Public RC
+Fusion Router v0.1
 Mode: best_route
 Demo: Mini Shogi Opening Excerpt
 Fixture agents: Grok vs GLM
@@ -58,7 +58,7 @@ The output must **not** contain `Mode: agent_chat` or role-conversation framing.
 
 ## Alt text
 
-Terminal recording of Fusion Router v0.1 Public RC running
+Terminal recording of Fusion Router v0.1 running
 `cd examples/best-route-game && deno task demo`. The output shows
 `Mode: best_route`, fixture agents `Grok vs GLM`, a simple mini shogi board,
 opening moves, route scores, selected route `balanced_development`, next move
@@ -79,7 +79,7 @@ experimental `agent_chat`.
 
 ## Claims to avoid
 
-- Do not call Fusion Router open source.
+- Do not describe Fusion Router as closed source or non-commercially licensed.
 - Do not claim real Grok or GLM external model/API calls are made.
 - Do not claim production autonomous runtime.
 - Do not imply Best Route always invokes `agent_chat`.

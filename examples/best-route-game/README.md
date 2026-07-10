@@ -1,6 +1,6 @@
 # Best Route Shogi demo
 
-This demo is **GIF 1** for Fusion Router v0.1 Public RC.
+This demo is **GIF 1** for Fusion Router v0.1.
 
 It shows **Best Route mode** as a production-ready best-answer routing path:
 Fusion Router compares deterministic candidate lines for a small shogi opening

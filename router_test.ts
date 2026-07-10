@@ -3162,7 +3162,10 @@ Deno.test("public docs mention direct best-answer remains default", async () => 
 
   assertStringIncludes(docs, "direct = best-answer routing path");
   assertStringIncludes(docs, "production-ready baseline");
-  assertStringIncludes(docs, "do not change default direct routing");
+  assertStringIncludes(
+    docs,
+    "Best Route does not silently start an agent workflow",
+  );
 });
 
 Deno.test("security docs state license runtime posture and non-goals", async () => {
@@ -3172,8 +3175,7 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
   assertStringIncludes(readme, "docs/security.md");
   for (
     const phrase of [
-      "source-available and non-commercial",
-      "not an open source license",
+      "MIT License",
       "direct` is the production-ready best-answer routing path",
       "agent_chat` / AgentRuntime is experimental and explicit opt-in only",
       "not a production autonomous runtime",
@@ -3183,7 +3185,6 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
       "Process adapters execute explicit configured CLI adapters",
       "Do not expose untrusted public traffic without external rate limiting",
       "Budget and circuit breaker state is currently in-memory",
-      "requires prior written permission",
     ]
   ) {
     assertStringIncludes(normalizedSecurity, phrase);
@@ -6285,7 +6286,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   );
   assertEquals(packageJson.name, "create-fusion-router");
   assertEquals(packageJson.version, "0.1.4");
-  assertEquals(packageJson.license, "SEE LICENSE IN LICENSE");
+  assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-fusion-router"], "bin/create-fusion-router.js");
   const files = stringArray(packageJson.files);
@@ -6731,20 +6732,12 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
     "packages/create-fusion-router/README.md",
   );
   const normalizedPackageReadme = packageReadme.replace(/\s+/g, " ");
-  assertStringIncludes(
-    normalizedPackageReadme,
-    "Source-Available Non-Commercial",
-  );
-  assertStringIncludes(normalizedPackageReadme, "not open source");
-  assertStringIncludes(
-    normalizedPackageReadme,
-    "requires prior written permission",
-  );
+  assertStringIncludes(normalizedPackageReadme, "MIT License");
 
   const templateReadme = await Deno.readTextFile(
     "packages/create-fusion-router/templates/basic/README.md",
   );
-  assertStringIncludes(templateReadme, "Non-commercial evaluation only");
+  assertStringIncludes(templateReadme, "MIT License");
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
   assertStringIncludes(templateReadme, "v0.1.4");
@@ -7676,12 +7669,11 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
   const productHunt = await Deno.readTextFile("docs/product-hunt.md");
   for (const doc of [installDocs, productHunt]) {
     const normalized = doc.replace(/\s+/g, " ");
-    assertStringIncludes(normalized, "Source-Available Non-Commercial");
-    assertStringIncludes(normalized, "not open source");
+    assertStringIncludes(normalized, "MIT License");
     assertStringIncludes(normalized, "No production autonomous runtime");
     assertStringIncludes(normalized, "No service-role runtime");
     assertStringIncludes(normalized, "No live Supabase");
-    assert(!/is open source/i.test(normalized));
+    assertStringIncludes(normalized, "MIT License");
   }
   assertStringIncludes(installDocs, "npx --yes create-fusion-router@latest");
   assertStringIncludes(installDocs, "--dry-run");
@@ -7698,8 +7690,8 @@ Deno.test("README and v0.1.2 docs expose install paths without hardcoded target 
   const normalizedMainReadme = readme.replace(/\s+/g, " ");
   assertStringIncludes(readme, "npx --yes create-fusion-router@latest");
   assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
-  assertStringIncludes(readme, "Source-Available Non-Commercial");
-  assertStringIncludes(normalizedMainReadme, "not an open source license");
+  assertStringIncludes(readme, "MIT License");
+  assertStringIncludes(normalizedMainReadme, "sell copies");
 
   const release = await Deno.readTextFile("docs/release-v0.1.2.md");
   const checklist = await Deno.readTextFile("docs/release-checklist-v0.1.2.md");

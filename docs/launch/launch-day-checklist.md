@@ -43,7 +43,7 @@ distribution/demo surface after repo-local dogfood is usable.
 - [ ] No production autonomous runtime claim.
 - [ ] No live Supabase Agent Bus runtime writes claim.
 - [ ] No service-role runtime claim.
-- [ ] Fusion Router remains Source-Available Non-Commercial / not open source.
+- [ ] Fusion Router remains open source under the MIT License.
 
 ## Release/publish follow-up
 

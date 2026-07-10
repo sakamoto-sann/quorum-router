@@ -188,7 +188,8 @@ Use a non-production project or disposable test records for these calls.
 
 ## Doctor and runtime environment checks
 
-- [ ] Fully unset Supabase audit config is informational for local PoC hosts:
+- [ ] Fully unset Supabase audit config is informational for local development
+      hosts:
 
   ```bash
   deno task doctor
