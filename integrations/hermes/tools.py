@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -98,11 +99,8 @@ def _provider_commands() -> list[str]:
 
 
 def is_available() -> bool:
-    return (
-        shutil.which("deno") is not None
-        and _bridge_path().is_file()
-        and bool(_provider_commands())
-    )
+    """Expose health whenever the bridge exists; route reports provider gaps."""
+    return shutil.which("deno") is not None and _bridge_path().is_file()
 
 
 def _error(message: str, **extra: Any) -> str:
@@ -157,6 +155,44 @@ def _trial_summary() -> dict[str, Any]:
     }
 
 
+def _run_bridge_process(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    input_text: str,
+    timeout: int,
+) -> tuple[int, str, str, bool]:
+    """Run the bridge and terminate its process tree on timeout."""
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=os.name == "posix",
+    )
+    try:
+        stdout, stderr = process.communicate(input=input_text, timeout=timeout)
+        return process.returncode, stdout, stderr, False
+    except subprocess.TimeoutExpired:
+        if os.name == "posix":
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=2)
+            except (ProcessLookupError, subprocess.TimeoutExpired):
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+        else:
+            process.kill()
+        stdout, stderr = process.communicate()
+        return process.returncode, stdout, stderr, True
+
+
 def _invoke(
     payload: dict[str, Any],
     provider: str | None = None,
@@ -173,8 +209,12 @@ def _invoke(
     out_dir = repo / "out/dogfood/local-model-dogfood"
     deno_path = shutil.which("deno")
     provider_commands = _provider_commands()
-    if not deno_path or not provider_commands:
-        return _error("Fusion Router runtime commands are unavailable")
+    operation = payload.get("operation")
+    if not deno_path:
+        return _error("Fusion Router Deno runtime is unavailable")
+    deno_path = str(Path(deno_path).absolute())
+    if operation != "health" and not provider_commands:
+        return _error("Fusion Router has no local provider commands")
     safe_path_dirs = list(dict.fromkeys(
         [str(Path(deno_path).parent)]
         + [str(Path(path).parent) for path in provider_commands]
@@ -214,32 +254,23 @@ def _invoke(
         "run",
         "--allow-env",
         "--allow-read",
-        f"--allow-run={','.join(provider_commands)}",
+    ]
+    if provider_commands:
+        command.append(f"--allow-run={','.join(provider_commands)}")
+    command.extend([
         f"--allow-write={out_dir}",
         str(_bridge_path()),
-    ]
+    ])
     timeout = 600 if payload.get("operation") == "best_route" else 180
     started = time.monotonic()
     try:
-        completed = subprocess.run(
+        returncode, bridge_stdout, bridge_stderr, timed_out = _run_bridge_process(
             command,
             cwd=dogfood,
             env=env,
-            input=json.dumps(payload, ensure_ascii=False),
-            text=True,
-            capture_output=True,
+            input_text=json.dumps(payload, ensure_ascii=False),
             timeout=timeout,
-            check=False,
         )
-    except subprocess.TimeoutExpired:
-        result = {
-            "ok": False,
-            "operation": payload.get("operation"),
-            "error": "Fusion Router timed out",
-            "timeout_seconds": timeout,
-        }
-        _record_trial(result, round((time.monotonic() - started) * 1000))
-        return json.dumps(result, ensure_ascii=False)
     except OSError as exc:
         result = {
             "ok": False,
@@ -248,8 +279,17 @@ def _invoke(
         }
         _record_trial(result, round((time.monotonic() - started) * 1000))
         return json.dumps(result, ensure_ascii=False)
+    if timed_out:
+        result = {
+            "ok": False,
+            "operation": payload.get("operation"),
+            "error": "Fusion Router timed out and its process group was terminated",
+            "timeout_seconds": timeout,
+        }
+        _record_trial(result, round((time.monotonic() - started) * 1000))
+        return json.dumps(result, ensure_ascii=False)
 
-    stdout = completed.stdout.strip()
+    stdout = bridge_stdout.strip()
     try:
         result = json.loads(stdout)
     except json.JSONDecodeError:
@@ -257,8 +297,8 @@ def _invoke(
             "ok": False,
             "operation": payload.get("operation"),
             "error": "Fusion Router returned invalid bridge JSON",
-            "exit_code": completed.returncode,
-            "stderr_present": bool(completed.stderr.strip()),
+            "exit_code": returncode,
+            "stderr_present": bool(bridge_stderr.strip()),
         }
     if not isinstance(result, dict):
         result = {
@@ -266,8 +306,8 @@ def _invoke(
             "operation": payload.get("operation"),
             "error": "Fusion Router returned a non-object bridge response",
         }
-    result["exit_code"] = completed.returncode
-    if completed.stderr.strip() and not result.get("ok"):
+    result["exit_code"] = returncode
+    if bridge_stderr.strip() and not result.get("ok"):
         result["stderr_present"] = True
     if payload.get("operation") == "health":
         result["trial"] = _trial_summary()

@@ -32,10 +32,22 @@ export function boundedContent(content: string): {
 }
 
 async function readRequest(): Promise<BridgeRequest> {
-  const raw = await new Response(Deno.stdin.readable).text();
-  if (new TextEncoder().encode(raw).length > MAX_INPUT_BYTES) {
-    throw new Error("fusion-router Hermes bridge input exceeds 120000 bytes");
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  for await (const chunk of Deno.stdin.readable) {
+    totalBytes += chunk.byteLength;
+    if (totalBytes > MAX_INPUT_BYTES) {
+      throw new Error("fusion-router Hermes bridge input exceeds 120000 bytes");
+    }
+    chunks.push(chunk);
   }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const raw = new TextDecoder().decode(bytes);
   const parsed = JSON.parse(raw) as Partial<BridgeRequest>;
   if (
     !["health", "route_once", "best_route"].includes(parsed.operation ?? "")
