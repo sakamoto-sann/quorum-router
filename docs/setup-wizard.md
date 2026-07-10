@@ -1,7 +1,7 @@
 # Setup wizard and config generator
 
-Fusion Router now ships a dry-run setup surface for creating a safe
-`fusion-router.config.json` plus environment placeholder guidance. It does not
+QuorumRouter now ships a dry-run setup surface for creating a safe
+`quorum-router.config.json` plus environment placeholder guidance. It does not
 perform network calls, validate live credentials, store secrets, or run OAuth
 login flows.
 
@@ -16,13 +16,13 @@ deno task setup -- --profile minimal-direct
 Write a config only when you pass `--write`:
 
 ```bash
-deno task setup -- --profile direct-http-openai --write fusion-router.config.json
+deno task setup -- --profile direct-http-openai --write quorum-router.config.json
 ```
 
 You can also choose an explicit output path:
 
 ```bash
-deno task setup -- --profile adaptive-direct --write ./config/fusion-router.config.json
+deno task setup -- --profile adaptive-direct --write ./config/quorum-router.config.json
 ```
 
 The command prints three sections:
@@ -46,7 +46,7 @@ Unknown profiles fail closed before output is generated.
 
 ## Generated config behavior
 
-`generateFusionRouterConfig(input)` returns deterministic JSON-compatible data.
+`generateQuorumRouterConfig(input)` returns deterministic JSON-compatible data.
 It includes:
 
 - `routing.mode`: `direct` or experimental AgentRuntime-gated `agent_chat`;
@@ -68,9 +68,9 @@ The generator never writes raw secrets into config output.
 
 ```bash
 OPENAI_API_KEY=
-FUSION_ROUTER_SUPABASE_URL=
-FUSION_ROUTER_SUPABASE_ANON_KEY=
-FUSION_ROUTER_SUPABASE_SESSION_JWT=
+QUORUM_ROUTER_SUPABASE_URL=
+QUORUM_ROUTER_SUPABASE_ANON_KEY=
+QUORUM_ROUTER_SUPABASE_SESSION_JWT=
 ```
 
 Fill those values in your shell, deployment environment, or secret manager. Do

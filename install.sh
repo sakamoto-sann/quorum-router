@@ -8,7 +8,7 @@ REPO_URL=https://github.com/sakamoto-sann/fusion-router.git
 
 usage() {
   cat <<'USAGE'
-Install Fusion Router helper.
+Install QuorumRouter helper.
 
 Usage:
   sh install.sh [--dry-run] [--prefix <path>] [--ref <git-ref>] [--help]
@@ -51,11 +51,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-SHARE_DIR=${PREFIX}/share/fusion-router
+SHARE_DIR=${PREFIX}/share/quorum-router
 BIN_DIR=${PREFIX}/bin
-WRAPPER=${BIN_DIR}/fusion-router
+WRAPPER=${BIN_DIR}/quorum-router
 
-echo "Fusion Router install plan:"
+echo "QuorumRouter install plan:"
 echo "  repo:   ${REPO_URL}"
 echo "  ref:    ${REF}"
 echo "  clone:  ${SHARE_DIR}"
@@ -96,11 +96,11 @@ case "\$cmd" in
     cd "\$REPO_DIR" && exec deno task test
     ;;
   --help|-h|help)
-    echo "fusion-router helper commands: doctor, smoke, test"
+    echo "quorum-router helper commands: doctor, smoke, test"
     ;;
   *)
     echo "unknown command: \$cmd" >&2
-    echo "fusion-router helper commands: doctor, smoke, test" >&2
+    echo "quorum-router helper commands: doctor, smoke, test" >&2
     exit 2
     ;;
 esac

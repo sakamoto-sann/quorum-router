@@ -10,7 +10,7 @@
     "fmt": "deno fmt router.ts router_test.ts doctor.ts setup.ts examples src packages README.md docs deno.json",
     "lint": "deno lint router.ts router_test.ts doctor.ts setup.ts examples src packages",
     "smoke:v0.1": "deno run --allow-read --allow-env examples/v0_1_smoke.ts",
-    "test": "deno test -A router_test.ts examples/**/*_test.ts",
+    "test": "deno test -A router_test.ts examples/**/*_test.ts src/**/*_test.ts",
     "run": "deno run --allow-run --allow-read --allow-write --allow-env --allow-net router.ts",
     "setup": "deno run --allow-read --allow-write setup.ts",
     "doctor": "deno run --allow-env --allow-run --allow-read doctor.ts",

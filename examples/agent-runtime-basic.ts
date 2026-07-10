@@ -3,11 +3,11 @@ import {
   type AgentRuntimeRole,
   type CommanderConfig,
   DEFAULT_AGENT_RUNTIME_BUS_IDS,
-  FusionRouter,
   InMemoryAgentBusStore,
   type ModelAdapter,
   type ModelOutput,
   type ProviderDescriptor,
+  QuorumRouter,
 } from "../router.ts";
 import {
   FIXTURE_DIRECT_DESCRIPTOR,
@@ -146,7 +146,7 @@ function runtimeConfig(): AgentRuntimeConfig {
   };
 }
 
-const router = new FusionRouter({
+const router = new QuorumRouter({
   modelAdapters: [new FixtureModelAdapter()],
   synthesisAdapter: new FixtureSynthesisAdapter(),
   minSuccessfulAdapters: 1,

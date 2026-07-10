@@ -26,7 +26,7 @@ Metrics:
 | Safety/boundary compliance | Did it avoid unsafe claims, secrets, and runtime/license confusion? |
 | Time saved                 | Did it reduce work versus the human baseline?                       |
 | Decision impact            | Did it change or confirm the user's decision in a valuable way?     |
-| Would use again            | Would the tester use Fusion Router for a similar task?              |
+| Would use again            | Would the tester use QuorumRouter for a similar task?               |
 
 Task score = average of the seven metric scores.
 

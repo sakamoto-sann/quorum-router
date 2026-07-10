@@ -1,7 +1,7 @@
 # Internal dogfood manual QA runbook
 
-Purpose: prepare Fusion Router v0.1 Public RC for internal manual dogfood before
-Product Hunt, X, or any other external launch surface.
+Purpose: prepare QuorumRouter v0.1 public preview for internal manual dogfood
+before Product Hunt, X, or any other external launch surface.
 
 This runbook is verification-only. It must not publish, retag, change npm
 dist-tags, create a new version, create a new repository, or post externally.
@@ -23,8 +23,8 @@ dist-tags, create a new version, create a new repository, or post externally.
 
 Allowed wording:
 
-- Fusion Router is **Source-Available Non-Commercial**.
-- Fusion Router is **not open source**.
+- QuorumRouter is **Source-Available Non-Commercial**.
+- QuorumRouter is **not open source**.
 - Best Route / direct mode is the production-ready best-answer routing path.
 - `agent_chat` is experimental, explicit opt-in only.
 - npm / NPX quickstart works for the published package.
@@ -71,12 +71,12 @@ posting.
 
 Run from a clean shell. These commands are read-only except for local temp
 directories and Deno/npm caches. The canonical internal dogfood path is
-`/Users/tetsu/work/fusion-router`; testers with a different clone location can
-set `FUSION_ROUTER_REPO` before copying the commands.
+`/Users/tetsu/work/quorum-router`; testers with a different clone location can
+set `QUORUM_ROUTER_REPO` before copying the commands.
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO"
 git status --short
 git branch --show-current
 git fetch --tags --prune
@@ -86,15 +86,15 @@ git rev-parse v0.1.4^{}
 ```
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/packages/create-fusion-router"
-npm view create-fusion-router@0.1.4 name version license bin dist.tarball --json
-npm dist-tag ls create-fusion-router
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/packages/create-quorum-router"
+npm view create-quorum-router@0.1.4 name version license bin dist.tarball --json
+npm dist-tag ls create-quorum-router
 ```
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/examples/local-model-dogfood"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/examples/local-model-dogfood"
 deno task inventory
 deno task auth:status
 deno task health
@@ -103,7 +103,7 @@ deno task health
 Local real-model route once, manual opt-in only:
 
 ```bash
-cd "$FUSION_ROUTER_REPO/examples/local-model-dogfood"
+cd "$QUORUM_ROUTER_REPO/examples/local-model-dogfood"
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
@@ -114,8 +114,8 @@ NPX latest fixture smoke:
 ```bash
 tmp="$(mktemp -d)"
 cd "$tmp"
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task check
 deno task smoke
 ```
@@ -125,8 +125,8 @@ Generated scaffold intake/onboarding, no provider generation request:
 ```bash
 tmp="$(mktemp -d)"
 cd "$tmp"
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task intake
 deno task auth:status
 deno task models:list
@@ -140,14 +140,14 @@ launch gate.
 Generated once-only run on a credentialed machine:
 
 ```bash
-cd my-fusion-router-demo
+cd my-quorum-router-demo
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
 ```
 
 Generated Best Route run on a credentialed machine:
 
 ```bash
-cd my-fusion-router-demo
+cd my-quorum-router-demo
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Compare direct fix vs refactor."
 ```
 
@@ -158,16 +158,16 @@ CI.
 Best Route demo:
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/examples/best-route-game"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/examples/best-route-game"
 deno task demo
 ```
 
 Agent Chat demo:
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/examples/agent-chat-game"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/examples/agent-chat-game"
 deno task demo
 ```
 

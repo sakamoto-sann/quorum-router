@@ -553,7 +553,7 @@ export class OpenAIDirectSynthesisAdapter implements SynthesisAdapter {
       )
       .join("\n");
     const synthesisPrompt = [
-      "You are the consensus stage of a fail-closed fusion router.",
+      "You are the consensus stage of a fail-closed quorum router.",
       "Return only a JSON object with keys: synthesis, reasoning, consensusModel, sources.",
       "Do not wrap the JSON in markdown.",
       `Original user prompt: ${prompt}`,

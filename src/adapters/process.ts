@@ -977,7 +977,7 @@ export class CodexStructuredSynthesisAdapter implements SynthesisAdapter {
       this.budgetManager.consume(label, 0.05);
     }
 
-    const tmpDir = await Deno.makeTempDir({ prefix: "fusion-router-codex-" });
+    const tmpDir = await Deno.makeTempDir({ prefix: "quorum-router-codex-" });
     const schemaPath = secureTempFilePath(tmpDir, "schema.json");
     const outputPath = secureTempFilePath(tmpDir, "out.json");
 
@@ -995,7 +995,7 @@ export class CodexStructuredSynthesisAdapter implements SynthesisAdapter {
         .join("\n");
 
       const synthesisPrompt = [
-        "You are the consensus stage of a fail-closed fusion router.",
+        "You are the consensus stage of a fail-closed quorum router.",
         "Return only a JSON object matching the provided schema.",
         `Original user prompt: ${prompt}`,
         "Validated upstream outputs:",

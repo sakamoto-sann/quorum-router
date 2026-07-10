@@ -1,161 +1,161 @@
-# Product Hunt copy — Fusion Router v0.1 Public RC
+# Product Hunt copy — QuorumRouter
 
-> Draft asset only. Do not create or publish a Product Hunt listing from this
-> file without explicit approval.
+> Draft only. Do not publish without explicit approval.
 
 ## Product name
 
-Fusion Router
+QuorumRouter
 
-## Tagline options
+## Tagline
 
-1. Source-available best-answer routing for LLM adapters.
-2. Fail-closed routing before autonomous agents.
-3. A Deno routing/runtime framework for direct best-answer paths and explicit
-   experimental agent routing.
-4. Build safer model routing with clear runtime boundaries.
-5. Direct routing first. Agent routing only when explicitly opted in.
+**Fail-closed best-answer routing and approved agent execution for LLMs**
 
-## One-liner
+Japanese:
 
-Fusion Router is a source-available routing/runtime framework for
-production-ready `direct` / Best Route best-answer routing and explicit opt-in
-experimental `agent_chat` routing.
+**失敗したら止まる、LLMのベストアンサー・ルーティングと承認付きAgent実行**
 
 ## Short description
 
-Fusion Router v0.1 Public RC gives builders a small, readable Deno framework for
-routing prompts through model adapters, validating outputs, and synthesizing a
-best answer through the production-ready Best Route / `direct` path.
-Experimental `agent_chat` exists only behind explicit opt-in gates.
+QuorumRouter is a source-available Deno framework that fans prompts out across
+LLM adapters, validates every response with Zod, requires quorum before
+synthesis, and can run a bounded multi-role Agent Chat workflow. Repository and
+shell mutations are never executed directly by a model: they require an external
+SafeLoop authority, a signed policy, an approval bound to the exact action
+digest, watched execution, and verified artifacts.
 
-## Launch media captions
+## Full description
 
-- GIF 1 shows Best Route mode choosing a shogi next move in a Grok vs GLM
-  deterministic fixture.
-- GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
-  excerpt, then fades out before the full match.
+Most multi-model routers keep going when models fail or return malformed output.
+QuorumRouter does the opposite.
 
-Use the two GIFs together and keep the boundary explicit: Best Route does not
-imply `agent_chat`, and `agent_chat` is not the production-ready default path.
+For best-answer routing it:
 
-## Long description
+- fans out to multiple adapters in parallel;
+- validates every response at the boundary with Zod;
+- requires a configurable quorum of successful answers;
+- synthesizes only after quorum succeeds;
+- otherwise fails closed with structured error `4401` and co-failure telemetry.
 
-Fusion Router is a source-available routing/runtime framework for teams that
-want routing safety before agent autonomy.
+For autonomous repository work, Agent Chat runs a bounded role loop:
 
-The v0.1 Public RC focuses on:
+```text
+Commander
+→ Coder proposal
+→ SafeLoop authorization and execution
+→ Reviewer
+→ Coder fix when objected
+→ Re-review
+→ Red Team
+→ Closeout
+```
 
-- Best Route / `direct` as the production-ready best-answer routing path.
-- Zod-validated adapter and synthesis outputs.
-- fail-closed boundaries for invalid routing modes, malformed responses, and
-  unsafe runtime expansion.
-- explicit opt-in experimental `agent_chat` for multi-role routing experiments.
-- clear non-goals: no production autonomous runtime, no live Supabase Agent Bus
-  runtime writes, and no service-role runtime.
+The coder emits structured proposals only. QuorumRouter cannot sign policy or
+approve its own action. A write is executed only after SafeLoop verifies a
+trusted signed policy and a distinct-actor approval bound to the canonical
+request digest. SafeLoop watches the process, captures rollback checkpoints,
+verifies artifacts and the local anchor, and returns a bound receipt. Any
+missing approval, nonzero child exit, timeout, malformed receipt, verification
+failure, or digest mismatch halts the workflow.
 
-The live npm scaffold is `create-fusion-router@0.1.4` (`latest -> 0.1.4`).
-Version `0.1.4` is an engineering NPX scaffold / generated-demo compatibility
-patch in the v0.1 Public RC line, not a separate product milestone.
+The verified initial autonomous slice supports:
 
-Fusion Router is Source-Available Non-Commercial. This is not an open source
-license. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+- repository-confined file reads;
+- atomic file writes;
+- exact-string patches;
+- exact-argv allowlisted commands;
+- reviewer objection → approved fix → re-review;
+- artifact and audit receipts attached to the run.
 
-## Clear install command
+GitHub writes, database writes, external API writes, releases, policy changes,
+and credential changes remain blocked in this release. There are no live
+Supabase Agent Bus runtime writes and no service-role runtime.
+
+QuorumRouter is **Source-Available Non-Commercial**, not OSI open source.
+Commercial, production, hosted/SaaS/API, redistribution, sublicensing,
+integration, derivative commercialization, or competing product/service use
+requires prior written permission.
+
+## Why it is different
+
+| Capability                                   | QuorumRouter      | Basic `Promise.all` | Typical best-effort router |
+| -------------------------------------------- | ----------------- | ------------------- | -------------------------- |
+| Parallel model fan-out                       | Yes               | Yes                 | Usually                    |
+| Schema validation on every answer            | Zod, required     | Manual              | Varies                     |
+| Configurable quorum before synthesis         | Yes               | No                  | Varies                     |
+| Fail closed when quorum fails                | Yes               | No                  | Often no                   |
+| Structured multi-role fix loop               | Yes               | No                  | Varies                     |
+| Model can execute mutations directly         | No                | N/A                 | Often possible             |
+| External signed policy and distinct approval | SafeLoop-required | No                  | Varies                     |
+| Verified artifacts and rollback checkpoint   | Yes               | No                  | Varies                     |
+
+QuorumRouter is not OpenRouter Fusion. It is a source-available Deno control
+plane with explicit quorum, runtime, and execution-authority boundaries.
+
+## Quickstart
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
-Fixed package version:
+The generated scaffold keeps autonomous execution disabled until a real SafeLoop
+installation, signed policy, approval registry, confined action runner, and
+explicit execution configuration are supplied.
+
+## Verified autonomous demo
+
+The repository test suite contains an opt-in real integration test. It creates a
+temporary Git repository, signs a SafeLoop policy, obtains approvals from a
+distinct `human-reviewer` actor, executes an initial coder write, processes a
+reviewer objection, executes a second approved patch, re-reviews, red-teams, and
+closes out only after both SafeLoop receipts verify.
 
 ```bash
-npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
+SAFELOOP_E2E_BINARY=/absolute/path/to/safeloop \
+SAFELOOP_E2E_PYTHON=/absolute/path/to/safeloop-python \
+  deno test -A router_test.ts \
+  --filter "real SafeLoop execute-request E2E"
 ```
 
-## Demo commands
+This is a real local mutation test, not the deterministic shogi fixture and not
+a live GitHub/Supabase write.
 
-Best Route shogi excerpt:
+## Maker comment
 
-```bash
-cd examples/best-route-game
-deno task demo
-```
+Hey Product Hunt 👋 I built QuorumRouter because I wanted two things that are
+usually separated: fail-closed multi-model routing and a multi-agent workflow
+that cannot quietly bypass its execution guardrails.
 
-Agent Chat shogi excerpt:
+Best Route validates every model response, requires quorum, and refuses to
+synthesize when the threshold is not met. Agent Chat adds a bounded Commander →
+Coder → Reviewer → Red Team → Closeout loop. When the coder proposes a
+repository mutation, the model still has no execution authority. The exact
+request goes to SafeLoop, where a signed policy and distinct approval are
+checked before execution. SafeLoop then watches the command, records rollback
+evidence, verifies artifacts, and returns a receipt that QuorumRouter checks
+before continuing.
 
-```bash
-cd examples/agent-chat-game
-deno task demo
-```
+The end-to-end test includes the part I most wanted to demonstrate: the reviewer
+objects, the coder proposes a fix, a second exact approval is issued, the fix is
+executed through SafeLoop, and only then do re-review, red-team, and closeout
+pass.
 
-Both demos are deterministic fixtures. `Grok` and `GLM` are fixture labels; no
-external Grok/GLM model/API call is made and no credentials are required.
+It is Source-Available Non-Commercial. Commercial and production use requires
+prior written permission. I would especially value feedback from people who care
+more about auditable failure and explicit authority than “always return
+something.”
 
-## Maker comment draft
+## Runtime boundaries
 
-Thanks for checking out Fusion Router v0.1 Public RC.
-
-The main idea is simple: treat routing as the safety boundary before agents. The
-production-ready path is Best Route / `direct`: compare answer routes, validate
-outputs, and produce a best answer through a fail-closed contract. `agent_chat`
-is present for explicit experimental opt-in only, not as a production autonomous
-runtime.
-
-Launch media is split into two GIFs to avoid mode confusion:
-
-1. GIF 1 shows Best Route mode choosing a shogi next move in a Grok vs GLM
-   deterministic fixture.
-2. GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi
-   excerpt, then fades out before the full match.
-
-Quickstart:
-
-```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
-```
-
-The npm package is `create-fusion-router@0.1.4`; `0.1.4` is an engineering NPX
-scaffold / generated-demo compatibility patch for the v0.1 Public RC line, not a
-separate milestone.
-
-License note: Fusion Router is Source-Available Non-Commercial, not open source.
-Commercial or production use requires prior written permission.
-
-## Runtime boundary warning
-
-- Best Route / `direct` is the production-ready best-answer routing path.
-- `agent_chat` is experimental explicit opt-in only.
-- Best Route does not imply `agent_chat`.
-- No production autonomous runtime.
+- Best Route/direct is production-ready best-answer routing.
+- SafeLoop-backed Agent Chat supports the verified local repository execution
+  slice described above.
+- Conversation-only Agent Chat remains explicit opt-in.
+- QuorumRouter cannot self-approve, sign policy, or bypass SafeLoop.
+- GitHub, DB, external API, release, policy, and credential mutations are
+  blocked.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
-- No full multi-agent production system claim.
-
-## Who it is for
-
-- Builders evaluating fail-closed model routing.
-- Teams that want a readable Deno routing framework before adopting agent
-  autonomy.
-- Researchers and non-commercial evaluators comparing direct best-answer routing
-  patterns.
-- Developers who want deterministic demos to inspect and run locally.
-
-## Who it is not for
-
-- Teams that require an OSI-approved permissive or copyleft license.
-- Teams needing commercial, production, hosted-service/SaaS/API, redistribution,
-  sublicensing, integration, derivative commercialization, or competing
-  product/service rights without prior written permission.
-- Users looking for a production autonomous agent runtime.
-- Users expecting Supabase Agent Bus writes or privileged runtime credentials in
-  the live runtime path.
-- Users who need production multi-agent autonomy out of the box.
+- Product Hunt publication remains blocked until release review and explicit
+  human approval are complete.

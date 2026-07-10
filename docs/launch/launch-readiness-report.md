@@ -1,19 +1,19 @@
-# Launch readiness report — Fusion Router v0.1 Public RC
+# Launch readiness report — QuorumRouter v0.1 public preview
 
 Prepared for external launch asset closeout.
 
 ## Release identity
 
-- External label: **Fusion Router v0.1 Public RC**
+- External label: **QuorumRouter v0.1 public preview**
 - GitHub release: `v0.1.3`
 - GitHub release URL:
   https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
-- npm package: `create-fusion-router`
-- npm package URL: https://www.npmjs.com/package/create-fusion-router
+- npm package: `create-quorum-router`
+- npm package URL: https://www.npmjs.com/package/create-quorum-router
 - npm latest target: `0.1.3`
 
 `0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the v0.1 public preview line, not a separate product milestone.
 
 ## GitHub release readback
 
@@ -44,13 +44,13 @@ Expected package readback:
 
 ```json
 {
-  "name": "create-fusion-router",
+  "name": "create-quorum-router",
   "version": "0.1.3",
   "license": "SEE LICENSE IN LICENSE",
   "bin": {
-    "create-fusion-router": "bin/create-fusion-router.js"
+    "create-quorum-router": "bin/create-quorum-router.js"
   },
-  "dist.tarball": "https://registry.npmjs.org/create-fusion-router/-/create-fusion-router-0.1.3.tgz"
+  "dist.tarball": "https://registry.npmjs.org/create-quorum-router/-/create-quorum-router-0.1.3.tgz"
 }
 ```
 
@@ -68,8 +68,8 @@ This launch-assets PR must not publish npm, bump the package version, create
 Public quickstart:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -92,7 +92,7 @@ Expected verification:
 
 Operational docs already exist:
 
-- `docs/public-rc-runbook.md`
+- `docs/public-preview-runbook.md`
 - `docs/trusted-publishing.md`
 - `docs/launch-checklist.md`
 
@@ -125,10 +125,11 @@ Expected readiness properties:
 
 - `direct` is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.
-- No production autonomous runtime.
+- SafeLoop-backed AgentRuntime production claims are limited to the verified
+  local repository execution slice with signed policy and distinct approval.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
-- Fusion Router is Source-Available Non-Commercial.
+- QuorumRouter is Source-Available Non-Commercial.
 - This is not an open source license.
 - Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
   integration, derivative commercialization, or competing product/service use
@@ -156,7 +157,7 @@ Do not launch externally if any of these become true:
 
 - [ ] GitHub release `v0.1.3` read back.
 - [ ] `v0.1.3^{}` target read back.
-- [ ] npm package `create-fusion-router@0.1.3` read back.
+- [ ] npm package `create-quorum-router@0.1.3` read back.
 - [ ] npm `latest -> 0.1.3` read back.
 - [ ] NPX latest smoke passes.
 - [ ] generated demo `deno task check` passes.

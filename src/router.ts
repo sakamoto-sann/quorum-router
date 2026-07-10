@@ -64,7 +64,7 @@ function providerDescriptorSelectionKey(
   ].map((part) => part.toLowerCase()).join("\u0000");
 }
 
-export type FusionRouterOptions = {
+export type QuorumRouterOptions = {
   modelAdapters: ModelAdapter[];
   synthesisAdapter: SynthesisAdapter;
   timeoutMs?: number;
@@ -79,14 +79,14 @@ export type FusionRouterOptions = {
   agentRuntime?: AgentRuntimeConfig;
 };
 
-export type FusionRouterRouteOptions = {
+export type QuorumRouterRouteOptions = {
   routingMode?: unknown;
   providerReadinessHints?: DirectRoutingPolicyInput["readinessHints"];
   directRoutingBudgetManager?: BudgetManager;
   experimentalAgentRuntime?: boolean;
 };
 
-export class FusionRouter {
+export class QuorumRouter {
   private readonly modelAdapters: ModelAdapter[];
   private readonly synthesisAdapter: SynthesisAdapter;
   private readonly timeoutMs: number;
@@ -101,9 +101,9 @@ export class FusionRouter {
   private readonly directRoutingBudgetManager?: BudgetManager;
   private readonly agentRuntime?: AgentRuntimeConfig;
 
-  constructor(options: FusionRouterOptions) {
+  constructor(options: QuorumRouterOptions) {
     if (options.modelAdapters.length === 0) {
-      throw new Error("FusionRouter requires at least one model adapter.");
+      throw new Error("QuorumRouter requires at least one model adapter.");
     }
 
     const defaultMinSuccessfulAdapters = Math.min(
@@ -142,7 +142,7 @@ export class FusionRouter {
   }
 
   resolveRoutingModeForRequest(
-    options: FusionRouterRouteOptions = {},
+    options: QuorumRouterRouteOptions = {},
   ): RoutingModeResolution {
     return parseRoutingMode(options.routingMode, "request") ??
       parseRoutingMode(this.routingModeConfig, "config") ??
@@ -151,7 +151,7 @@ export class FusionRouter {
   }
 
   describeRoutingModeDecisionForRequest(
-    options: FusionRouterRouteOptions = {},
+    options: QuorumRouterRouteOptions = {},
   ): RoutingModeDecision {
     return describeRoutingModeDecision(
       this.resolveRoutingModeForRequest(options),
@@ -167,7 +167,7 @@ export class FusionRouter {
   }
 
   private resolveDirectRoutingDecision(
-    options: FusionRouterRouteOptions = {},
+    options: QuorumRouterRouteOptions = {},
   ): DirectRoutingDecision | undefined {
     return this.directRoutingPolicy?.decide({
       candidates: this.modelAdapters.map((adapter) => adapter.descriptor),
@@ -197,9 +197,11 @@ export class FusionRouter {
 
   async routeAgentRuntime(
     prompt: string,
-    options: FusionRouterRouteOptions = {},
+    options: QuorumRouterRouteOptions = {},
   ) {
-    if (options.experimentalAgentRuntime !== true) {
+    if (
+      !this.agentRuntime?.execution && options.experimentalAgentRuntime !== true
+    ) {
       failClosed(
         4401,
         "agent_runtime_opt_in_required",
@@ -213,7 +215,9 @@ export class FusionRouter {
         "agent_chat requires an enabled AgentRuntime config.",
       );
     }
-    if (this.agentRuntime.experimental !== true) {
+    if (
+      !this.agentRuntime.execution && this.agentRuntime.experimental !== true
+    ) {
       failClosed(
         4401,
         "agent_runtime_experimental_required",
@@ -228,7 +232,7 @@ export class FusionRouter {
 
   async route(
     prompt: string,
-    options: FusionRouterRouteOptions = {},
+    options: QuorumRouterRouteOptions = {},
   ): Promise<FinalSynthesis> {
     const routingMode = this.describeRoutingModeDecisionForRequest(options);
     if (routingMode.mode === "agent_chat") {
@@ -344,3 +348,10 @@ export class FusionRouter {
     }
   }
 }
+
+/** @deprecated Use QuorumRouterOptions. */
+export type FusionRouterOptions = QuorumRouterOptions;
+/** @deprecated Use QuorumRouterRouteOptions. */
+export type FusionRouterRouteOptions = QuorumRouterRouteOptions;
+/** @deprecated Use QuorumRouter. */
+export { QuorumRouter as FusionRouter };

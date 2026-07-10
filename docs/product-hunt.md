@@ -1,77 +1,81 @@
 # Product Hunt launch notes
 
-External launch label: **Fusion Router v0.1 Public RC**.
+External launch name: **QuorumRouter**.
 
-## Tagline options
+## Tagline
 
-- Fusion Router: fail-closed best-answer routing for LLM adapters.
-- A readable Deno router for comparing model outputs safely.
-- Source-available fusion routing with explicit runtime boundaries.
+**Fail-closed best-answer routing and approved agent execution for LLMs**
 
 ## Launch description
 
-Fusion Router is a small, readable proof-of-concept for routing a prompt across
-multiple model adapters, validating outputs, and producing a final synthesis
-through a fail-closed contract.
+QuorumRouter routes prompts across model adapters, validates every response with
+Zod, requires quorum before synthesis, and fails closed when the threshold is
+not met. Its Agent Chat runtime adds a bounded Commander → Coder → Reviewer →
+Red Team → Closeout workflow.
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+Coder actions are structured proposals. For repository and shell mutations, the
+real injected SafeLoop client is the sole policy, approval, execution, audit,
+receipt, rollback, and artifact-verification authority. QuorumRouter cannot sign
+policy or approve its own action.
+
+The real integration smoke now passes: an approved initial repo write is
+executed, the reviewer objects, a second exact approval authorizes the coder
+fix, re-review and red-team pass, and closeout becomes ready only after both
+SafeLoop receipts verify.
+
+QuorumRouter is **Source-Available Non-Commercial** and **not open source**.
+Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
+integration, derivative commercialization, or competing product/service use
+requires prior written permission.
 
 ## Runtime boundaries
 
 - `direct` = production-ready best-answer routing path.
-- `agent_chat` = experimental explicit opt-in multi-role runtime.
-- No production autonomous runtime.
+- conversation-only `agent_chat` = explicit opt-in multi-role runtime.
+- SafeLoop-backed `agent_chat` = verified local repository execution slice with
+  signed policy and distinct approval.
+- Supported actions: confined read, atomic write, exact patch, and exact-argv
+  allowlisted command.
+- GitHub/DB/external API/release/policy/credential actions are blocked.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
-- No Supabase Realtime subscriber.
+- Product Hunt publication still requires final release review and explicit
+  human approval.
 
-## Quickstart commands
-
-Clone:
-
-```bash
-git clone https://github.com/sakamoto-sann/fusion-router.git
-cd fusion-router
-deno task smoke:v0.1
-```
-
-Scaffold an evaluation demo:
+## Quickstart
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
-Fixed package version:
+The generated scaffold does not silently enable mutation. A real SafeLoop
+installation, signed operator policy, approval registry, confined action runner,
+and explicit execution configuration are required.
+
+## Verified Agent Chat smoke
 
 ```bash
-npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
-cd my-fusion-router-demo
-deno task smoke
-```
-
-npm package: `create-fusion-router@0.1.4`; npm dist-tag: `latest -> 0.1.4`.
-`0.1.4` is an engineering patch for NPX scaffold / generated-demo compatibility,
-not a separate product milestone.
-
-Inspect the install helper:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
+SAFELOOP_E2E_BINARY=/absolute/path/to/safeloop \
+SAFELOOP_E2E_PYTHON=/absolute/path/to/safeloop-python \
+  deno test -A router_test.ts \
+  --filter "real SafeLoop execute-request E2E"
 ```
 
 ## Maker comment draft
 
-Fusion Router v0.1 Public RC is a Deno-based fusion router PoC focused on
-readable safety boundaries: default `direct` routing, Zod-validated outputs,
-fail-closed errors, explicit non-goals, and no hidden production autonomous
-runtime. The live npm scaffold is `create-fusion-router@0.1.4`
-(`latest ->
-0.1.4`), an engineering patch for NPX scaffold / generated-demo
-compatibility, not a separate product milestone. It is Source-Available
-Non-Commercial, not open source; commercial or production use requires prior
-written permission.
+I built QuorumRouter because I wanted fail-closed multi-model routing and a
+multi-agent workflow that cannot quietly bypass its execution authority. Best
+Route validates every answer and requires quorum. Agent Chat can plan, propose a
+change, execute it only through SafeLoop, accept a reviewer objection, apply a
+second approved fix, re-review, red-team, and close out with verified evidence.
+
+The important boundary is that the model never receives mutation authority.
+SafeLoop checks a signed policy and an approval bound to the exact request
+digest before execution, then watches the command and verifies artifacts and the
+local anchor. Missing approval, timeout, nonzero exit, malformed receipt, or
+verification failure halts the workflow.
+
+QuorumRouter is Source-Available Non-Commercial, not open source. Commercial or
+production use requires prior written permission.

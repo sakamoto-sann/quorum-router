@@ -1,5 +1,6 @@
 import { redact, summarize } from "./redact.ts";
 import type { ProviderResult } from "./schema.ts";
+import { readRouterEnv } from "./env.ts";
 
 function requiredEnv(name: string): string {
   const value = Deno.env.get(name)?.trim();
@@ -13,7 +14,7 @@ export function chatCompletionsUrl(baseUrl: string): string {
     url = new URL(baseUrl);
   } catch {
     throw new Error(
-      "local model dogfood blocked: FUSION_ROUTER_PROVIDER_BASE_URL must be a valid URL",
+      "local model dogfood blocked: QUORUM_ROUTER_PROVIDER_BASE_URL must be a valid URL",
     );
   }
   if (url.pathname.endsWith("/chat/completions")) return url.toString();
@@ -22,10 +23,10 @@ export function chatCompletionsUrl(baseUrl: string): string {
 }
 
 export async function callEnvFallback(prompt: string): Promise<ProviderResult> {
-  const baseUrl = requiredEnv("FUSION_ROUTER_PROVIDER_BASE_URL");
-  const credential = requiredEnv("FUSION_ROUTER_PROVIDER_API_KEY");
-  const model = requiredEnv("FUSION_ROUTER_PROVIDER_MODEL");
-  const provider = Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL")?.trim() ||
+  const baseUrl = requiredEnv("QUORUM_ROUTER_PROVIDER_BASE_URL");
+  const credential = requiredEnv("QUORUM_ROUTER_PROVIDER_API_KEY");
+  const model = requiredEnv("QUORUM_ROUTER_PROVIDER_MODEL");
+  const provider = readRouterEnv("QUORUM_ROUTER_PROVIDER_LABEL")?.trim() ||
     "OpenAI-compatible env fallback";
   const response = await fetch(chatCompletionsUrl(baseUrl), {
     method: "POST",

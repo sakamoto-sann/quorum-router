@@ -40,10 +40,11 @@ distribution/demo surface after repo-local dogfood is usable.
 - [ ] External dogfood is manual opt-in only and not run in CI.
 - [ ] Best Route/direct remains production-ready best-answer routing.
 - [ ] `agent_chat` remains experimental explicit opt-in only.
-- [ ] No production autonomous runtime claim.
+- [ ] SafeLoop-backed Agent Chat production execution claims are limited to the
+      verified local repository slice with signed policy and distinct approval.
 - [ ] No live Supabase Agent Bus runtime writes claim.
 - [ ] No service-role runtime claim.
-- [ ] Fusion Router remains Source-Available Non-Commercial / not open source.
+- [ ] QuorumRouter remains Source-Available Non-Commercial / not open source.
 
 ## Release/publish follow-up
 
@@ -51,7 +52,7 @@ After external dogfood passes and the user explicitly approves release:
 
 - [ ] Prepare v0.1.4 release/tag.
 - [ ] Align generated runtime import with v0.1.4.
-- [ ] Publish `create-fusion-router@0.1.4` only after npm auth/publish gates
+- [ ] Publish `create-quorum-router@0.1.4` only after npm auth/publish gates
       pass.
 - [ ] Verify npm latest points to 0.1.4.
 - [ ] Re-run NPX latest smoke and external dogfood check.

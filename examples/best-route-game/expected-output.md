@@ -1,7 +1,7 @@
 # Expected output — Best Route Shogi Excerpt
 
 ```text
-Fusion Router v0.1 Public RC
+QuorumRouter v0.1 public preview
 Mode: best_route
 Demo: Mini Shogi Opening Excerpt
 Fixture agents: Grok vs GLM

@@ -4,7 +4,7 @@ This document defines the safe `agent_chat` protocol, deterministic standalone
 simulator, and the boundary used by the experimental AgentRuntime. The Supabase
 Agent Bus schema adds a durable coordination/message/event contract for future
 and in-process experimental `agent_chat` runs.
-`FusionRouter.route(..., { routingMode: "agent_chat" })` fails closed before
+`QuorumRouter.route(..., { routingMode: "agent_chat" })` fails closed before
 adapter execution unless the caller supplies `experimentalAgentRuntime: true`
 and an enabled experimental AgentRuntime config.
 
@@ -112,7 +112,7 @@ deno run examples/agent-chat-simulator.ts
 ## Router integration boundary
 
 The simulator remains exported for standalone experimentation. The experimental
-AgentRuntime is connected to `FusionRouter.route()` only behind explicit opt-in.
+AgentRuntime is connected to `QuorumRouter.route()` only behind explicit opt-in.
 
 Preserved behavior:
 

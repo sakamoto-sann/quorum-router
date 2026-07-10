@@ -1,16 +1,16 @@
-# Example repo plan — Fusion Router v0.1 Public RC
+# Example repo plan — QuorumRouter v0.1 public preview
 
 > Proposal only. Do not create a repository unless explicitly approved.
 
 ## Proposed repo name
 
-`fusion-router-public-rc-demo`
+`quorum-router-public-rc-demo`
 
 Alternative names:
 
-- `fusion-router-v0-1-public-rc-demo`
-- `create-fusion-router-demo`
-- `fusion-router-direct-demo`
+- `quorum-router-v0-1-public-rc-demo`
+- `create-quorum-router-demo`
+- `quorum-router-direct-demo`
 
 ## Purpose
 
@@ -22,17 +22,18 @@ point back to:
 
 - GitHub release:
   https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
-- npm package: https://www.npmjs.com/package/create-fusion-router
+- npm package: https://www.npmjs.com/package/create-quorum-router
 - main repository: https://github.com/sakamoto-sann/fusion-router
 
 ## README structure
 
-1. Title: `Fusion Router v0.1 Public RC demo`
+1. Title: `QuorumRouter v0.1 public preview demo`
 2. License warning: Source-Available Non-Commercial, not open source.
 3. Runtime boundaries:
    - `direct` production-ready best-answer path.
    - `agent_chat` experimental explicit opt-in only.
-   - no production autonomous runtime.
+   - SafeLoop-backed AgentRuntime production claims are limited to the verified
+     local repository execution slice with signed policy and distinct approval.
    - no live Supabase Agent Bus runtime writes.
    - no service-role runtime.
 4. Quickstart.
@@ -64,8 +65,8 @@ docs/recording-notes.md
 Recommended README quickstart:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task check
 deno task smoke
 ```
@@ -94,7 +95,7 @@ deterministic fixture adapter/synthesis metadata.
 
 The example repo must repeat the same boundary:
 
-Fusion Router is Source-Available Non-Commercial. This is not open source.
+QuorumRouter is Source-Available Non-Commercial. This is not open source.
 
 Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
 integration, derivative commercialization, or competing product/service use
@@ -108,7 +109,7 @@ unless the upstream license decision changes explicitly.
 Before creating or updating the example repo:
 
 - [ ] Confirm upstream npm latest still points to the intended version.
-- [ ] Confirm `create-fusion-router@0.1.4` remains available.
+- [ ] Confirm `create-quorum-router@0.1.4` remains available.
 - [ ] Run the NPX quickstart in a clean temp directory.
 - [ ] Copy generated files only if they match the intended demo.
 - [ ] Run `deno task check`.

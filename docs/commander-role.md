@@ -36,7 +36,7 @@ synthesis adapter.
 ### agent_bus / coordination plane
 
 - Persists future Commander-related messages/events/history.
-- Remains unconnected to `FusionRouter.route()` in this PR.
+- Remains unconnected to `QuorumRouter.route()` in this PR.
 - Does not execute directives, spawn workers, call tools, or invoke models.
 
 ## Config namespace

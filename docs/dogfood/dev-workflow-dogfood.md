@@ -1,10 +1,10 @@
 # Dev workflow dogfood
 
-Fusion Router v0.1 Public RC needs real development dogfood before Product Hunt,
-X, or any external launch. Fixed demos prove mode separation and trace behavior,
-but they do not prove usefulness on unknown development decisions.
+QuorumRouter v0.1 public preview needs real development dogfood before Product
+Hunt, X, or any external launch. Fixed demos prove mode separation and trace
+behavior, but they do not prove usefulness on unknown development decisions.
 
-This workflow turns ordinary development tasks into repeatable Fusion Router
+This workflow turns ordinary development tasks into repeatable QuorumRouter
 sessions with human scoring and launch impact tracking.
 
 ## Scope and non-actions
@@ -59,10 +59,10 @@ Reject if a session output claims or implies:
    - `best_route` — compare answer paths and select the clearest, safest route.
    - `agent_chat` — use only when explicit multi-role debate/review is likely to
      add value; still experimental.
-   - `human baseline` — solve manually first, then compare against Fusion Router
+   - `human baseline` — solve manually first, then compare against QuorumRouter
      output or routing principles.
-5. Run the task through Fusion Router if available, or manually evaluate using
-   Fusion Router routing principles:
+5. Run the task through QuorumRouter if available, or manually evaluate using
+   QuorumRouter routing principles:
    - candidate route clarity;
    - evidence and uncertainty;
    - risk / safety boundary compliance;

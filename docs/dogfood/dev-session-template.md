@@ -1,4 +1,4 @@
-# Fusion Router Dev Dogfood Session
+# QuorumRouter Dev Dogfood Session
 
 | Field          | Value |
 | -------------- | ----- |
@@ -13,9 +13,9 @@
 
 Paste the exact real development task or decision here.
 
-## Fusion Router output
+## QuorumRouter output
 
-Paste the output, route comparison, or manually applied Fusion Router routing
+Paste the output, route comparison, or manually applied QuorumRouter routing
 analysis here. Do not paste credentials, private tokens, passwords, OTPs, or
 `.env` contents.
 

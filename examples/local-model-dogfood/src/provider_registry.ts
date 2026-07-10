@@ -1,4 +1,5 @@
 import type { ModelInventoryEntry } from "./schema.ts";
+import { readRouterEnv } from "./env.ts";
 
 export type ProviderSpec = {
   provider: string;
@@ -114,9 +115,9 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
 ];
 
 export function envFallbackEntry(configured: boolean): ModelInventoryEntry {
-  const label = Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL")?.trim() ||
+  const label = readRouterEnv("QUORUM_ROUTER_PROVIDER_LABEL")?.trim() ||
     "OpenAI-compatible env fallback";
-  const model = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL")?.trim() ||
+  const model = readRouterEnv("QUORUM_ROUTER_PROVIDER_MODEL")?.trim() ||
     "missing-model";
   return {
     provider: label,
@@ -127,7 +128,7 @@ export function envFallbackEntry(configured: boolean): ModelInventoryEntry {
     available: configured,
     blocked_reason: configured
       ? undefined
-      : "missing FUSION_ROUTER_PROVIDER_BASE_URL, FUSION_ROUTER_PROVIDER_API_KEY, or FUSION_ROUTER_PROVIDER_MODEL",
+      : "missing QUORUM_ROUTER_PROVIDER_BASE_URL, QUORUM_ROUTER_PROVIDER_API_KEY, or QUORUM_ROUTER_PROVIDER_MODEL",
     can_list_models: false,
     list_blocked_reason:
       "Generic env fallback uses a single user-selected model and does not perform provider catalog discovery.",

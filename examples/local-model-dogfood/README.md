@@ -1,6 +1,6 @@
 # Local multi-model dogfood workspace
 
-This is the primary local dogfood workspace for Fusion Router. NPX is not the
+This is the primary local dogfood workspace for QuorumRouter. NPX is not the
 goal here: the goal is to discover the models that are actually usable from this
 machine's existing OAuth, wrapper, CLI session, or explicit env fallback setup,
 then route real tasks through them.
@@ -24,7 +24,7 @@ RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat 
 
 ## Auth priority
 
-Default `FUSION_ROUTER_AUTH_MODE=auto` prefers local wrappers/sessions and does
+Default `QUORUM_ROUTER_AUTH_MODE=auto` prefers local wrappers/sessions and does
 not silently use API-key env fallback. Supported values:
 
 - `auto` — local wrapper/session first; env fallback is reported but not used;
@@ -36,11 +36,11 @@ Env fallback is allowed for private manual dogfood only and is **not** the
 primary public launch proof:
 
 ```bash
-export FUSION_ROUTER_AUTH_MODE=env
-export FUSION_ROUTER_PROVIDER_BASE_URL="https://..."
-export FUSION_ROUTER_PROVIDER_MODEL="..."
-export FUSION_ROUTER_PROVIDER_LABEL="my-provider" # optional
-# Also set FUSION_ROUTER_PROVIDER_API_KEY in your private shell.
+export QUORUM_ROUTER_AUTH_MODE=env
+export QUORUM_ROUTER_PROVIDER_BASE_URL="https://..."
+export QUORUM_ROUTER_PROVIDER_MODEL="..."
+export QUORUM_ROUTER_PROVIDER_LABEL="my-provider" # optional
+# Also set QUORUM_ROUTER_PROVIDER_API_KEY in your private shell.
 # Never commit or paste its value.
 ```
 

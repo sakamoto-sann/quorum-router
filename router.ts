@@ -1,5 +1,5 @@
 /**
- * Public compatibility barrel for fusion-router.
+ * Public compatibility barrel for quorum-router.
  *
  * The implementation now lives under src/ so downstream imports from
  * ./router.ts continue to work while provider, telemetry, audit, config,
@@ -8,6 +8,7 @@
 export * from "./src/schemas.ts";
 export * from "./src/errors.ts";
 export * from "./src/routing-mode.ts";
+export * from "./src/env.ts";
 export * from "./src/config.ts";
 export * from "./src/contracts.ts";
 export * from "./src/budget/budget.ts";

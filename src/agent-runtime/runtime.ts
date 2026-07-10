@@ -88,11 +88,13 @@ function normalizeAgentRuntimeLimits(
     DEFAULT_AGENT_RUNTIME_LIMITS.maxDurationMs;
   const maxPromptChars = input.maxPromptChars ??
     DEFAULT_AGENT_RUNTIME_LIMITS.maxPromptChars;
+  const maxRounds = input.maxRounds ?? DEFAULT_AGENT_RUNTIME_LIMITS.maxRounds;
   for (
     const [field, value] of Object.entries({
       maxTurns,
       maxDurationMs,
       maxPromptChars,
+      maxRounds,
     })
   ) {
     if (!Number.isInteger(value) || Number(value) < 1) {
@@ -118,6 +120,7 @@ function normalizeAgentRuntimeLimits(
     maxTurns,
     maxDurationMs,
     maxPromptChars,
+    maxRounds,
     ...(input.maxBudgetUsd === undefined
       ? {}
       : { maxBudgetUsd: input.maxBudgetUsd }),
@@ -161,11 +164,14 @@ async function failRuntime(
 }
 
 function requireConfig(config: AgentRuntimeConfig): void {
-  if (config.enabled !== true || config.experimental !== true) {
+  if (
+    config.enabled !== true ||
+    (!config.execution && config.experimental !== true)
+  ) {
     failClosed(
       4401,
       "agent_runtime_not_enabled",
-      "AgentRuntime requires enabled=true and experimental=true.",
+      "Conversation AgentRuntime requires experimental=true; action execution requires an injected SafeLoop authority.",
       { enabled: config.enabled, experimental: config.experimental },
     );
   }
@@ -346,6 +352,8 @@ export async function runAgentRuntime(input: {
     Record<AgentRuntimeRole, ParsedAgentRuntimeRoleOutput>
   > = {};
   let budgetUsedUsd = 0;
+  const receipts: AgentRuntimeResult["receipts"] = [];
+  const artifacts: AgentRuntimeResult["artifacts"] = [];
 
   try {
     busEvents.push(
@@ -358,7 +366,10 @@ export async function runAgentRuntime(input: {
       ),
     );
 
-    for (const role of AGENT_RUNTIME_ROLES) {
+    const roleQueue: AgentRuntimeRole[] = [...AGENT_RUNTIME_ROLES];
+    let fixRounds = 0;
+    for (let roleIndex = 0; roleIndex < roleQueue.length; roleIndex++) {
+      const role = roleQueue[roleIndex];
       assertSignalNotAborted(controller.signal);
       if (turns.length >= limits.maxTurns) {
         await failRuntime(
@@ -425,6 +436,83 @@ export async function runAgentRuntime(input: {
       })();
 
       priorOutputs[role] = parsed;
+      if (role === "coder" && input.config.execution) {
+        if (parsed.actions.length === 0) {
+          await failRuntime(
+            input.config.bus,
+            ids,
+            "agent_runtime_actions_required",
+            "SafeLoop-backed coder output requires structured actions.",
+          );
+        }
+        for (const proposal of parsed.actions) {
+          try {
+            const readiness = await input.config.execution.safeloop.readiness();
+            if (!readiness.available) {
+              throw new Error("SafeLoop authority is unavailable");
+            }
+            if (
+              !["read_only", "repo_write", "shell_write"].includes(
+                proposal.classification,
+              )
+            ) {
+              throw new Error(
+                `unsupported action classification: ${proposal.classification}`,
+              );
+            }
+            const needed = proposal.classification === "repo_write"
+              ? readiness.repoMutation
+              : proposal.classification === "shell_write"
+              ? readiness.shellMutation
+              : undefined;
+            if (needed && (!needed.supported || !needed.approvalPreflight)) {
+              throw new Error(
+                needed.reason ??
+                  `SafeLoop capability unavailable: ${proposal.classification}`,
+              );
+            }
+            const action = await input.config.execution.actionRunner.prepare(
+              proposal,
+            );
+            try {
+              const taskId = typeof input.config.execution.taskId === "function"
+                ? input.config.execution.taskId(proposal)
+                : input.config.execution.taskId;
+              const runId = typeof input.config.execution.runId === "function"
+                ? input.config.execution.runId(proposal, receipts.length)
+                : input.config.execution.runId;
+              const receipt = await input.config.execution.safeloop.execute({
+                proposal,
+                taskId,
+                runId,
+                repo: input.config.execution.repo,
+                runRoot: input.config.execution.runRoot,
+                argv: action.argv,
+                policyVersion: input.config.execution.policyVersion,
+                policyRef: input.config.execution.policyRef,
+                requestedBy: input.config.execution.requestedBy,
+                approvalResolver: input.config.execution.approvalResolver,
+                expectedArtifactScope:
+                  input.config.execution.expectedArtifactScope,
+                timeoutSeconds: input.config.execution.timeoutSeconds,
+                signal: controller.signal,
+              });
+              receipts.push(receipt);
+              artifacts.push(...receipt.artifacts);
+            } finally {
+              await action.cleanup();
+            }
+          } catch (error) {
+            await failRuntime(
+              input.config.bus,
+              ids,
+              "agent_runtime_execution_failed",
+              "AgentRuntime action execution failed closed.",
+              { cause: errorMessage(error), actionId: proposal.id },
+            );
+          }
+        }
+      }
       budgetUsedUsd += parsed.budgetUsd;
       if (
         limits.maxBudgetUsd !== undefined && budgetUsedUsd > limits.maxBudgetUsd
@@ -522,6 +610,26 @@ export async function runAgentRuntime(input: {
             { objection: objection.content },
           ),
         );
+        if (input.config.execution) {
+          fixRounds++;
+          if (fixRounds > limits.maxRounds) {
+            await failRuntime(
+              input.config.bus,
+              ids,
+              "agent_runtime_max_rounds_exceeded",
+              "AgentRuntime objections exceeded max fix rounds.",
+              { maxRounds: limits.maxRounds, role },
+            );
+          }
+          roleQueue.splice(
+            roleIndex + 1,
+            roleQueue.length,
+            "coder",
+            "reviewer",
+            "red_team",
+            "closeout",
+          );
+        }
       }
     }
 
@@ -535,16 +643,21 @@ export async function runAgentRuntime(input: {
       );
     }
     const closeout = maybeCloseout as ParsedAgentRuntimeRoleOutput;
-    if (objections.length > 0 && closeout.status === "ready") {
+    const gatesPassed = priorOutputs.reviewer?.status === "pass" &&
+      priorOutputs.red_team?.status === "pass";
+    if (!gatesPassed && closeout.status === "ready") {
       await failRuntime(
         input.config.bus,
         ids,
         "agent_runtime_unsafe_closeout",
         "AgentRuntime closeout cannot be ready while objections are present.",
-        { objections: objections.length },
+        {
+          reviewer: priorOutputs.reviewer?.status,
+          redTeam: priorOutputs.red_team?.status,
+        },
       );
     }
-    if (objections.length === 0 && closeout.status === "ready") {
+    if (gatesPassed && closeout.status === "ready") {
       busEvents.push(
         await recordEvent(
           input.config.bus,
@@ -556,7 +669,8 @@ export async function runAgentRuntime(input: {
     }
 
     const completedAtMs = nowMs();
-    const ready = objections.length === 0 && closeout.status === "ready";
+    const ready = gatesPassed && closeout.status === "ready" &&
+      receipts.every((receipt) => receipt.status === "verified");
     const decision: AgentChatDecision = {
       decision: ready ? "ready" : "not_ready",
       reason: ready
@@ -588,7 +702,9 @@ export async function runAgentRuntime(input: {
       decision,
       metadata: {
         runtime: "agent_runtime",
-        experimental: true,
+        mode: input.config.execution
+          ? "safeloop_execution"
+          : "read_only_conversation",
       },
     };
     return {
@@ -597,6 +713,8 @@ export async function runAgentRuntime(input: {
       transcript,
       messages: busMessages,
       events: busEvents,
+      receipts,
+      artifacts,
       ...(ready && closeout.finalAnswer
         ? { finalAnswer: closeout.finalAnswer }
         : {}),

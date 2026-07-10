@@ -26,7 +26,7 @@ if (Deno.args.includes("--list")) {
 }
 
 const requested = Deno.args.find((arg) => !arg.startsWith("--")) ??
-  Deno.env.get("FUSION_ROUTER_DEV_TASK_ID") ??
+  Deno.env.get("QUORUM_ROUTER_DEV_TASK_ID") ??
   "DOC-001";
 const maybeTask = tasks.find((candidate) => candidate.id === requested);
 
@@ -60,7 +60,7 @@ const prefilled = template
 await Deno.mkdir(outDirUrl, { recursive: true });
 await Deno.writeTextFile(outputUrl, prefilled);
 
-console.log("Created Fusion Router dev dogfood session log:");
+console.log("Created QuorumRouter dev dogfood session log:");
 console.log(`  ${new URL(outputUrl).pathname}`);
 console.log("");
 console.log("Selected task:");
@@ -70,7 +70,7 @@ console.log("");
 console.log("Next manual steps:");
 console.log("  1. Fill tester/environment and human baseline fields.");
 console.log("  2. Run or manually evaluate the real development task.");
-console.log("  3. Paste Fusion Router output or routing analysis.");
+console.log("  3. Paste QuorumRouter output or routing analysis.");
 console.log("  4. Score all seven metrics and classify launch impact.");
 console.log("");
 console.log("No network/API call was made. No credentials were read.");

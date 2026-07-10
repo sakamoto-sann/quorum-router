@@ -16,7 +16,7 @@ export function boundaries(agentChat = false): string[] {
     agentChat
       ? "agent_chat experimental explicit opt-in only"
       : "agent_chat remains experimental explicit opt-in only",
-    "no production autonomous runtime",
+    "SafeLoop-backed production repository execution requires explicit external configuration and distinct approval",
     "no live Supabase Agent Bus runtime writes",
     "no service-role runtime",
   ];

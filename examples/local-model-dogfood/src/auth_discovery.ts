@@ -4,6 +4,7 @@ import {
   type ProviderSpec,
 } from "./provider_registry.ts";
 import { redact, summarize } from "./redact.ts";
+import { readRouterEnv } from "./env.ts";
 import {
   type AuthMode,
   type ModelInventory,
@@ -34,9 +35,9 @@ export function commandExists(command: string): boolean {
 
 export function envFallbackConfigured(): boolean {
   return Boolean(
-    Deno.env.get("FUSION_ROUTER_PROVIDER_BASE_URL")?.trim() &&
-      Deno.env.get("FUSION_ROUTER_PROVIDER_API_KEY")?.trim() &&
-      Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL")?.trim(),
+    readRouterEnv("QUORUM_ROUTER_PROVIDER_BASE_URL")?.trim() &&
+      readRouterEnv("QUORUM_ROUTER_PROVIDER_API_KEY")?.trim() &&
+      readRouterEnv("QUORUM_ROUTER_PROVIDER_MODEL")?.trim(),
   );
 }
 
@@ -60,7 +61,7 @@ function specForEntry(entry: ModelInventoryEntry): ProviderSpec | undefined {
 }
 
 export function discoverInventory(
-  mode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE")),
+  mode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE")),
 ): ModelInventory {
   const entries: ModelInventoryEntry[] = [];
   for (const spec of LOCAL_PROVIDER_SPECS) {
@@ -103,7 +104,7 @@ export function discoverInventory(
       available: false,
       can_invoke: false,
       blocked_reason: fallback.available
-        ? "env fallback configured but not used unless FUSION_ROUTER_AUTH_MODE=env"
+        ? "env fallback configured but not used unless QUORUM_ROUTER_AUTH_MODE=env"
         : fallback.blocked_reason,
     });
   }
@@ -217,7 +218,7 @@ async function enrichModelListing(
 }
 
 export async function discoverInventoryWithModelListing(
-  mode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE")),
+  mode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE")),
 ): Promise<ModelInventory> {
   const inventory = discoverInventory(mode);
   const entries = await Promise.all(inventory.entries.map(enrichModelListing));

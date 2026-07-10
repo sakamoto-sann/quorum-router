@@ -1,4 +1,4 @@
-# Terminal demo script — Fusion Router v0.1 Public RC
+# Terminal demo script — QuorumRouter v0.1 public preview
 
 > Script for recorded or live terminal demos. Do not claim open source
 > licensing. Do not claim production autonomous runtime. Do not claim live
@@ -25,7 +25,7 @@ deno task demo
 
 Narration:
 
-- “This is Fusion Router v0.1 Public RC.”
+- “This is QuorumRouter v0.1 public preview.”
 - “Mode is `best_route`.”
 - “The fixture agents are Grok and GLM; no external model/API call is made.”
 - “The demo shows a simple shogi opening excerpt.”
@@ -46,7 +46,8 @@ deno task demo
 Narration:
 
 - “This is the separate `agent_chat` demo.”
-- “Status is experimental explicit opt-in.”
+- “This shogi recording is the conversation-only `agent_chat` fixture; the
+  production execution proof is the separate real SafeLoop E2E.”
 - “The fixture agents are Grok and GLM; no external model/API call is made.”
 - “Grok and GLM alternate a few shogi opening moves.”
 - “The match continues, but the demo fades out before the full game.”
@@ -60,8 +61,8 @@ The NPX quickstart remains useful as an install/scaffold clip, but it should not
 replace the two mode-specific GIFs.
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -78,12 +79,12 @@ positioning.
 - “`agent_chat` is experimental explicit opt-in only.”
 - “Grok and GLM are deterministic fixture labels in the recording, not live API
   calls.”
-- “Fusion Router is Source-Available Non-Commercial, not open source.”
+- “QuorumRouter is Source-Available Non-Commercial, not open source.”
 
 ## What not to claim
 
-- “Fusion Router is open source.”
-- “Fusion Router is MIT” unless a future release actually changes the license.
+- “QuorumRouter is open source.”
+- “QuorumRouter is MIT” unless a future release actually changes the license.
 - “Grok/GLM were called live in the demo.”
 - “Agent Chat is production-ready.”
 - “Best Route always uses Agent Chat.”

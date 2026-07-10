@@ -1,4 +1,4 @@
-import { FusionRouter } from "./router.ts";
+import { QuorumRouter } from "./router.ts";
 import { errorMessage, RouterError } from "./errors.ts";
 import type { ModelAdapter, TelemetrySink } from "./contracts.ts";
 import { InMemoryBudgetManager } from "./budget/budget.ts";
@@ -33,6 +33,7 @@ import {
   TELEMETRY_MAX_QUEUE_SIZE,
 } from "./telemetry/buffered-batch-sink.ts";
 import { createOtlpTelemetryHandler } from "./telemetry/buffered-batch-sink.ts";
+import { readRouterEnv } from "./env.ts";
 
 const consoleTelemetrySink: TelemetrySink = (telemetry) => {
   console.warn("Co-failure telemetry:");
@@ -47,9 +48,9 @@ export function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
 
   const otlpHandler = createOtlpTelemetryHandler({
     endpoint,
-    serviceName: "fusion-router",
+    serviceName: "quorum-router",
     timeoutMs: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS",
+      "QUORUM_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS",
       500,
       TELEMETRY_MAX_HTTP_TIMEOUT_MS,
     ),
@@ -58,49 +59,49 @@ export function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
   return createBufferedBatchSink(otlpHandler, {
     name: "otlp_telemetry",
     maxQueueSize: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_MAX_QUEUE",
+      "QUORUM_ROUTER_TELEMETRY_MAX_QUEUE",
       1_000,
       TELEMETRY_MAX_QUEUE_SIZE,
     ),
     maxBatchSize: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_MAX_BATCH",
+      "QUORUM_ROUTER_TELEMETRY_MAX_BATCH",
       30,
       TELEMETRY_MAX_BATCH_SIZE,
     ),
     flushIntervalMs: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_FLUSH_INTERVAL_MS",
+      "QUORUM_ROUTER_TELEMETRY_FLUSH_INTERVAL_MS",
       500,
       TELEMETRY_MAX_FLUSH_INTERVAL_MS,
     ),
     maxAttempts: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_MAX_ATTEMPTS",
+      "QUORUM_ROUTER_TELEMETRY_MAX_ATTEMPTS",
       5,
       TELEMETRY_MAX_ATTEMPTS,
     ),
     baseBackoffMs: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_BASE_BACKOFF_MS",
+      "QUORUM_ROUTER_TELEMETRY_BASE_BACKOFF_MS",
       250,
       TELEMETRY_MAX_BASE_BACKOFF_MS,
     ),
     maxBackoffMs: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_MAX_BACKOFF_MS",
+      "QUORUM_ROUTER_TELEMETRY_MAX_BACKOFF_MS",
       30_000,
       TELEMETRY_MAX_BACKOFF_MS,
     ),
     defaultDrainMs: boundedEnvInteger(
-      "FUSION_ROUTER_TELEMETRY_DRAIN_MS",
+      "QUORUM_ROUTER_TELEMETRY_DRAIN_MS",
       200,
       TELEMETRY_MAX_DRAIN_MS,
     ),
     registerUnloadHook: !envFlagEnabled(
-      "FUSION_ROUTER_TELEMETRY_DISABLE_UNLOAD_HOOK",
+      "QUORUM_ROUTER_TELEMETRY_DISABLE_UNLOAD_HOOK",
     ),
   });
 }
 
 export function envFlagEnabled(name: string): boolean {
-  return Deno.env.get(name) === "1" ||
-    Deno.env.get(name)?.toLowerCase() === "true";
+  return readRouterEnv(name) === "1" ||
+    readRouterEnv(name)?.toLowerCase() === "true";
 }
 
 export function createDefaultDirectHttpAdapters(): ModelAdapter[] {
@@ -153,14 +154,14 @@ export function createDefaultCliAdapters(): ModelAdapter[] {
   ];
 }
 
-export function createDefaultRouter(): FusionRouter {
+export function createDefaultRouter(): QuorumRouter {
   const envTelemetrySink = maybeCreateEnvTelemetrySink();
   const telemetrySink = envTelemetrySink
     ? createCompositeTelemetrySink(consoleTelemetrySink, envTelemetrySink)
     : consoleTelemetrySink;
-  const directOnly = envFlagEnabled("FUSION_ROUTER_DIRECT_HTTP_ONLY");
+  const directOnly = envFlagEnabled("QUORUM_ROUTER_DIRECT_HTTP_ONLY");
   const directHttpEnabled = directOnly ||
-    envFlagEnabled("FUSION_ROUTER_ENABLE_DIRECT_HTTP");
+    envFlagEnabled("QUORUM_ROUTER_ENABLE_DIRECT_HTTP");
   const directAdapters = directHttpEnabled
     ? createDefaultDirectHttpAdapters()
     : [];
@@ -169,7 +170,7 @@ export function createDefaultRouter(): FusionRouter {
 
   if (directOnly && !trimApiKey(Deno.env.get("OPENAI_API_KEY"))) {
     throw new Error(
-      "FUSION_ROUTER_DIRECT_HTTP_ONLY requires OPENAI_API_KEY for direct HTTP synthesis.",
+      "QUORUM_ROUTER_DIRECT_HTTP_ONLY requires OPENAI_API_KEY for direct HTTP synthesis.",
     );
   }
 
@@ -181,7 +182,7 @@ export function createDefaultRouter(): FusionRouter {
       budgetManager: new InMemoryBudgetManager(0.25),
     });
 
-  return new FusionRouter({
+  return new QuorumRouter({
     timeoutMs: 120_000,
     minSuccessfulAdapters: Math.min(2, modelAdapters.length),
     telemetrySink,
@@ -191,7 +192,7 @@ export function createDefaultRouter(): FusionRouter {
 }
 
 export async function runDefaultRouterSmoke(): Promise<void> {
-  let router: FusionRouter | undefined;
+  let router: QuorumRouter | undefined;
 
   try {
     router = createDefaultRouter();
@@ -214,7 +215,7 @@ export async function runDefaultRouterSmoke(): Promise<void> {
   } finally {
     await router?.closeTelemetry({
       maxDurationMs: boundedEnvInteger(
-        "FUSION_ROUTER_TELEMETRY_DRAIN_MS",
+        "QUORUM_ROUTER_TELEMETRY_DRAIN_MS",
         200,
         TELEMETRY_MAX_DRAIN_MS,
       ),

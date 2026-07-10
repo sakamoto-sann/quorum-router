@@ -2,8 +2,8 @@
 
 The npm package already exists:
 
-- package: `create-fusion-router`
-- first live package version: `create-fusion-router@0.1.4`
+- package: `create-quorum-router`
+- first live package version: `create-quorum-router@0.1.4`
 - current npm dist-tag: `latest -> 0.1.4`
 
 The first manual publish is complete. Do not publish another version unless
@@ -28,7 +28,7 @@ identity:
 
 - Provider: GitHub Actions
 - Organization/user: `sakamoto-sann`
-- Repository: `fusion-router`
+- Repository: `quorum-router`
 - Workflow filename: `publish.yml`
 - Environment: empty unless intentionally configured
 
@@ -72,14 +72,14 @@ Before invoking the workflow for a future version:
 1. Confirm the target version is intentionally approved.
 2. Confirm the corresponding Git tag exists and points at the intended release
    commit.
-3. Confirm `packages/create-fusion-router/package.json` has the approved
+3. Confirm `packages/create-quorum-router/package.json` has the approved
    version.
-4. Confirm `npm view create-fusion-router@<version>` does not already return a
+4. Confirm `npm view create-quorum-router@<version>` does not already return a
    published package.
 5. Confirm no npm token is committed or needed.
 6. Run the local verification stack and package dry-run.
 
-## Non-goals for this Public RC closeout
+## Non-goals for this public preview closeout
 
 This runbook covers the `0.1.4` Trusted Publishing path after explicit release
 approval. Do not move tags, mutate dist-tags, or expand runtime behavior outside

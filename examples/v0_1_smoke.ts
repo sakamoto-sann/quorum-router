@@ -2,12 +2,12 @@ import {
   createCapabilityDirectRoutingPolicy,
   createInMemoryAgentChatAuditSink,
   DEFAULT_AGENT_RUNTIME_BUS_IDS,
-  FusionRouter,
-  generateFusionRouterConfig,
+  generateQuorumRouterConfig,
   InMemoryAgentBusStore,
-  loadFusionRouterConfigValue,
+  loadQuorumRouterConfigValue,
   ProviderCapabilityRegistry,
   providerDescriptorKey,
+  QuorumRouter,
   RouterError,
   runAgentChatSimulator,
 } from "../router.ts";
@@ -166,7 +166,7 @@ function makeRuntimeConfig(): AgentRuntimeConfig {
 async function smokeBasicDirect() {
   const adapter = new FixtureModelAdapter();
   const synthesis = new FixtureSynthesisAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: synthesis,
     minSuccessfulAdapters: 1,
@@ -206,10 +206,10 @@ function smokeAdaptiveDirect() {
 }
 
 async function smokeGeneratedConfig() {
-  const generated = generateFusionRouterConfig({ profile: "minimal-direct" });
-  const loaded = loadFusionRouterConfigValue(generated);
+  const generated = generateQuorumRouterConfig({ profile: "minimal-direct" });
+  const loaded = loadQuorumRouterConfigValue(generated);
   const adapter = new FixtureModelAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: new FixtureSynthesisAdapter(),
     minSuccessfulAdapters: 1,
@@ -225,7 +225,7 @@ async function smokeGeneratedConfig() {
 
 async function smokeAgentChatFailsClosed() {
   const adapter = new FixtureModelAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: new FixtureSynthesisAdapter(),
     minSuccessfulAdapters: 1,
@@ -241,7 +241,7 @@ async function smokeAgentChatFailsClosed() {
 }
 
 async function smokeAgentRuntime() {
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [new FixtureModelAdapter()],
     synthesisAdapter: new FixtureSynthesisAdapter(),
     minSuccessfulAdapters: 1,

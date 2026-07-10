@@ -1,10 +1,9 @@
 # External API dogfood gate
 
-Fusion Router v0.1 public launch is **NO-GO** until local real-model dogfood
+QuorumRouter v0.1 public launch is **NO-GO** until local real-model dogfood
 passes in the user's own environment. NPX is not the goal. Deterministic fixture
 smoke is still required for CI and quick install validation, but fixture-only
-success is not evidence that a user can use Fusion Router for real provider
-work.
+success is not evidence that a user can use QuorumRouter for real provider work.
 
 The primary dogfood path is repo-local and generated-scaffold-compatible:
 
@@ -36,14 +35,14 @@ public launch proof.
 
 ## Generated scaffold
 
-`create-fusion-router@0.1.4` prepares generated projects with:
+`create-quorum-router@0.1.4` prepares generated projects with:
 
 - `main.ts` — fixture-only deterministic smoke;
 - `deno.json` — `intake`, `auth:*`, `models:list`, `health`, `route:once`,
   `best-route`, and experimental `agent-chat` tasks;
 - `README.md` — first-launch guide;
 - `.gitignore` — excludes `.env`, `out/`, `router.config.local.json`, and
-  `.fusion-router/`;
+  `.quorum-router/`;
 - `router.config.example.json` — non-secret configuration boundaries;
 - `src/` — command dispatcher,
   intake/auth/session/fallback/model-inventory/wrapper/trace/redaction helpers.
@@ -57,7 +56,7 @@ The current dogfood provider set is wrapper/session-first:
 - Codex/OpenAI via local CLI session where installed.
 - Claude/Gemini via local CLI session where installed.
 - local Qwen via `qwen` CLI.
-- Explicit private env fallback only with `FUSION_ROUTER_AUTH_MODE=env`.
+- Explicit private env fallback only with `QUORUM_ROUTER_AUTH_MODE=env`.
 
 ## Onboarding and check-only gate
 

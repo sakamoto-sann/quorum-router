@@ -1,4 +1,4 @@
-"""Process-backed Hermes tools for Fusion Router.
+"""Process-backed Hermes tools for QuorumRouter.
 
 The bridge accepts JSON over stdin so prompts do not appear in process listings.
 Provider credentials remain inside each provider CLI's existing OAuth/session.
@@ -21,11 +21,11 @@ CONFIG_PATH = PLUGIN_DIR / "config.json"
 TRIAL_LOG_PATH = PLUGIN_DIR / "trial-telemetry.jsonl"
 
 ROUTE_SCHEMA = {
-    "name": "fusion_router_route",
+    "name": "quorum_router_route",
     "description": (
-        "Route a self-contained text task through Fusion Router. Use selectively for "
+        "Route a self-contained text task through QuorumRouter. Use selectively for "
         "high-value second opinions, answer comparison, launch/review copy, or explicit "
-        "Fusion Router testing. Do not use for trivial questions, secret-bearing prompts, "
+        "QuorumRouter testing. Do not use for trivial questions, secret-bearing prompts, "
         "or tasks that require Hermes tools/files/browser access. route_once is the "
         "low-cost default; best_route may call several local provider CLIs."
     ),
@@ -56,9 +56,9 @@ ROUTE_SCHEMA = {
 }
 
 HEALTH_SCHEMA = {
-    "name": "fusion_router_health",
+    "name": "quorum_router_health",
     "description": (
-        "Inspect Fusion Router's local provider inventory and readiness without sending "
+        "Inspect QuorumRouter's local provider inventory and readiness without sending "
         "a generation request. Use before the first routed call or when routing fails."
     ),
     "parameters": {"type": "object", "properties": {}},
@@ -80,7 +80,7 @@ def _repo_root() -> Path:
     candidate = PLUGIN_DIR.parents[1]
     if (candidate / "deno.json").is_file():
         return candidate
-    return Path.home() / "work" / "fusion-router-runtime"
+    return Path.home() / "work" / "quorum-router-runtime"
 
 
 def _bridge_path() -> Path:
@@ -224,7 +224,7 @@ def _invoke(
 ) -> str:
     if not is_available():
         return _error(
-            "Fusion Router bridge is unavailable",
+            "QuorumRouter bridge is unavailable",
             expected_bridge=str(_bridge_path()),
         )
 
@@ -235,10 +235,10 @@ def _invoke(
     provider_commands = _provider_commands()
     operation = payload.get("operation")
     if not deno_path:
-        return _error("Fusion Router Deno runtime is unavailable")
+        return _error("QuorumRouter Deno runtime is unavailable")
     deno_path = str(Path(deno_path).absolute())
     if operation != "health" and not provider_commands:
-        return _error("Fusion Router has no local provider commands")
+        return _error("QuorumRouter has no local provider commands")
     safe_path_dirs = list(dict.fromkeys(
         [str(Path(deno_path).parent)]
         + [str(Path(path).parent) for path in provider_commands]
@@ -263,15 +263,15 @@ def _invoke(
     }
     env["PATH"] = os.pathsep.join(safe_path_dirs)
     env["RUN_EXTERNAL_MODEL_DOGFOOD"] = "1"
-    env["FUSION_ROUTER_AUTH_MODE"] = "wrapper"
+    env["QUORUM_ROUTER_AUTH_MODE"] = "wrapper"
     if provider:
-        env["FUSION_ROUTER_PROVIDER_LABEL"] = provider
+        env["QUORUM_ROUTER_PROVIDER_LABEL"] = provider
     else:
-        env.pop("FUSION_ROUTER_PROVIDER_LABEL", None)
+        env.pop("QUORUM_ROUTER_PROVIDER_LABEL", None)
     if model:
-        env["FUSION_ROUTER_PROVIDER_MODEL"] = model
+        env["QUORUM_ROUTER_PROVIDER_MODEL"] = model
     else:
-        env.pop("FUSION_ROUTER_PROVIDER_MODEL", None)
+        env.pop("QUORUM_ROUTER_PROVIDER_MODEL", None)
 
     command = [
         deno_path,
@@ -299,7 +299,7 @@ def _invoke(
         result = {
             "ok": False,
             "operation": payload.get("operation"),
-            "error": f"Fusion Router could not start: {exc}",
+            "error": f"QuorumRouter could not start: {exc}",
         }
         _record_trial(result, round((time.monotonic() - started) * 1000))
         return json.dumps(result, ensure_ascii=False)
@@ -307,7 +307,7 @@ def _invoke(
         result = {
             "ok": False,
             "operation": payload.get("operation"),
-            "error": "Fusion Router timed out and its process group was terminated",
+            "error": "QuorumRouter timed out and its process group was terminated",
             "timeout_seconds": timeout,
         }
         _record_trial(result, round((time.monotonic() - started) * 1000))
@@ -320,7 +320,7 @@ def _invoke(
         result = {
             "ok": False,
             "operation": payload.get("operation"),
-            "error": "Fusion Router returned invalid bridge JSON",
+            "error": "QuorumRouter returned invalid bridge JSON",
             "exit_code": returncode,
             "stderr_present": bool(bridge_stderr.strip()),
         }
@@ -328,7 +328,7 @@ def _invoke(
         result = {
             "ok": False,
             "operation": payload.get("operation"),
-            "error": "Fusion Router returned a non-object bridge response",
+            "error": "QuorumRouter returned a non-object bridge response",
         }
     result["exit_code"] = returncode
     if bridge_stderr.strip() and not result.get("ok"):

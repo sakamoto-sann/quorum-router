@@ -13,7 +13,7 @@ This wave is intentionally small:
 - `agent_chat` is an explicit opt-in experimental runtime and fails closed
   before adapter execution unless runtime config and per-request opt-in are
   present.
-- Without an explicit `directRoutingPolicy`, `FusionRouter` still invokes every
+- Without an explicit `directRoutingPolicy`, `QuorumRouter` still invokes every
   configured model adapter and uses the configured synthesis adapter exactly as
   before.
 - With an explicit policy hook, the router can filter direct-mode model adapters
@@ -75,7 +75,7 @@ type DirectRoutingDecision = {
 
 Budget handling is deliberately non-mutating: the decision reads the budget
 snapshot and includes an estimate, but invocation-time budget exhaustion remains
-fail-closed in the adapter / budget manager path. `FusionRouter` can receive
+fail-closed in the adapter / budget manager path. `QuorumRouter` can receive
 readiness hints and a budget manager at construction time or per `route()` call;
 per-request values override constructor defaults. When a policy prunes the
 candidate set, the router lowers the effective quorum to the selected executable

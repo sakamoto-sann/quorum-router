@@ -1,7 +1,7 @@
-# Two-GIF demo plan — Fusion Router v0.1 Public RC
+# Two-GIF demo plan — QuorumRouter v0.1 public preview
 
 > Launch asset plan only. Do not publish, record, or post media without explicit
-> approval. Fusion Router is Source-Available Non-Commercial, not open source.
+> approval. QuorumRouter is Source-Available Non-Commercial, not open source.
 
 ## Why there are two GIFs
 
@@ -9,10 +9,10 @@ The demos use the same simple shogi setup with fixture agents named `Grok` and
 `GLM`, but they prove different surfaces. The names are deterministic labels for
 recording; no external Grok/GLM model/API call is made.
 
-| GIF   | Mode         | What it proves                                                                        | What it must not imply                                                            |
-| ----- | ------------ | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| GIF 1 | `best_route` | Production-ready direct/best-answer route comparison chooses a next shogi move.       | No role conversation, no `agent_chat`, no autonomous runtime, no live model call. |
-| GIF 2 | `agent_chat` | Experimental explicit opt-in conversation can show a short Grok vs GLM shogi excerpt. | Not Best Route mode; no production autonomous runtime; no live model call.        |
+| GIF   | Mode         | What it proves                                                                  | What it must not imply                                                            |
+| ----- | ------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| GIF 1 | `best_route` | Production-ready direct/best-answer route comparison chooses a next shogi move. | No role conversation, no `agent_chat`, no autonomous runtime, no live model call. |
+| GIF 2 | `agent_chat` | Conversation fixture showing a Grok vs GLM shogi excerpt.                       | Not the production SafeLoop execution demo; no live model call.                   |
 
 ## GIF 1 — Best Route mode
 
@@ -25,7 +25,7 @@ cd examples/best-route-game
 deno task demo
 ```
 
-**Core proof:** Fusion Router compares deterministic candidate lines for a small
+**Core proof:** QuorumRouter compares deterministic candidate lines for a small
 shogi opening excerpt, selects `balanced_development`, chooses `Grok ▲S-68`, and
 fades out before the full match.
 
@@ -47,7 +47,7 @@ cd examples/agent-chat-game
 deno task demo
 ```
 
-**Core proof:** Fusion Router can show an experimental explicit opt-in
+**Core proof:** QuorumRouter can show an experimental explicit opt-in
 `agent_chat` fixture where Grok and GLM alternate a few shogi opening moves,
 then fade out before the full match.
 

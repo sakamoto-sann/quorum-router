@@ -1,4 +1,4 @@
-import { FusionRouter } from "../router.ts";
+import { QuorumRouter } from "../router.ts";
 import {
   FixtureModelAdapter,
   FixtureSynthesisAdapter,
@@ -6,7 +6,7 @@ import {
 
 const adapter = new FixtureModelAdapter();
 const synthesis = new FixtureSynthesisAdapter();
-const router = new FusionRouter({
+const router = new QuorumRouter({
   modelAdapters: [adapter],
   synthesisAdapter: synthesis,
   minSuccessfulAdapters: 1,

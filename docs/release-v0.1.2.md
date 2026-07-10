@@ -1,4 +1,4 @@
-# Fusion Router v0.1.2
+# QuorumRouter v0.1.2
 
 ## Status
 
@@ -44,10 +44,10 @@ posture documentation, and developer-adoption bootstrap paths.
 ## npm scaffold follow-up
 
 v0.1.2 is the GitHub security hardening release. The live npm scaffold package
-is `create-fusion-router@0.1.3`, and the `latest` dist-tag resolves to `0.1.3`.
+is `create-quorum-router@0.1.3`, and the `latest` dist-tag resolves to `0.1.3`.
 `0.1.3` is an engineering patch for NPX scaffold / generated-demo compatibility,
 not a separate product milestone. Public quickstarts should point to
-`create-fusion-router@latest` or the fixed `create-fusion-router@0.1.3` package.
+`create-quorum-router@latest` or the fixed `create-quorum-router@0.1.3` package.
 
 ## Runtime scope
 
@@ -72,7 +72,7 @@ No routing behavior changes.
 
 ## License
 
-Fusion Router is Source-Available Non-Commercial.
+QuorumRouter is Source-Available Non-Commercial.
 
 This is not an open source license.
 
@@ -93,8 +93,8 @@ Expected verification:
 - `deno task test`
 - `deno task doctor`
 - `deno task smoke:v0.1`
-- `cd packages/create-fusion-router && npm pack --dry-run`
-- `cd packages/create-fusion-router && npm pkg get name version license bin files`
+- `cd packages/create-quorum-router && npm pack --dry-run`
+- `cd packages/create-quorum-router && npm pkg get name version license bin files`
 - `gitleaks git --log-opts "$(git merge-base origin/main HEAD)..HEAD" --redact --no-banner`
 
 Expected results:

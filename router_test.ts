@@ -38,25 +38,31 @@ import {
   FusionRouter,
   generateEnvExample,
   generateFusionRouterConfig,
+  generateQuorumRouterConfig,
   generateSetupReport,
   InMemoryAgentBusStore,
   InMemoryBudgetManager,
   isFallbackAllowed,
-  loadFusionRouterConfig,
-  loadFusionRouterConfigText,
   loadFusionRouterConfigValue,
+  loadQuorumRouterConfig,
+  loadQuorumRouterConfigText,
+  loadQuorumRouterConfigValue,
   ModelAdapter,
   ModelOutput,
   normalizeAgentChatLimits,
   parseRoutingMode,
   ProcessExecutionError,
   ProviderCapabilityRegistry,
+  QuorumRouter,
+  readRouterEnv,
   redactAgentChatContent,
   redactSecrets,
+  RepoActionRunner,
   resolveRoutingMode,
   RouterError,
   ROUTING_MODE_ENV,
   runAgentChatSimulator,
+  SafeLoopCliClient,
   sanitizeDiagnosticText,
   selectCommander,
   SynthesisAdapter,
@@ -131,11 +137,8 @@ import type {
   FetchLike as SmokeFetchLike,
   FinalSynthesis as SmokeFinalSynthesis,
   FlushableTelemetrySink as SmokeFlushableTelemetrySink,
-  FusionRouterConfig as SmokeFusionRouterConfig,
-  FusionRouterOptions as SmokeFusionRouterOptions,
-  FusionRouterRouteOptions as SmokeFusionRouterRouteOptions,
   GeminiCliAdapterOptions as SmokeGeminiCliAdapterOptions,
-  GeneratedFusionRouterConfig as SmokeGeneratedFusionRouterConfig,
+  GeneratedQuorumRouterConfig as SmokeGeneratedQuorumRouterConfig,
   GrokCliAdapterOptions as SmokeGrokCliAdapterOptions,
   ModelAdapter as SmokeModelAdapter,
   ModelOutput as SmokeModelOutput,
@@ -150,6 +153,9 @@ import type {
   ProviderCapability as SmokeProviderCapability,
   ProviderDescriptor as SmokeProviderDescriptor,
   ProviderReadinessHint as SmokeProviderReadinessHint,
+  QuorumRouterConfig as SmokeQuorumRouterConfig,
+  QuorumRouterOptions as SmokeQuorumRouterOptions,
+  QuorumRouterRouteOptions as SmokeQuorumRouterRouteOptions,
   RetryPolicy as SmokeRetryPolicy,
   RoutingMode as SmokeRoutingMode,
   RoutingModeDecision as SmokeRoutingModeDecision,
@@ -239,12 +245,12 @@ type PublicExportTypeSmoke = [
   SmokeFallbackPolicyDecision,
   SmokeFallbackReason,
   SmokeFallbackReasonContext,
-  SmokeFusionRouterConfig,
-  SmokeFusionRouterOptions,
-  SmokeFusionRouterRouteOptions,
+  SmokeQuorumRouterConfig,
+  SmokeQuorumRouterOptions,
+  SmokeQuorumRouterRouteOptions,
   SmokeGeminiCliAdapterOptions,
   SmokeGrokCliAdapterOptions,
-  SmokeGeneratedFusionRouterConfig,
+  SmokeGeneratedQuorumRouterConfig,
   SmokeModelAdapter,
   SmokeModelOutput,
   SmokeModelOutputParser,
@@ -368,14 +374,14 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "FinalSynthesis",
   "FinalSynthesisSchema",
   "FlushableTelemetrySink",
-  "FusionRouter",
-  "FusionRouterConfig",
-  "FusionRouterConfigFileSchema",
-  "FusionRouterOptions",
-  "FusionRouterRouteOptions",
+  "QuorumRouter",
+  "QuorumRouterConfig",
+  "QuorumRouterConfigFileSchema",
+  "QuorumRouterOptions",
+  "QuorumRouterRouteOptions",
   "GeminiCliAdapterOptions",
-  "GeneratedFusionRouterConfig",
-  "GeneratedFusionRouterConfigSchema",
+  "GeneratedQuorumRouterConfig",
+  "GeneratedQuorumRouterConfigSchema",
   "GrokCliAdapterOptions",
   "InMemoryAgentBusStore",
   "InMemoryBudgetManager",
@@ -443,20 +449,20 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
   "fromSupabaseEventRow",
   "fromSupabaseMessageRow",
   "generateEnvExample",
-  "generateFusionRouterConfig",
+  "generateQuorumRouterConfig",
   "generateSetupReport",
   "profileInput",
   "runSetupCli",
   "SetupProfileNameSchema",
   "SetupWizardInputSchema",
-  "stringifyGeneratedFusionRouterConfig",
+  "stringifyGeneratedQuorumRouterConfig",
   "describeRoutingModeDecision",
   "flushTelemetrySink",
   "isFallbackAllowed",
   "isRoutingModeImplemented",
-  "loadFusionRouterConfig",
-  "loadFusionRouterConfigText",
-  "loadFusionRouterConfigValue",
+  "loadQuorumRouterConfig",
+  "loadQuorumRouterConfigText",
+  "loadQuorumRouterConfigValue",
   "normalizeAgentChatLimits",
   "parseRoutingMode",
   "toSupabaseRecordEventRpcArgs",
@@ -468,7 +474,7 @@ const LEGACY_PUBLIC_EXPORT_NAMES = [
 ] as const;
 
 async function makeScript(content: string): Promise<string> {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-test-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-test-" });
   const path = `${dir}/script.sh`;
   await Deno.writeTextFile(path, content);
   await Deno.chmod(path, 0o755);
@@ -532,9 +538,9 @@ if mode_value=$(stat -c '%a' "$schema_path" 2>/dev/null); then
 elif mode_value=$(stat -f '%Lp' "$schema_path" 2>/dev/null); then
   mode="$mode_value"
 fi
-printf '%s|%s|%s\n' "$schema_path" "$output_path" "$mode" >> "$FUSION_ROUTER_CAPTURE_PATH"
+printf '%s|%s|%s\n' "$schema_path" "$output_path" "$mode" >> "$QUORUM_ROUTER_CAPTURE_PATH"
 
-if [ "\${FUSION_ROUTER_FAIL_SYNTH:-0}" = "1" ]; then
+if [ "\${QUORUM_ROUTER_FAIL_SYNTH:-0}" = "1" ]; then
   exit 1
 fi
 
@@ -545,8 +551,8 @@ JSON
 }
 
 async function writeConfigFile(content: string): Promise<string> {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-config-test-" });
-  const path = `${dir}/fusion-router.config.json`;
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-config-test-" });
+  const path = `${dir}/quorum-router.config.json`;
   await Deno.writeTextFile(path, content);
   return path;
 }
@@ -772,8 +778,8 @@ function buildRouter(
     routingModeEnvProvider?: () => unknown;
     agentRuntime?: AgentRuntimeConfig;
   } = {},
-): FusionRouter {
-  return new FusionRouter({
+): QuorumRouter {
+  return new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter,
     minSuccessfulAdapters: 1,
@@ -826,7 +832,7 @@ class RuntimeRoleAdapter implements ModelAdapter {
 
   constructor(
     readonly role: AgentRuntimeRole,
-    private readonly output: string,
+    private readonly output: string | string[],
     private readonly behavior: "ok" | "throw" | "never" = "ok",
   ) {
     this.descriptor = fixtureDescriptor(
@@ -855,7 +861,9 @@ class RuntimeRoleAdapter implements ModelAdapter {
     return Promise.resolve({
       provider: this.descriptor.provider,
       model: this.descriptor.model,
-      content: this.output,
+      content: Array.isArray(this.output)
+        ? this.output[Math.min(this.calls - 1, this.output.length - 1)]
+        : this.output,
       latencyMs: 1,
     });
   }
@@ -910,17 +918,18 @@ function makeRuntimeBus(
 }
 
 function makeAgentRuntimeConfig(input: {
-  outputs?: Partial<Record<AgentRuntimeRole, string>>;
+  outputs?: Partial<Record<AgentRuntimeRole, string | string[]>>;
   omitRoles?: AgentRuntimeRole[];
   duplicateRole?: AgentRuntimeRole;
   disabled?: boolean;
   experimental?: boolean;
   limits?: AgentRuntimeConfig["limits"];
   behavior?: Partial<Record<AgentRuntimeRole, "ok" | "throw" | "never">>;
+  execution?: AgentRuntimeConfig["execution"];
 } = {}): AgentRuntimeConfig & {
   adaptersByRole: Map<AgentRuntimeRole, RuntimeRoleAdapter>;
 } {
-  const outputs: Record<AgentRuntimeRole, string> = {
+  const outputs: Record<AgentRuntimeRole, string | string[]> = {
     commander: runtimeJson("plan", "Plan the work."),
     coder: runtimeJson("result", "Implemented result."),
     reviewer: runtimeJson("pass", "Review passed."),
@@ -971,6 +980,7 @@ function makeAgentRuntimeConfig(input: {
       maxBudgetUsd: 0,
       ...input.limits,
     },
+    ...(input.execution ? { execution: input.execution } : {}),
     adaptersByRole,
   };
 }
@@ -1233,7 +1243,7 @@ Deno.test("missing runtime config fails closed before adapter execution", async 
 });
 
 Deno.test("AgentRuntime config defaults are disabled in generated config", () => {
-  const config = generateFusionRouterConfig({ profile: "minimal-direct" });
+  const config = generateQuorumRouterConfig({ profile: "minimal-direct" });
   assertEquals(config.agentRuntime, {
     enabled: false,
     experimental: false,
@@ -1245,7 +1255,7 @@ Deno.test("AgentRuntime missing required role fails before adapter execution", a
   const runtime = makeAgentRuntimeConfig({ omitRoles: ["red_team"] });
   const error = await assertRejects(
     () =>
-      new FusionRouter({
+      new QuorumRouter({
         modelAdapters: [new CountingAdapter()],
         synthesisAdapter: staticOkSynthesis(),
         minSuccessfulAdapters: 1,
@@ -1357,6 +1367,362 @@ Deno.test("red-team objection blocks closeout ready", async () => {
   });
   assertEquals(result.ok, false);
   assertEquals(result.runtimeSummary.objections, 1);
+});
+
+Deno.test("production AgentRuntime fixes reviewer objection then re-reviews latest verified artifacts", async () => {
+  const persisted: unknown[] = [];
+  const action = (id: string) =>
+    runtimeJson("result", `Applied ${id}.`, {
+      actions: [{
+        id,
+        kind: "read_file",
+        classification: "read_only",
+        path: "README.md",
+        proposedBy: "coder",
+      }],
+    });
+  const runtime = makeAgentRuntimeConfig({
+    outputs: {
+      coder: [action("initial"), action("fix")],
+      reviewer: [
+        runtimeJson("object", "Needs a fix.", { objection: "Fix it." }),
+        runtimeJson("pass", "Fixed artifacts pass."),
+      ],
+    },
+    limits: { maxTurns: 8, maxRounds: 2 },
+    execution: {
+      repo: "/repo",
+      runRoot: "/runs",
+      taskId: "task",
+      runId: (_proposal, index) => `run-${index}`,
+      policyVersion: "p1",
+      policyRef: "/policies/policy.json",
+      requestedBy: "quorum-coder",
+      expectedArtifactScope: ["run.json"],
+      actionRunner: {
+        prepare: (proposal) =>
+          Promise.resolve({
+            argv: ["fake-runner", proposal.id],
+            cleanup: () => Promise.resolve(),
+          }),
+      },
+      safeloop: {
+        readiness: () => ({
+          available: true,
+          repoMutation: { supported: false, approvalPreflight: false },
+          shellMutation: { supported: false, approvalPreflight: false },
+        }),
+        execute: (request) => {
+          const receipt = {
+            schemaVersion: "safeloop.execution-receipt.v1" as const,
+            actionId: request.proposal.id,
+            status: "verified" as const,
+            requestRunId: request.runId,
+            runId: request.runId,
+            runDirectory: `/runs/${request.proposal.id}`,
+            exitCode: 0 as const,
+            artifacts: [{ path: request.proposal.id }],
+            verification: {
+              artifactsStatus: "valid" as const,
+              anchorStatus: "valid" as const,
+            },
+            binding: {
+              actionDigest: "sha256:test",
+              policyVersion: "p1",
+              policyRef: "/policies/policy.json",
+              approvalId: null,
+              approvalStatus: null,
+            },
+            rollbackAvailable: false,
+          };
+          persisted.push(receipt);
+          return Promise.resolve(receipt);
+        },
+      },
+    },
+  });
+  const result = await buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+    agentRuntime: runtime,
+  }).routeAgentRuntime("hello", { routingMode: "agent_chat" });
+  assertEquals(result.ok, true);
+  assertEquals(result.receipts.length, 2);
+  assertEquals(result.artifacts.map((artifact) => artifact.path), [
+    "initial",
+    "fix",
+  ]);
+  assertEquals(persisted.length, 2);
+  assertEquals(runtime.adaptersByRole.get("reviewer")?.calls, 2);
+});
+
+Deno.test({
+  name:
+    "real SafeLoop execute-request E2E applies approved coder write and approved fix before closeout",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const safeloopBinary = Deno.env.get("SAFELOOP_E2E_BINARY");
+    const python = Deno.env.get("SAFELOOP_E2E_PYTHON");
+    if (!safeloopBinary || !python) return;
+    const base = await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "quorum-safeloop-e2e-" }),
+    );
+    try {
+      const repo = `${base}/repo`;
+      const runRoot = `${base}/runs`;
+      const policyRoot = `${base}/policies`;
+      const privateRoot = `${base}/private`;
+      await Promise.all([
+        Deno.mkdir(repo),
+        Deno.mkdir(runRoot),
+        Deno.mkdir(policyRoot),
+        Deno.mkdir(privateRoot),
+      ]);
+      const git = await new Deno.Command("git", {
+        args: ["init", "--quiet", repo],
+      }).output();
+      assert(git.success);
+      const keyFile = `${privateRoot}/operator.key`;
+      await Deno.writeFile(
+        keyFile,
+        crypto.getRandomValues(new Uint8Array(32)),
+        { mode: 0o600, createNew: true },
+      );
+      const unsignedPolicy = `${privateRoot}/policy-input.json`;
+      await Deno.writeTextFile(
+        unsignedPolicy,
+        JSON.stringify({
+          schema_version: "safeloop.execution-policy.v1",
+          policy_version: "qr-e2e-v1",
+          policy_id: "quorum-router-e2e",
+          mutation_classes: {
+            read_only: { allow: true, require_approval: false },
+            repo_write: { allow: true, require_approval: true },
+            shell_write: { allow: true, require_approval: true },
+          },
+        }),
+        { mode: 0o600 },
+      );
+      const signed = await new Deno.Command(safeloopBinary, {
+        args: [
+          "sign-execution-policy",
+          "--input",
+          unsignedPolicy,
+          "--policy-root",
+          policyRoot,
+          "--output",
+          "quorum.json",
+          "--signing-key-file",
+          keyFile,
+        ],
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assert(signed.success, new TextDecoder().decode(signed.stderr));
+      const policyRef = `${policyRoot}/quorum.json`;
+      const approvalDb = `${privateRoot}/approvals.sqlite3`;
+      let approvalSequence = 0;
+      const approvalResolver = async (
+        request: {
+          requested_by: string;
+          mutation_class: string;
+          action_digest: string;
+        },
+      ) => {
+        const approvalId = `qr-e2e-approval-${approvalSequence++}`;
+        const script = [
+          "from datetime import datetime, timezone",
+          "from pathlib import Path",
+          "import sys",
+          "from safeloop.control_plane.sqlite_lifecycle import SQLiteApprovalLifecycleStore",
+          "db,key,approval_id,requested_by,mutation_class,digest=sys.argv[1:]",
+          "store=SQLiteApprovalLifecycleStore(Path(db), Path(key).read_bytes())",
+          "now=datetime.now(timezone.utc)",
+          "store.request(approval_id=approval_id, requested_by=requested_by, action=f'execute:{mutation_class}', subject=digest, created_at=now)",
+          "store.approve(approval_id, now=now, approved_by='human-reviewer')",
+        ].join(";");
+        const approved = await new Deno.Command(python, {
+          args: [
+            "-c",
+            script,
+            approvalDb,
+            keyFile,
+            approvalId,
+            request.requested_by,
+            request.mutation_class,
+            request.action_digest,
+          ],
+          stdout: "piped",
+          stderr: "piped",
+        }).output();
+        assert(approved.success, new TextDecoder().decode(approved.stderr));
+        return { status: "approved" as const, approvalId };
+      };
+      const actionRunner = await RepoActionRunner.create(repo);
+      const runtime = makeAgentRuntimeConfig({
+        outputs: {
+          coder: [
+            runtimeJson("result", "Created the file.", {
+              actions: [{
+                id: "initial-write",
+                kind: "write_file",
+                classification: "repo_write",
+                path: "result.txt",
+                content: "first\n",
+                proposedBy: "quorum-coder",
+                approvedBy: "model-forged",
+              }],
+            }),
+            runtimeJson("result", "Applied the requested fix.", {
+              actions: [{
+                id: "approved-fix",
+                kind: "patch_file",
+                classification: "repo_write",
+                path: "result.txt",
+                find: "first",
+                replace: "fixed",
+                proposedBy: "quorum-coder",
+              }],
+            }),
+          ],
+          reviewer: [
+            runtimeJson("object", "The first version needs correction.", {
+              objection: "Replace first with fixed.",
+            }),
+            runtimeJson("pass", "The verified fixed artifact passes."),
+          ],
+          red_team: runtimeJson(
+            "pass",
+            "The confined execution evidence passes.",
+          ),
+          closeout: runtimeJson("ready", "All gates passed.", {
+            finalAnswer: "SafeLoop-backed change is ready.",
+          }),
+        },
+        limits: { maxTurns: 8, maxRounds: 2, maxDurationMs: 30_000 },
+        execution: {
+          safeloop: new SafeLoopCliClient({
+            binary: safeloopBinary,
+            approvalDb,
+            signingKeyFile: keyFile,
+            policyRoot,
+            timeoutMs: 20_000,
+          }),
+          repo,
+          runRoot,
+          taskId: (proposal) => proposal.id,
+          runId: (_proposal, index) => `qr-e2e-${index}`,
+          policyVersion: "qr-e2e-v1",
+          policyRef,
+          requestedBy: "quorum-coder",
+          approvalResolver,
+          expectedArtifactScope: [
+            "run.json",
+            "timeline.jsonl",
+            "execution-precommit.json",
+          ],
+          timeoutSeconds: 10,
+          actionRunner,
+        },
+      });
+      const result = await buildRouter(
+        new CountingAdapter(),
+        staticOkSynthesis(),
+        { agentRuntime: runtime },
+      ).routeAgentRuntime("Write and review result.txt", {
+        routingMode: "agent_chat",
+        experimentalAgentRuntime: true,
+      });
+      assertEquals(result.ok, true);
+      assertEquals(result.finalAnswer, "SafeLoop-backed change is ready.");
+      assertEquals(result.receipts.length, 2);
+      assert(
+        result.receipts.every((receipt) =>
+          receipt.status === "verified" && receipt.exitCode === 0 &&
+          receipt.binding.approvalStatus === "EXECUTED"
+        ),
+      );
+      assertEquals(await Deno.readTextFile(`${repo}/result.txt`), "fixed\n");
+      assertEquals(runtime.adaptersByRole.get("reviewer")?.calls, 2);
+      assertEquals(approvalSequence, 2);
+    } finally {
+      await Deno.remove(base, { recursive: true });
+    }
+  },
+});
+
+Deno.test("production AgentRuntime halts after configured max fix rounds", async () => {
+  const runtime = makeAgentRuntimeConfig({
+    outputs: {
+      coder: runtimeJson("result", "Attempted fix.", {
+        actions: [{
+          id: "read",
+          kind: "read_file",
+          classification: "read_only",
+          path: "README.md",
+          proposedBy: "coder",
+        }],
+      }),
+      reviewer: runtimeJson("object", "Still blocked.", {
+        objection: "Still unsafe.",
+      }),
+    },
+    limits: { maxTurns: 10, maxRounds: 1 },
+    execution: {
+      repo: "/repo",
+      runRoot: "/runs",
+      taskId: "task",
+      runId: "run",
+      policyVersion: "p1",
+      policyRef: "/policies/policy.json",
+      requestedBy: "quorum-coder",
+      expectedArtifactScope: ["run.json"],
+      actionRunner: {
+        prepare: () =>
+          Promise.resolve({
+            argv: ["fake-runner"],
+            cleanup: () => Promise.resolve(),
+          }),
+      },
+      safeloop: {
+        readiness: () => ({
+          available: true,
+          repoMutation: { supported: false, approvalPreflight: false },
+          shellMutation: { supported: false, approvalPreflight: false },
+        }),
+        execute: (request) =>
+          Promise.resolve({
+            schemaVersion: "safeloop.execution-receipt.v1",
+            actionId: request.proposal.id,
+            status: "verified",
+            requestRunId: request.runId,
+            runId: request.runId,
+            runDirectory: "/runs/read",
+            exitCode: 0,
+            artifacts: [{ path: "read" }],
+            verification: {
+              artifactsStatus: "valid",
+              anchorStatus: "valid",
+            },
+            binding: {
+              actionDigest: "sha256:test",
+              policyVersion: "p1",
+              policyRef: "/policies/policy.json",
+              approvalId: null,
+              approvalStatus: null,
+            },
+            rollbackAvailable: false,
+          }),
+      },
+    },
+  });
+  const error = await assertRejects(() =>
+    buildRouter(new CountingAdapter(), staticOkSynthesis(), {
+      agentRuntime: runtime,
+    })
+      .routeAgentRuntime("hello", { routingMode: "agent_chat" })
+  );
+  assert(error instanceof RouterError);
+  assertEquals(error.code, "agent_runtime_max_rounds_exceeded");
 });
 
 Deno.test("malformed role JSON fails closed", async () => {
@@ -1891,7 +2257,7 @@ Deno.test("default behavior remains unchanged without policy", async () => {
     content: "second validated output",
     latencyMs: 1,
   });
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [first, second],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 2,
@@ -1966,7 +2332,7 @@ Deno.test("adaptive direct wiring passes readiness and budget and recalculates q
       enabled: true,
     },
   ]);
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [notReady, expensive, cheap],
     synthesisAdapter,
     timeoutMs: 10_000,
@@ -2013,7 +2379,7 @@ Deno.test("direct routing rejection details are included in quorum failures", as
       enabled: true,
     },
   ]);
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter,
     timeoutMs: 10_000,
@@ -2076,7 +2442,7 @@ Deno.test("router exposes routing decisions for request config env and default",
   const configPath = await writeConfigFile(JSON.stringify({
     routing: { mode: "direct" },
   }));
-  const config = await loadFusionRouterConfig(configPath);
+  const config = await loadQuorumRouterConfig(configPath);
   const router = buildRouter(new CountingAdapter(), staticOkSynthesis(), {
     routingMode: config.routingMode,
     routingModeEnvProvider: () => "agent_chat",
@@ -2117,10 +2483,10 @@ Deno.test("router exposes routing decisions for request config env and default",
 
 Deno.test("missing config file returns empty config with no routing mode", async () => {
   const dir = await Deno.makeTempDir({
-    prefix: "fusion-router-config-missing-",
+    prefix: "quorum-router-config-missing-",
   });
-  const config = await loadFusionRouterConfig(
-    `${dir}/fusion-router.config.json`,
+  const config = await loadQuorumRouterConfig(
+    `${dir}/quorum-router.config.json`,
   );
 
   assertEquals(config, {});
@@ -2130,8 +2496,77 @@ Deno.test("missing config file returns empty config with no routing mode", async
   });
 });
 
+Deno.test("QuorumRouter exports are canonical and Fusion aliases remain compatible", () => {
+  assertEquals(FusionRouter, QuorumRouter);
+  assertEquals(generateFusionRouterConfig, generateQuorumRouterConfig);
+  assertEquals(loadFusionRouterConfigValue, loadQuorumRouterConfigValue);
+  const generated = generateQuorumRouterConfig({ profile: "minimal-direct" });
+  assertEquals(generated.setup.generatedBy, "quorum-router setup");
+  assertEquals(
+    loadQuorumRouterConfigValue({
+      ...generated,
+      setup: { ...generated.setup, generatedBy: "fusion-router setup" },
+    }).routingMode,
+    "direct",
+  );
+});
+
+Deno.test("canonical router env takes precedence over deprecated legacy env", () => {
+  const canonicalName = "QUORUM_ROUTER_TEST_PRECEDENCE";
+  const legacyName = "FUSION_ROUTER_TEST_PRECEDENCE";
+  const oldCanonical = Deno.env.get(canonicalName);
+  const oldLegacy = Deno.env.get(legacyName);
+  try {
+    Deno.env.set(legacyName, "legacy");
+    Deno.env.delete(canonicalName);
+    assertEquals(readRouterEnv(canonicalName), "legacy");
+    Deno.env.set(canonicalName, "canonical");
+    assertEquals(readRouterEnv(canonicalName), "canonical");
+  } finally {
+    oldCanonical === undefined
+      ? Deno.env.delete(canonicalName)
+      : Deno.env.set(canonicalName, oldCanonical);
+    oldLegacy === undefined
+      ? Deno.env.delete(legacyName)
+      : Deno.env.set(legacyName, oldLegacy);
+  }
+});
+
+Deno.test("generated scaffold env fallback prefers canonical with isolated subprocess env", async () => {
+  const module =
+    `${Deno.cwd()}/packages/create-quorum-router/templates/basic/src/env.ts`;
+  const script = `import { readRouterEnv } from ${
+    JSON.stringify(module)
+  }; console.log(JSON.stringify({value:readRouterEnv("QUORUM_ROUTER_PROVIDER_MODEL")}));`;
+  const run = async (env: Record<string, string>) => {
+    const output = await new Deno.Command(Deno.execPath(), {
+      args: ["eval", script],
+      clearEnv: true,
+      env,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(output.success, new TextDecoder().decode(output.stderr));
+    return JSON.parse(new TextDecoder().decode(output.stdout));
+  };
+  assertEquals(
+    await run({
+      FUSION_ROUTER_PROVIDER_MODEL: "legacy",
+      OTHER_VALUE: "hidden",
+    }),
+    { value: "legacy" },
+  );
+  assertEquals(
+    await run({
+      QUORUM_ROUTER_PROVIDER_MODEL: "canonical",
+      FUSION_ROUTER_PROVIDER_MODEL: "legacy",
+    }),
+    { value: "canonical" },
+  );
+});
+
 Deno.test("minimal-direct profile generates valid config", async () => {
-  const config = generateFusionRouterConfig({ profile: "minimal-direct" });
+  const config = generateQuorumRouterConfig({ profile: "minimal-direct" });
   assertEquals(config.profile, "minimal-direct");
   assertEquals(config.routing.mode, "direct");
   assertEquals(config.providers, []);
@@ -2139,13 +2574,13 @@ Deno.test("minimal-direct profile generates valid config", async () => {
   assertEquals(config.adaptiveDirect.enabled, false);
 
   const path = await writeConfigFile(JSON.stringify(config));
-  const loaded = await loadFusionRouterConfig(path);
+  const loaded = await loadQuorumRouterConfig(path);
   assertEquals(loaded.routingMode, "direct");
   assertEquals(loaded.setupProfile, "minimal-direct");
 });
 
 Deno.test("direct-http-openai profile emits only placeholders, not raw secrets", () => {
-  const config = generateFusionRouterConfig({ profile: "direct-http-openai" });
+  const config = generateQuorumRouterConfig({ profile: "direct-http-openai" });
   const envExample = generateEnvExample({ profile: "direct-http-openai" });
   const serialized = JSON.stringify(config) + envExample;
 
@@ -2164,21 +2599,21 @@ Deno.test("direct-http-openai profile emits only placeholders, not raw secrets",
 });
 
 Deno.test("supabase-audit profile never emits service-role key", () => {
-  const config = generateFusionRouterConfig({ profile: "supabase-audit" });
+  const config = generateQuorumRouterConfig({ profile: "supabase-audit" });
   const envExample = generateEnvExample({ profile: "supabase-audit" });
   const report = generateSetupReport({ profile: "supabase-audit" });
   const surface = JSON.stringify({ config, envExample, report });
 
   assertEquals(config.persistence.mode, "supabaseAuditRpc");
-  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_URL=");
-  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_ANON_KEY=");
-  assertStringIncludes(envExample, "FUSION_ROUTER_SUPABASE_SESSION_JWT=");
+  assertStringIncludes(envExample, "QUORUM_ROUTER_SUPABASE_URL=");
+  assertStringIncludes(envExample, "QUORUM_ROUTER_SUPABASE_ANON_KEY=");
+  assertStringIncludes(envExample, "QUORUM_ROUTER_SUPABASE_SESSION_JWT=");
   assert(!surface.includes("SUPABASE_SERVICE_ROLE_KEY"));
-  assert(!surface.includes("FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY"));
+  assert(!surface.includes("QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY"));
 });
 
 Deno.test("adaptive-direct profile enables policy config safely", () => {
-  const config = generateFusionRouterConfig({ profile: "adaptive-direct" });
+  const config = generateQuorumRouterConfig({ profile: "adaptive-direct" });
   assertEquals(config.adaptiveDirect.enabled, true);
   assertEquals(
     config.adaptiveDirect.fallbackPolicy,
@@ -2189,10 +2624,10 @@ Deno.test("adaptive-direct profile enables policy config safely", () => {
 });
 
 Deno.test("generated config value and text loaders match file loader", async () => {
-  const generated = generateFusionRouterConfig({ profile: "minimal-direct" });
-  const fromValue = loadFusionRouterConfigValue(generated);
-  const fromText = loadFusionRouterConfigText(JSON.stringify(generated));
-  const fromFile = await loadFusionRouterConfig(
+  const generated = generateQuorumRouterConfig({ profile: "minimal-direct" });
+  const fromValue = loadQuorumRouterConfigValue(generated);
+  const fromText = loadQuorumRouterConfigText(JSON.stringify(generated));
+  const fromFile = await loadQuorumRouterConfig(
     await writeConfigFile(JSON.stringify(generated)),
   );
 
@@ -2203,11 +2638,11 @@ Deno.test("generated config value and text loaders match file loader", async () 
 });
 
 Deno.test("generated minimal-direct config can construct fixture router", async () => {
-  const loaded = loadFusionRouterConfigValue(
-    generateFusionRouterConfig({ profile: "minimal-direct" }),
+  const loaded = loadQuorumRouterConfigValue(
+    generateQuorumRouterConfig({ profile: "minimal-direct" }),
   );
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2222,8 +2657,8 @@ Deno.test("generated minimal-direct config can construct fixture router", async 
 });
 
 Deno.test("generated adaptive-direct config wires registry and fixture adapters", async () => {
-  const generated = generateFusionRouterConfig({ profile: "adaptive-direct" });
-  const loaded = loadFusionRouterConfigValue(generated);
+  const generated = generateQuorumRouterConfig({ profile: "adaptive-direct" });
+  const loaded = loadQuorumRouterConfigValue(generated);
   const descriptors = generated.providers.map((provider) =>
     provider as ProviderDescriptor
   );
@@ -2235,7 +2670,7 @@ Deno.test("generated adaptive-direct config wires registry and fixture adapters"
       provider.provider === "OpenAI" && provider.model === "gpt-5.5"
     ) ?? descriptors[0];
   const synthesis = new DescriptorSynthesisAdapter(synthesisProvider);
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: adapters,
     synthesisAdapter: synthesis,
     minSuccessfulAdapters: 1,
@@ -2255,13 +2690,13 @@ Deno.test("generated adaptive-direct config wires registry and fixture adapters"
 });
 
 Deno.test("generated agent_chat config still fails closed before adapter execution", async () => {
-  const loaded = loadFusionRouterConfigValue(generateFusionRouterConfig({
+  const loaded = loadQuorumRouterConfigValue(generateQuorumRouterConfig({
     profile: "minimal-direct",
     routingMode: "agent_chat",
     experimentalAgentChat: true,
   }));
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2288,7 +2723,7 @@ Deno.test("commander config defaults disabled across generated direct profiles",
   ] as const;
 
   for (const profile of profiles) {
-    const generated = generateFusionRouterConfig({ profile });
+    const generated = generateQuorumRouterConfig({ profile });
     assertEquals(generated.commander, {
       enabled: false,
       mode: "direct_synthesis",
@@ -2300,7 +2735,7 @@ Deno.test("commander config defaults disabled across generated direct profiles",
 });
 
 Deno.test("loading config with commander namespace does not change routing.mode", () => {
-  const loaded = loadFusionRouterConfigValue({
+  const loaded = loadQuorumRouterConfigValue({
     routing: { mode: "direct" },
     commander: {
       enabled: true,
@@ -2447,7 +2882,7 @@ Deno.test("local commander placeholder validates only as local/local/localModel"
 Deno.test("setup validation fails closed for invalid commander combinations", () => {
   const unknown = assertThrows(
     () =>
-      generateFusionRouterConfig({
+      generateQuorumRouterConfig({
         profile: "minimal-direct",
         commander: {
           enabled: true,
@@ -2466,7 +2901,7 @@ Deno.test("setup validation fails closed for invalid commander combinations", ()
 
   const invalidLocal = assertThrows(
     () =>
-      generateFusionRouterConfig({
+      generateQuorumRouterConfig({
         profile: "minimal-direct",
         commander: {
           enabled: true,
@@ -2581,9 +3016,9 @@ Deno.test("agent_chat future commander selection remains future-only", () => {
 });
 
 Deno.test("direct route works without Agent Bus config", async () => {
-  const loaded = loadFusionRouterConfigValue({ routing: { mode: "direct" } });
+  const loaded = loadQuorumRouterConfigValue({ routing: { mode: "direct" } });
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2598,8 +3033,8 @@ Deno.test("direct route works without Agent Bus config", async () => {
 });
 
 Deno.test("generated direct config keeps Agent Bus disabled", () => {
-  const generated = generateFusionRouterConfig({ profile: "minimal-direct" });
-  const loaded = loadFusionRouterConfigValue(generated);
+  const generated = generateQuorumRouterConfig({ profile: "minimal-direct" });
+  const loaded = loadQuorumRouterConfigValue(generated);
 
   assertEquals(generated.routing.mode, "direct");
   assertEquals(generated.agentBus.enabled, false);
@@ -2610,7 +3045,7 @@ Deno.test("generated direct config keeps Agent Bus disabled", () => {
 });
 
 Deno.test("direct route still works with commander config present", async () => {
-  const loaded = loadFusionRouterConfigValue({
+  const loaded = loadQuorumRouterConfigValue({
     routing: { mode: "direct" },
     commander: {
       enabled: true,
@@ -2624,7 +3059,7 @@ Deno.test("direct route still works with commander config present", async () => 
     },
   });
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2642,12 +3077,12 @@ Deno.test("direct route still works with commander config present", async () => 
 });
 
 Deno.test("Agent Bus config namespace does not change routing.mode=direct behavior", async () => {
-  const loaded = loadFusionRouterConfigValue({
+  const loaded = loadQuorumRouterConfigValue({
     routing: { mode: "direct" },
     agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
   });
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2663,12 +3098,12 @@ Deno.test("Agent Bus config namespace does not change routing.mode=direct behavi
 });
 
 Deno.test("agent_chat with Agent Bus config still fails closed before adapter execution", async () => {
-  const loaded = loadFusionRouterConfigValue({
+  const loaded = loadQuorumRouterConfigValue({
     routing: { mode: "agent_chat" },
     agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
   });
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -2686,7 +3121,7 @@ Deno.test("agent_chat with Agent Bus config still fails closed before adapter ex
 });
 
 Deno.test("agent_chat with commander and Agent Bus config still fails closed before adapter execution", async () => {
-  const loaded = loadFusionRouterConfigValue({
+  const loaded = loadQuorumRouterConfigValue({
     routing: { mode: "agent_chat" },
     agentBus: { enabled: true, transport: "supabase", realtimeWakeup: false },
     commander: {
@@ -2701,7 +3136,7 @@ Deno.test("agent_chat with commander and Agent Bus config still fails closed bef
     },
   });
   const adapter = new CountingAdapter();
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: staticOkSynthesis(),
     minSuccessfulAdapters: 1,
@@ -3175,8 +3610,8 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
       "source-available and non-commercial",
       "not an open source license",
       "direct` is the production-ready best-answer routing path",
-      "agent_chat` / AgentRuntime is experimental and explicit opt-in only",
-      "not a production autonomous runtime",
+      "Conversation-only `agent_chat` / AgentRuntime is explicit opt-in",
+      "production-capable, bounded local repository execution slice",
       "no live Supabase Agent Bus runtime client/writes",
       "no Supabase Realtime subscriber",
       "no service-role runtime",
@@ -3220,18 +3655,18 @@ Deno.test("commander docs and examples contain no raw secrets", async () => {
 });
 
 Deno.test("generated supabase-audit config emits no service-role placeholders", () => {
-  const generated = generateFusionRouterConfig({ profile: "supabase-audit" });
+  const generated = generateQuorumRouterConfig({ profile: "supabase-audit" });
   const envExample = generateEnvExample({ profile: "supabase-audit" });
   const surface = JSON.stringify(generated) + envExample;
 
   assert(!/SERVICE_ROLE|SERVICE_KEY|ADMIN_KEY|JWT_SECRET/i.test(surface));
-  assertStringIncludes(surface, "FUSION_ROUTER_SUPABASE_ANON_KEY=");
-  assertStringIncludes(surface, "FUSION_ROUTER_SUPABASE_SESSION_JWT=");
+  assertStringIncludes(surface, "QUORUM_ROUTER_SUPABASE_ANON_KEY=");
+  assertStringIncludes(surface, "QUORUM_ROUTER_SUPABASE_SESSION_JWT=");
 });
 
 Deno.test("unknown setup profile fails closed", () => {
   const error = assertThrows(
-    () => generateFusionRouterConfig({ profile: "unknown" as never }),
+    () => generateQuorumRouterConfig({ profile: "unknown" as never }),
     RouterError,
   );
   assertEquals(error.status, 4400);
@@ -3241,7 +3676,7 @@ Deno.test("unknown setup profile fails closed", () => {
 Deno.test("invalid provider/auth/transport setup combo fails closed", () => {
   const error = assertThrows(
     () =>
-      generateFusionRouterConfig({
+      generateQuorumRouterConfig({
         profile: "minimal-direct",
         providers: [
           {
@@ -3262,10 +3697,10 @@ Deno.test("invalid provider/auth/transport setup combo fails closed", () => {
 
 Deno.test("setup output is deterministic", () => {
   const first = JSON.stringify(
-    generateFusionRouterConfig({ profile: "adaptive-direct" }),
+    generateQuorumRouterConfig({ profile: "adaptive-direct" }),
   );
   const second = JSON.stringify(
-    generateFusionRouterConfig({ profile: "adaptive-direct" }),
+    generateQuorumRouterConfig({ profile: "adaptive-direct" }),
   );
   assertEquals(first, second);
   assertEquals(
@@ -3295,7 +3730,7 @@ Deno.test("setup CLI --help advertises canonical setup entrypoint", async () => 
 });
 
 Deno.test("setup CLI dry-run does not write files", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-setup-dryrun-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-setup-dryrun-" });
   const output = await new Deno.Command(Deno.execPath(), {
     args: [
       "run",
@@ -3314,7 +3749,7 @@ Deno.test("setup CLI dry-run does not write files", async () => {
   assert(output.success, text);
   assertStringIncludes(text, "Dry-run only: no files written");
   await assertRejects(
-    () => Deno.stat(`${dir}/fusion-router.config.json`),
+    () => Deno.stat(`${dir}/quorum-router.config.json`),
     Deno.errors.NotFound,
   );
 });
@@ -3392,8 +3827,8 @@ Deno.test("v0.1 release docs mention explicit non-goals and verification", async
 });
 
 Deno.test("setup CLI --write writes config only to requested path", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-setup-write-" });
-  const requestedPath = `${dir}/generated/fusion-router.config.json`;
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-setup-write-" });
+  const requestedPath = `${dir}/generated/quorum-router.config.json`;
   const output = await new Deno.Command(Deno.execPath(), {
     args: [
       "run",
@@ -3413,16 +3848,16 @@ Deno.test("setup CLI --write writes config only to requested path", async () => 
   const written = JSON.parse(await Deno.readTextFile(requestedPath));
   assertEquals(written.profile, "direct-http-openai");
   await assertRejects(
-    () => Deno.stat(`${dir}/fusion-router.config.json`),
+    () => Deno.stat(`${dir}/quorum-router.config.json`),
     Deno.errors.NotFound,
   );
 });
 
 Deno.test("doctor accepts generated minimal config", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-setup-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-doctor-setup-" });
   await Deno.writeTextFile(
-    `${dir}/fusion-router.config.json`,
-    JSON.stringify(generateFusionRouterConfig({ profile: "minimal-direct" })),
+    `${dir}/quorum-router.config.json`,
+    JSON.stringify(generateQuorumRouterConfig({ profile: "minimal-direct" })),
   );
   const output = await new Deno.Command(Deno.execPath(), {
     args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
@@ -3442,14 +3877,14 @@ Deno.test("doctor accepts generated minimal config", async () => {
 });
 
 Deno.test("doctor warns on generated agent_chat config while route still fails closed", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-agent-" });
-  const config = generateFusionRouterConfig({
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-doctor-agent-" });
+  const config = generateQuorumRouterConfig({
     profile: "minimal-direct",
     routingMode: "agent_chat",
     experimentalAgentChat: true,
   });
   await Deno.writeTextFile(
-    `${dir}/fusion-router.config.json`,
+    `${dir}/quorum-router.config.json`,
     JSON.stringify(config),
   );
   const output = await new Deno.Command(Deno.execPath(), {
@@ -3468,8 +3903,8 @@ Deno.test("doctor warns on generated agent_chat config while route still fails c
   assertEquals(modeCheck.severity, "warn");
   assertEquals(modeCheck.detail, "agent_chat from config; implemented=false");
 
-  const loaded = await loadFusionRouterConfig(
-    `${dir}/fusion-router.config.json`,
+  const loaded = await loadQuorumRouterConfig(
+    `${dir}/quorum-router.config.json`,
   );
   const adapter = new CountingAdapter();
   const router = buildRouter(adapter, staticOkSynthesis(), {
@@ -3489,7 +3924,7 @@ Deno.test("valid config direct loads and resolves as config source", async () =>
     "mode": "direct"
   }
 }`);
-  const config = await loadFusionRouterConfig(path);
+  const config = await loadQuorumRouterConfig(path);
   const adapter = new CountingAdapter();
   let envCalls = 0;
   const router = buildRouter(adapter, staticOkSynthesis(), {
@@ -3519,7 +3954,7 @@ Deno.test("valid config agent_chat loads and route fails closed before adapter e
     "mode": "agent_chat"
   }
 }`);
-  const config = await loadFusionRouterConfig(path);
+  const config = await loadQuorumRouterConfig(path);
   const adapter = new CountingAdapter();
   const router = buildRouter(adapter, staticOkSynthesis(), {
     routingMode: config.routingMode,
@@ -3550,7 +3985,7 @@ Deno.test("malformed config JSON fails closed with sanitized RouterError", async
 `);
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3570,7 +4005,7 @@ Deno.test("invalid config routing.mode string fails closed", async () => {
   }));
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3587,7 +4022,7 @@ Deno.test("empty config routing.mode string fails closed", async () => {
   const path = await writeConfigFile(JSON.stringify({ routing: { mode: "" } }));
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3601,7 +4036,7 @@ Deno.test("non-string config routing.mode fails closed", async () => {
   }));
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3613,7 +4048,7 @@ Deno.test("wrong config shape fails closed", async () => {
   const path = await writeConfigFile(JSON.stringify({ routingMode: "direct" }));
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3625,7 +4060,7 @@ Deno.test("request mode overrides loaded config mode", async () => {
   const path = await writeConfigFile(JSON.stringify({
     routing: { mode: "agent_chat" },
   }));
-  const config = await loadFusionRouterConfig(path);
+  const config = await loadQuorumRouterConfig(path);
   const adapter = new CountingAdapter();
   const router = buildRouter(adapter, staticOkSynthesis(), {
     routingMode: config.routingMode,
@@ -3647,7 +4082,7 @@ Deno.test("loaded config mode overrides env mode and does not read env", async (
   const path = await writeConfigFile(
     JSON.stringify({ routing: { mode: "direct" } }),
   );
-  const config = await loadFusionRouterConfig(path);
+  const config = await loadQuorumRouterConfig(path);
   const adapter = new CountingAdapter();
   let envCalls = 0;
   const router = buildRouter(adapter, staticOkSynthesis(), {
@@ -3698,7 +4133,7 @@ Deno.test("invalid loaded config fails before producing router input", async () 
   );
 
   const error = await assertRejects(
-    () => loadFusionRouterConfig(path),
+    () => loadQuorumRouterConfig(path),
     RouterError,
   );
 
@@ -3709,7 +4144,7 @@ Deno.test("agent_chat from loaded config does not call adapters", async () => {
   const path = await writeConfigFile(JSON.stringify({
     routing: { mode: "agent_chat" },
   }));
-  const config = await loadFusionRouterConfig(path);
+  const config = await loadQuorumRouterConfig(path);
   const adapter = new CountingAdapter();
   const router = buildRouter(adapter, staticOkSynthesis(), {
     routingMode: config.routingMode,
@@ -4133,7 +4568,7 @@ printf ''
       enabled: true,
     },
   ]);
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter,
     minSuccessfulAdapters: 1,
@@ -4172,7 +4607,7 @@ exit 1
     buildInvocation: () => ({ command: failingScript }),
   });
 
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [adapter],
     synthesisAdapter: new StaticSynthesisAdapter({
       synthesis: "unused",
@@ -4201,8 +4636,8 @@ exit 1
 Deno.test("process adapter failure diagnostics redact credentials", async () => {
   const leakFixture = ["leak", "fixture", "value"].join("-");
   const failingScript = await makeScript(`#!/usr/bin/env bash
-printf 'auth=%s\n' "$FUSION_ROUTER_TEST_AUTH"
->&2 printf 'credential=%s\n' "$FUSION_ROUTER_TEST_AUTH"
+printf 'auth=%s\n' "$QUORUM_ROUTER_TEST_AUTH"
+>&2 printf 'credential=%s\n' "$QUORUM_ROUTER_TEST_AUTH"
 exit 1
 `);
 
@@ -4222,7 +4657,7 @@ exit 1
       },
       buildInvocation: () => ({
         command: failingScript,
-        env: { FUSION_ROUTER_TEST_AUTH: leakFixture },
+        env: { QUORUM_ROUTER_TEST_AUTH: leakFixture },
       }),
     });
 
@@ -4239,7 +4674,7 @@ exit 1
   assertStringIncludes(processSurface, "[REDACTED]");
 
   const telemetryRecords: unknown[] = [];
-  const router = new FusionRouter({
+  const router = new QuorumRouter({
     modelAdapters: [makeLeakingAdapter()],
     synthesisAdapter: new StaticSynthesisAdapter({
       synthesis: "unused",
@@ -4267,14 +4702,14 @@ exit 1
 
 Deno.test("codex structured synthesis temp files are unique restrictive and cleaned after success", async () => {
   const captureDir = await Deno.makeTempDir({
-    prefix: "fusion-router-temp-capture-",
+    prefix: "quorum-router-temp-capture-",
   });
   const capturePath = `${captureDir}/paths.txt`;
   const command = await makeCodexStructuredFixtureScript();
   const adapter = new CodexStructuredSynthesisAdapter({
     command,
     auth: {
-      env: { FUSION_ROUTER_CAPTURE_PATH: capturePath },
+      env: { QUORUM_ROUTER_CAPTURE_PATH: capturePath },
       readinessCheck: { command, args: ["status"] },
     },
     defaultTimeoutMs: 5_000,
@@ -4305,8 +4740,8 @@ Deno.test("codex structured synthesis temp files are unique restrictive and clea
   assert(captures[0].outputPath !== captures[1].outputPath);
 
   for (const capture of captures) {
-    assertStringIncludes(capture.schemaPath, "fusion-router-codex-");
-    assertStringIncludes(capture.outputPath, "fusion-router-codex-");
+    assertStringIncludes(capture.schemaPath, "quorum-router-codex-");
+    assertStringIncludes(capture.outputPath, "quorum-router-codex-");
     if (capture.schemaMode) {
       assertEquals(capture.schemaMode, "600");
     }
@@ -4316,7 +4751,7 @@ Deno.test("codex structured synthesis temp files are unique restrictive and clea
 
 Deno.test("codex structured synthesis temp files are cleaned after adapter failure", async () => {
   const captureDir = await Deno.makeTempDir({
-    prefix: "fusion-router-temp-fail-",
+    prefix: "quorum-router-temp-fail-",
   });
   const capturePath = `${captureDir}/paths.txt`;
   const command = await makeCodexStructuredFixtureScript();
@@ -4324,8 +4759,8 @@ Deno.test("codex structured synthesis temp files are cleaned after adapter failu
     command,
     auth: {
       env: {
-        FUSION_ROUTER_CAPTURE_PATH: capturePath,
-        FUSION_ROUTER_FAIL_SYNTH: "1",
+        QUORUM_ROUTER_CAPTURE_PATH: capturePath,
+        QUORUM_ROUTER_FAIL_SYNTH: "1",
       },
       readinessCheck: { command, args: ["status"] },
     },
@@ -4385,7 +4820,7 @@ echo 'validated upstream output'
 });
 
 Deno.test("rate-limited adapter retries and succeeds", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-retry-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-retry-" });
   const counterPath = `${dir}/counter.txt`;
   await Deno.writeTextFile(counterPath, "0");
 
@@ -4434,7 +4869,7 @@ echo 'second attempt succeeded'
 });
 
 Deno.test("auth refresh and wrapper env plumbing run before invoke", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-auth-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-auth-" });
   const gatePath = `${dir}/gate.txt`;
 
   const readinessScript = await makeScript(`#!/usr/bin/env bash
@@ -4481,7 +4916,7 @@ echo "marker:$WRAPPER_MARKER"
 });
 
 Deno.test("circuit breaker opens after repeated failures", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-circuit-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-circuit-" });
   const counterPath = `${dir}/counter.txt`;
   await Deno.writeTextFile(counterPath, "0");
 
@@ -4544,7 +4979,7 @@ Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
 
   const sink = createOtlpHttpTelemetrySink({
     endpoint: `http://127.0.0.1:${port}/v1/logs`,
-    serviceName: "fusion-router-test",
+    serviceName: "quorum-router-test",
   });
 
   await sink({
@@ -4577,7 +5012,7 @@ Deno.test("OTLP telemetry sink posts telemetry payload", async () => {
   assertEquals(
     (resourceAttributes[0].value as Record<string, unknown>)
       .stringValue as string,
-    "fusion-router-test",
+    "quorum-router-test",
   );
   assertEquals(
     (logRecords[0].body as Record<string, unknown>).stringValue,
@@ -4604,7 +5039,7 @@ Deno.test("OTLP telemetry sink times out slow collectors", async () => {
 
   const sink = createOtlpHttpTelemetrySink({
     endpoint: `http://127.0.0.1:${port}/v1/logs`,
-    serviceName: "fusion-router-test",
+    serviceName: "quorum-router-test",
     timeoutMs: 5,
   });
 
@@ -4622,7 +5057,7 @@ Deno.test("OTLP telemetry sink times out slow collectors", async () => {
 Deno.test("OTLP telemetry sink redacts endpoint credentials in errors", async () => {
   const sink = createOtlpHttpTelemetrySink({
     endpoint: "http://telemetry-user:telemetry-pass@127.0.0.1:1/v1/logs",
-    serviceName: "fusion-router-test",
+    serviceName: "quorum-router-test",
     timeoutMs: 5,
   });
 
@@ -5447,14 +5882,14 @@ Deno.test("public compatibility barrel preserves core exports", async () => {
   const api = await import("./router.ts");
   for (
     const name of [
-      "FusionRouter",
+      "QuorumRouter",
       "RouterError",
       "ProcessExecutionError",
       "RoutingModeSchema",
       "parseRoutingMode",
       "resolveRoutingMode",
       "describeRoutingModeDecision",
-      "loadFusionRouterConfig",
+      "loadQuorumRouterConfig",
       "createProcessAdapter",
       "createCodexCliAdapter",
       "createClaudeCodeAdapter",
@@ -5571,12 +6006,12 @@ Deno.test("diagnostic redaction catches non-standard and encoded credentials", (
   assertStringIncludes(redacted, "mode direct retry after 1s code 4401 ok");
 });
 
-Deno.test("FusionRouter rejects invalid quorum values", () => {
+Deno.test("QuorumRouter rejects invalid quorum values", () => {
   const modelAdapter = new CountingAdapter();
   const synthesisAdapter = staticOkSynthesis();
   for (const value of [Number.NaN, 0, 1.5]) {
     try {
-      new FusionRouter({
+      new QuorumRouter({
         modelAdapters: [modelAdapter],
         synthesisAdapter,
         minSuccessfulAdapters: value,
@@ -5647,7 +6082,7 @@ Deno.test("doctor fails closed when Supabase service-role env is present", async
     args: doctorArgs(),
     clearEnv: true,
     env: isolatedDoctorEnv({
-      FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY: credentialFixture,
+      QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY: credentialFixture,
     }),
   }).output();
 
@@ -5655,7 +6090,7 @@ Deno.test("doctor fails closed when Supabase service-role env is present", async
     new TextDecoder().decode(output.stderr);
   assert(!output.success, text);
   assertStringIncludes(text, "supabase_service_role_absent");
-  assertStringIncludes(text, "FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY");
+  assertStringIncludes(text, "QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY");
   assert(!text.includes(credentialFixture));
 });
 
@@ -5696,7 +6131,7 @@ Deno.test("doctor treats unconfigured Supabase audit as informational", async ()
 });
 
 Deno.test("doctor reports absent config and default direct readiness", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "fusion-router-doctor-empty-" });
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-doctor-empty-" });
   const output = await new Deno.Command(Deno.execPath(), {
     args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
     cwd: dir,
@@ -5720,10 +6155,10 @@ Deno.test("doctor reports absent config and default direct readiness", async () 
 
 Deno.test("doctor reports valid config and config-over-env precedence without leaking env", async () => {
   const dir = await Deno.makeTempDir({
-    prefix: "fusion-router-doctor-config-",
+    prefix: "quorum-router-doctor-config-",
   });
   await Deno.writeTextFile(
-    `${dir}/fusion-router.config.json`,
+    `${dir}/quorum-router.config.json`,
     JSON.stringify({ routing: { mode: "direct" } }),
   );
   const hiddenEnvValue = "agent_chat";
@@ -5734,7 +6169,7 @@ Deno.test("doctor reports valid config and config-over-env precedence without le
     clearEnv: true,
     env: isolatedDoctorEnv({
       [ROUTING_MODE_ENV]: hiddenEnvValue,
-      FUSION_ROUTER_UNUSED_MARKER: unrelatedSecretEnvValue,
+      QUORUM_ROUTER_UNUSED_MARKER: unrelatedSecretEnvValue,
     }),
   }).output();
 
@@ -5754,6 +6189,32 @@ Deno.test("doctor reports valid config and config-over-env precedence without le
     "config routing.mode takes precedence",
   );
   assert(!text.includes(unrelatedSecretEnvValue));
+});
+
+Deno.test("doctor prefers canonical config file over deprecated legacy filename", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "quorum-router-config-order-" });
+  await Deno.writeTextFile(
+    `${dir}/quorum-router.config.json`,
+    JSON.stringify({ routing: { mode: "direct" } }),
+  );
+  await Deno.writeTextFile(
+    `${dir}/fusion-router.config.json`,
+    JSON.stringify({ routing: { mode: "agent_chat" } }),
+  );
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: doctorArgs(`${Deno.cwd()}/doctor.ts`),
+    cwd: dir,
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+  const text = new TextDecoder().decode(output.stdout) +
+    new TextDecoder().decode(output.stderr);
+  assert(output.success, text);
+  const report = JSON.parse(text);
+  const configCheck = report.checks.find((item: { name: string }) =>
+    item.name === "routing_config_file"
+  );
+  assertEquals(configCheck.detail, "valid: routing.mode=direct");
 });
 
 Deno.test("doctor fails closed on invalid env routing mode without raw value", async () => {
@@ -6246,48 +6707,61 @@ function assertNoExactTargetSha(text: string) {
   }
 }
 
-Deno.test("create-fusion-router package files and metadata are release-safe", async () => {
+Deno.test("create-quorum-router package files and metadata are release-safe", async () => {
   const requiredFiles = [
-    "packages/create-fusion-router/package.json",
-    "packages/create-fusion-router/bin/create-fusion-router.js",
-    "packages/create-fusion-router/README.md",
-    "packages/create-fusion-router/LICENSE",
-    "packages/create-fusion-router/templates/basic/gitignore",
-    "packages/create-fusion-router/templates/basic/README.md",
-    "packages/create-fusion-router/templates/basic/deno.json",
-    "packages/create-fusion-router/templates/basic/main.ts",
-    "packages/create-fusion-router/templates/basic/router.config.example.json",
-    "packages/create-fusion-router/templates/basic/src/cli.ts",
-    "packages/create-fusion-router/templates/basic/src/intake.ts",
-    "packages/create-fusion-router/templates/basic/src/auth.ts",
-    "packages/create-fusion-router/templates/basic/src/auth_oauth.ts",
-    "packages/create-fusion-router/templates/basic/src/auth_session.ts",
-    "packages/create-fusion-router/templates/basic/src/auth_env_fallback.ts",
-    "packages/create-fusion-router/templates/basic/src/provider_registry.ts",
-    "packages/create-fusion-router/templates/basic/src/model_inventory.ts",
-    "packages/create-fusion-router/templates/basic/src/wrapper_client.ts",
-    "packages/create-fusion-router/templates/basic/src/provider_client.ts",
-    "packages/create-fusion-router/templates/basic/src/best_route.ts",
-    "packages/create-fusion-router/templates/basic/src/agent_chat.ts",
-    "packages/create-fusion-router/templates/basic/src/context.ts",
-    "packages/create-fusion-router/templates/basic/src/trace.ts",
-    "packages/create-fusion-router/templates/basic/src/redact.ts",
-    "packages/create-fusion-router/templates/basic/src/schema.ts",
-    "packages/create-fusion-router/templates/basic/src/fixture_smoke.ts",
-    "packages/create-fusion-router/templates/basic/out/.gitkeep",
+    "packages/create-quorum-router/package.json",
+    "packages/create-quorum-router/bin/create-quorum-router.js",
+    "packages/create-quorum-router/README.md",
+    "packages/create-quorum-router/LICENSE",
+    "packages/create-quorum-router/templates/basic/gitignore",
+    "packages/create-quorum-router/templates/basic/README.md",
+    "packages/create-quorum-router/templates/basic/deno.json",
+    "packages/create-quorum-router/templates/basic/main.ts",
+    "packages/create-quorum-router/templates/basic/router.config.example.json",
+    "packages/create-quorum-router/templates/basic/src/cli.ts",
+    "packages/create-quorum-router/templates/basic/src/env.ts",
+    "packages/create-quorum-router/templates/basic/src/intake.ts",
+    "packages/create-quorum-router/templates/basic/src/auth.ts",
+    "packages/create-quorum-router/templates/basic/src/auth_oauth.ts",
+    "packages/create-quorum-router/templates/basic/src/auth_session.ts",
+    "packages/create-quorum-router/templates/basic/src/auth_env_fallback.ts",
+    "packages/create-quorum-router/templates/basic/src/provider_registry.ts",
+    "packages/create-quorum-router/templates/basic/src/model_inventory.ts",
+    "packages/create-quorum-router/templates/basic/src/wrapper_client.ts",
+    "packages/create-quorum-router/templates/basic/src/provider_client.ts",
+    "packages/create-quorum-router/templates/basic/src/best_route.ts",
+    "packages/create-quorum-router/templates/basic/src/agent_chat.ts",
+    "packages/create-quorum-router/templates/basic/src/context.ts",
+    "packages/create-quorum-router/templates/basic/src/trace.ts",
+    "packages/create-quorum-router/templates/basic/src/redact.ts",
+    "packages/create-quorum-router/templates/basic/src/schema.ts",
+    "packages/create-quorum-router/templates/basic/src/fixture_smoke.ts",
+    "packages/create-quorum-router/templates/basic/out/.gitkeep",
   ];
   for (const file of requiredFiles) {
     assert((await Deno.stat(file)).isFile, `${file} must exist`);
+    if (
+      file.includes("/templates/") || file.endsWith("create-quorum-router.js")
+    ) {
+      const text = await Deno.readTextFile(file);
+      const staleBranding = file.endsWith("/src/env.ts")
+        ? /(Fusion Router|fusion-router|create-fusion-router)/
+        : /(Fusion Router|fusion-router|create-fusion-router|FUSION_ROUTER)/;
+      assert(
+        !staleBranding.test(text),
+        `${file} must not emit stale public branding`,
+      );
+    }
   }
 
   const packageJson = await readJsonRecord(
-    "packages/create-fusion-router/package.json",
+    "packages/create-quorum-router/package.json",
   );
-  assertEquals(packageJson.name, "create-fusion-router");
+  assertEquals(packageJson.name, "create-quorum-router");
   assertEquals(packageJson.version, "0.1.4");
   assertEquals(packageJson.license, "SEE LICENSE IN LICENSE");
   const bin = packageJson.bin as Record<string, unknown>;
-  assertEquals(bin["create-fusion-router"], "bin/create-fusion-router.js");
+  assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
   const files = stringArray(packageJson.files);
   for (const entry of ["bin", "templates", "README.md", "LICENSE"]) {
     assert(files.includes(entry), `files must include ${entry}`);
@@ -6296,7 +6770,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   assertEquals(scripts?.postinstall, undefined);
 
   const templateDenoJson = await readJsonRecord(
-    "packages/create-fusion-router/templates/basic/deno.json",
+    "packages/create-quorum-router/templates/basic/deno.json",
   );
   const imports = templateDenoJson.imports as Record<string, unknown>;
   assertEquals(templateDenoJson.lock, false);
@@ -6335,19 +6809,19 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
   assert(!("external:once" in templateTasks));
   assert(!("external:matrix" in templateTasks));
   const templateCli = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/src/cli.ts",
+    "packages/create-quorum-router/templates/basic/src/cli.ts",
   );
   const templateBestRoute = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/src/best_route.ts",
+    "packages/create-quorum-router/templates/basic/src/best_route.ts",
   );
   const templateAgentChat = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/src/agent_chat.ts",
+    "packages/create-quorum-router/templates/basic/src/agent_chat.ts",
   );
   const templateSchema = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/src/schema.ts",
+    "packages/create-quorum-router/templates/basic/src/schema.ts",
   );
   const templateContext = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/src/context.ts",
+    "packages/create-quorum-router/templates/basic/src/context.ts",
   );
   assertStringIncludes(templateSchema, "RUN_EXTERNAL_MODEL_DOGFOOD");
   assertStringIncludes(templateSchema, "RUN_EXPERIMENTAL_AGENT_CHAT");
@@ -6355,7 +6829,7 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
     templateBestRoute,
     "OAuth/session-first provider unavailable",
   );
-  assertStringIncludes(templateCli, "FUSION_ROUTER_AUTH_MODE");
+  assertStringIncludes(templateCli, "QUORUM_ROUTER_AUTH_MODE");
   assertStringIncludes(templateBestRoute, "preparePromptWithContext");
   assertStringIncludes(templateAgentChat, "preparePromptWithContext");
   assertStringIncludes(templateContext, "prompt_truncated");
@@ -6370,19 +6844,19 @@ Deno.test("create-fusion-router package files and metadata are release-safe", as
 
 Deno.test("generated route prompt context fetches GitHub repository files safely", async () => {
   const { extractGitHubRepo, preparePromptWithContext } = await import(
-    "./packages/create-fusion-router/templates/basic/src/context.ts"
+    "./packages/create-quorum-router/templates/basic/src/context.ts"
   );
   const detected = extractGitHubRepo(
-    "https://github.com/sakamoto-sann/fusion-routerこれ のレビューをしてください",
+    "https://github.com/sakamoto-sann/quorum-routerこれ のレビューをしてください",
   );
   assertEquals(detected?.owner, "sakamoto-sann");
-  assertEquals(detected?.repo, "fusion-router");
+  assertEquals(detected?.repo, "quorum-router");
 
   const source = "export const meaning = 42;\n";
   const fetchFn = (async (input: string | URL | Request) => {
     const url = String(input);
     await Promise.resolve();
-    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+    if (url.endsWith("/repos/sakamoto-sann/quorum-router")) {
       return new Response(JSON.stringify({ default_branch: "main" }), {
         status: 200,
       });
@@ -6425,7 +6899,7 @@ Deno.test("generated route prompt context fetches GitHub repository files safely
       return new Response(
         JSON.stringify({
           encoding: "base64",
-          content: btoa("# Fusion Router\n"),
+          content: btoa("# QuorumRouter\n"),
         }),
         { status: 200 },
       );
@@ -6446,11 +6920,11 @@ Deno.test("generated route prompt context fetches GitHub repository files safely
   }) as typeof fetch;
 
   const prepared = await preparePromptWithContext(
-    "https://github.com/sakamoto-sann/fusion-routerこれ のレビューをしてください",
+    "https://github.com/sakamoto-sann/quorum-routerこれ のレビューをしてください",
     { fetchFn },
   );
   assert(prepared.context.prompt_has_context);
-  assertEquals(prepared.context.github_repo, "sakamoto-sann/fusion-router");
+  assertEquals(prepared.context.github_repo, "sakamoto-sann/quorum-router");
   assertEquals(prepared.context.files_included, [
     "README.md",
     "src/empty.ts",
@@ -6463,13 +6937,13 @@ Deno.test("generated route prompt context fetches GitHub repository files safely
 
 Deno.test("generated prompt context skips oversized candidates and preserves context after long user prompt", async () => {
   const { preparePromptWithContext } = await import(
-    "./packages/create-fusion-router/templates/basic/src/context.ts"
+    "./packages/create-quorum-router/templates/basic/src/context.ts"
   );
   const largeText = "a".repeat(24_000);
   const fetchFn = (async (input: string | URL | Request) => {
     const url = String(input);
     await Promise.resolve();
-    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+    if (url.endsWith("/repos/sakamoto-sann/quorum-router")) {
       return new Response(JSON.stringify({ default_branch: "main" }), {
         status: 200,
       });
@@ -6518,7 +6992,7 @@ Deno.test("generated prompt context skips oversized candidates and preserves con
   }) as typeof fetch;
 
   const prepared = await preparePromptWithContext(
-    `${"x".repeat(70_000)} https://github.com/sakamoto-sann/fusion-router`,
+    `${"x".repeat(70_000)} https://github.com/sakamoto-sann/quorum-router`,
     { fetchFn },
   );
   assert(prepared.context.prompt_has_context);
@@ -6531,11 +7005,11 @@ Deno.test("generated prompt context skips oversized candidates and preserves con
 
 Deno.test("generated prompt context falls back and traces truncation", async () => {
   const { preparePromptWithContext } = await import(
-    "./packages/create-fusion-router/templates/basic/src/context.ts"
+    "./packages/create-quorum-router/templates/basic/src/context.ts"
   );
   const longPrompt = `${
     "x".repeat(61_000)
-  } https://github.com/sakamoto-sann/fusion-router`;
+  } https://github.com/sakamoto-sann/quorum-router`;
   const prepared = await preparePromptWithContext(longPrompt, {
     fetchFn: (async () => {
       await Promise.resolve();
@@ -6550,7 +7024,7 @@ Deno.test("generated prompt context falls back and traces truncation", async () 
 
 Deno.test("generated prompt context rejects off-host blob URLs and oversized blobs", async () => {
   const { assertGitHubApiUrl, preparePromptWithContext } = await import(
-    "./packages/create-fusion-router/templates/basic/src/context.ts"
+    "./packages/create-quorum-router/templates/basic/src/context.ts"
   );
 
   let threw = false;
@@ -6579,7 +7053,7 @@ Deno.test("generated prompt context rejects off-host blob URLs and oversized blo
     const url = String(input);
     requested.push(url);
     await Promise.resolve();
-    if (url.endsWith("/repos/sakamoto-sann/fusion-router")) {
+    if (url.endsWith("/repos/sakamoto-sann/quorum-router")) {
       return new Response(JSON.stringify({ default_branch: "main" }), {
         status: 200,
       });
@@ -6631,7 +7105,7 @@ Deno.test("generated prompt context rejects off-host blob URLs and oversized blo
   }) as typeof fetch;
 
   const prepared = await preparePromptWithContext(
-    "https://github.com/sakamoto-sann/fusion-router review",
+    "https://github.com/sakamoto-sann/quorum-router review",
     { fetchFn },
   );
   assert(prepared.context.prompt_has_context);
@@ -6650,7 +7124,7 @@ function normalizeNpmPackResult(raw: unknown): NpmPackResult {
   const packed = Array.isArray(raw)
     ? raw[0]
     : raw && typeof raw === "object"
-    ? (raw as Record<string, unknown>)["create-fusion-router"]
+    ? (raw as Record<string, unknown>)["create-quorum-router"]
     : undefined;
   assert(
     packed && typeof packed === "object" &&
@@ -6664,7 +7138,7 @@ Deno.test("npm pack JSON normalization accepts npm 10 and npm 11 shapes", () => 
   const packed: NpmPackResult = { files: [{ path: "package.json" }] };
   assertEquals(normalizeNpmPackResult([packed]), packed);
   assertEquals(
-    normalizeNpmPackResult({ "create-fusion-router": packed }),
+    normalizeNpmPackResult({ "create-quorum-router": packed }),
     packed,
   );
   assertThrows(
@@ -6674,20 +7148,21 @@ Deno.test("npm pack JSON normalization accepts npm 10 and npm 11 shapes", () => 
   );
 });
 
-Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
+Deno.test("create-quorum-router npm tarball contents are constrained", async () => {
   const npmProbe = await new Deno.Command("npm", {
     args: ["--version"],
     stdout: "null",
     stderr: "null",
   }).output();
   if (npmProbe.code !== 0) {
-    console.warn("skipping create-fusion-router tarball test: npm not found");
+    console.warn("skipping create-quorum-router tarball test: npm not found");
     return;
   }
 
   const pack = await new Deno.Command("npm", {
     args: ["pack", "--dry-run", "--json"],
-    cwd: "packages/create-fusion-router",
+    cwd: "packages/create-quorum-router",
+    env: { NPM_CONFIG_CACHE: await Deno.makeTempDir() },
     stdout: "piped",
     stderr: "piped",
   }).output();
@@ -6698,7 +7173,7 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
   assertEquals(actual, [
     "LICENSE",
     "README.md",
-    "bin/create-fusion-router.js",
+    "bin/create-quorum-router.js",
     "package.json",
     "templates/basic/README.md",
     "templates/basic/deno.json",
@@ -6714,6 +7189,7 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
     "templates/basic/src/best_route.ts",
     "templates/basic/src/cli.ts",
     "templates/basic/src/context.ts",
+    "templates/basic/src/env.ts",
     "templates/basic/src/fixture_smoke.ts",
     "templates/basic/src/intake.ts",
     "templates/basic/src/model_inventory.ts",
@@ -6726,9 +7202,9 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
   ]);
 });
 
-Deno.test("create-fusion-router docs state license and runtime boundaries", async () => {
+Deno.test("create-quorum-router docs state license and runtime boundaries", async () => {
   const packageReadme = await Deno.readTextFile(
-    "packages/create-fusion-router/README.md",
+    "packages/create-quorum-router/README.md",
   );
   const normalizedPackageReadme = packageReadme.replace(/\s+/g, " ");
   assertStringIncludes(
@@ -6742,7 +7218,7 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   );
 
   const templateReadme = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/README.md",
+    "packages/create-quorum-router/templates/basic/README.md",
   );
   assertStringIncludes(templateReadme, "Non-commercial evaluation only");
   assertStringIncludes(templateReadme, "No service-role runtime");
@@ -6768,15 +7244,15 @@ Deno.test("create-fusion-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "OAuth/session/wrapper-first");
   assertStringIncludes(templateReadme, "private/manual only");
   assertStringIncludes(templateReadme, "fails closed");
-  assertStringIncludes(templateReadme, "FUSION_ROUTER_AUTH_MODE=env");
+  assertStringIncludes(templateReadme, "QUORUM_ROUTER_AUTH_MODE=env");
   assert(!templateReadme.includes("external:check"));
   assert(!templateReadme.includes("external:once"));
   assert(!templateReadme.includes("external:matrix"));
 });
 
-Deno.test("create-fusion-router CLI is static safe and functional", async () => {
+Deno.test("create-quorum-router CLI is static safe and functional", async () => {
   const cli =
-    `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;
+    `${Deno.cwd()}/packages/create-quorum-router/bin/create-quorum-router.js`;
   const cliText = await Deno.readTextFile(cli);
   assert(cliText.startsWith("#!/usr/bin/env node"));
   assertStringIncludes(cliText, "--help");
@@ -6795,7 +7271,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
   }).output();
   if (nodeProbe.code !== 0) {
     console.warn(
-      "skipping create-fusion-router functional test: node not found",
+      "skipping create-quorum-router functional test: node not found",
     );
     return;
   }
@@ -6860,7 +7336,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     for (
       const ignored of [
         ".env",
-        ".fusion-router/",
+        ".quorum-router/",
         "router.config.local.json",
         "provider_config.json",
         "out/",
@@ -6869,7 +7345,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
       assertStringIncludes(generatedGitignore, ignored);
     }
     await assertRejects(() => Deno.stat(`${tempDir}/demo/.env`));
-    await assertRejects(() => Deno.stat(`${tempDir}/demo/.fusion-router`));
+    await assertRejects(() => Deno.stat(`${tempDir}/demo/.quorum-router`));
 
     const generatedDenoJson = JSON.parse(
       await Deno.readTextFile(`${tempDir}/demo/deno.json`),
@@ -6922,7 +7398,7 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
     const intakeOutput = new TextDecoder().decode(intake.stdout) +
       new TextDecoder().decode(intake.stderr);
     assertEquals(intake.code, 0, intakeOutput);
-    assertStringIncludes(intakeOutput, "Fusion Router intake");
+    assertStringIncludes(intakeOutput, "QuorumRouter intake");
     assertStringIncludes(intakeOutput, "Provider request sent: false");
     assertStringIncludes(intakeOutput, "Credential values printed: false");
     assertStringIncludes(intakeOutput, "deno task auth:login");
@@ -7082,10 +7558,10 @@ Deno.test("create-fusion-router CLI is static safe and functional", async () => 
 
 Deno.test("generated demo documents fixture-only smoke and external dogfood gate", async () => {
   const readme = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/README.md",
+    "packages/create-quorum-router/templates/basic/README.md",
   );
   const main = await Deno.readTextFile(
-    "packages/create-fusion-router/templates/basic/main.ts",
+    "packages/create-quorum-router/templates/basic/main.ts",
   );
   const normalizedReadme = readme.replace(/\s+/g, " ");
   assertStringIncludes(
@@ -7109,12 +7585,12 @@ Deno.test("generated demo documents fixture-only smoke and external dogfood gate
   assertStringIncludes(normalizedReadme, "best-route");
   assertStringIncludes(normalizedReadme, "agent-chat");
   assertStringIncludes(normalizedReadme, "OAuth/session/wrapper-first");
-  assertStringIncludes(normalizedReadme, "FUSION_ROUTER_AUTH_MODE=env");
+  assertStringIncludes(normalizedReadme, "QUORUM_ROUTER_AUTH_MODE=env");
 });
 
 Deno.test("generated scaffold redaction guard rejects redaction-pattern leaks", async () => {
   const redactModule = await import(
-    `./packages/create-fusion-router/templates/basic/src/redact.ts?${Date.now()}`
+    `./packages/create-quorum-router/templates/basic/src/redact.ts?${Date.now()}`
   ) as { redactionOk(value: unknown): boolean; redact(text: string): string };
   const fixtureAuthHeader = ["Authorization", "Bearer", "redaction-fixture"]
     .join(" ");
@@ -7130,7 +7606,7 @@ Deno.test("generated scaffold redaction guard rejects redaction-pattern leaks", 
 
 Deno.test("generated route:once honors forced Grok provider/model and rejects noisy wrapper output", async () => {
   const cli =
-    `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;
+    `${Deno.cwd()}/packages/create-quorum-router/bin/create-quorum-router.js`;
   const tempDir = await Deno.makeTempDir();
   try {
     const create = await new Deno.Command("node", {
@@ -7214,7 +7690,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       HOME: tempDir,
       TMPDIR: tempDir,
       RUN_EXTERNAL_MODEL_DOGFOOD: "1",
-      FUSION_ROUTER_AUTH_MODE: "wrapper",
+      QUORUM_ROUTER_AUTH_MODE: "wrapper",
     };
 
     await Deno.remove(`${tempDir}/grok-args.txt`).catch(() => {});
@@ -7285,8 +7761,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         clearEnv: true,
         env: {
           ...baseEnv,
-          FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-          FUSION_ROUTER_PROVIDER_MODEL: requestedModel,
+          QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+          QUORUM_ROUTER_PROVIDER_MODEL: requestedModel,
         },
         stdout: "piped",
         stderr: "piped",
@@ -7337,8 +7813,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       env: {
         ...baseEnv,
         RUN_EXPERIMENTAL_AGENT_CHAT: "1",
-        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-        FUSION_ROUTER_PROVIDER_MODEL: "grok-composer-2.5-fast",
+        QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+        QUORUM_ROUTER_PROVIDER_MODEL: "grok-composer-2.5-fast",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7365,8 +7841,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+        QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+        QUORUM_ROUTER_PROVIDER_MODEL: "grok-build",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7386,8 +7862,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+        QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+        QUORUM_ROUTER_PROVIDER_MODEL: "grok-build",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7407,8 +7883,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "oauth_session",
-        FUSION_ROUTER_PROVIDER_MODEL: "grok-build",
+        QUORUM_ROUTER_PROVIDER_LABEL: "oauth_session",
+        QUORUM_ROUTER_PROVIDER_MODEL: "grok-build",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7433,8 +7909,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-        FUSION_ROUTER_PROVIDER_MODEL: "not-a-real-grok-model",
+        QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+        QUORUM_ROUTER_PROVIDER_MODEL: "not-a-real-grok-model",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7454,10 +7930,10 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "env-only-fixture",
-        FUSION_ROUTER_PROVIDER_MODEL: "env-only-model",
-        FUSION_ROUTER_PROVIDER_BASE_URL: "http://127.0.0.1:9/v1",
-        ["FUSION_ROUTER_PROVIDER_" + "API_KEY"]: "credential-fixture-value",
+        QUORUM_ROUTER_PROVIDER_LABEL: "env-only-fixture",
+        QUORUM_ROUTER_PROVIDER_MODEL: "env-only-model",
+        QUORUM_ROUTER_PROVIDER_BASE_URL: "http://127.0.0.1:9/v1",
+        ["QUORUM_ROUTER_PROVIDER_" + "API_KEY"]: "credential-fixture-value",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7478,8 +7954,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       clearEnv: true,
       env: {
         ...baseEnv,
-        FUSION_ROUTER_PROVIDER_LABEL: "codex-cli",
-        FUSION_ROUTER_PROVIDER_MODEL: "codex-cli",
+        QUORUM_ROUTER_PROVIDER_LABEL: "codex-cli",
+        QUORUM_ROUTER_PROVIDER_MODEL: "codex-cli",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7496,7 +7972,7 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
 
 Deno.test("generated scaffold writes redacted trace with explicit env fallback mock provider", async () => {
   const cli =
-    `${Deno.cwd()}/packages/create-fusion-router/bin/create-fusion-router.js`;
+    `${Deno.cwd()}/packages/create-quorum-router/bin/create-quorum-router.js`;
   const tempDir = await Deno.makeTempDir();
   const abort = new AbortController();
   const server = Deno.serve({
@@ -7529,7 +8005,7 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
     const port = (server.addr as Deno.NetAddr).port;
     const fixtureCredential = "credential-fixture-value";
     const genericProviderCredentialEnv = [
-      "FUSION",
+      "QUORUM",
       "ROUTER",
       "PROVIDER",
       "API",
@@ -7540,11 +8016,11 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
       cwd: `${tempDir}/demo`,
       env: {
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
-        FUSION_ROUTER_AUTH_MODE: "env",
-        FUSION_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
+        QUORUM_ROUTER_AUTH_MODE: "env",
+        QUORUM_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
         [genericProviderCredentialEnv]: fixtureCredential,
-        FUSION_ROUTER_PROVIDER_MODEL: "mock-external-model",
-        FUSION_ROUTER_PROVIDER_LABEL: "Mock OpenAI-compatible",
+        QUORUM_ROUTER_PROVIDER_MODEL: "mock-external-model",
+        QUORUM_ROUTER_PROVIDER_LABEL: "Mock OpenAI-compatible",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7570,11 +8046,11 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
       cwd: `${tempDir}/demo`,
       env: {
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
-        FUSION_ROUTER_AUTH_MODE: "env",
-        FUSION_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
+        QUORUM_ROUTER_AUTH_MODE: "env",
+        QUORUM_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
         [genericProviderCredentialEnv]: fixtureCredential,
-        FUSION_ROUTER_PROVIDER_MODEL: "mock-external-model",
-        FUSION_ROUTER_PROVIDER_LABEL: "Mock OpenAI-compatible",
+        QUORUM_ROUTER_PROVIDER_MODEL: "mock-external-model",
+        QUORUM_ROUTER_PROVIDER_LABEL: "Mock OpenAI-compatible",
       },
       stdout: "piped",
       stderr: "piped",
@@ -7607,7 +8083,7 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
         "  printf '* fake-grok\\n'",
         "  exit 0",
         "fi",
-        "printf 'wrapper credential visibility: %s\\n' \"${FUSION_ROUTER_PROVIDER_API_KEY:-missing}\"",
+        `printf 'wrapper credential visibility: %s\\n' \"\${${genericProviderCredentialEnv}:-missing}\"`,
       ].join("\n") + "\n",
       { mode: 0o700 },
     );
@@ -7620,8 +8096,8 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
         PATH: `${fakeBin}:${Deno.env.get("PATH") ?? ""}`,
         HOME: tempDir,
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
-        FUSION_ROUTER_AUTH_MODE: "session",
-        FUSION_ROUTER_WRAPPER_PROVIDER_LABEL: "xAI",
+        QUORUM_ROUTER_AUTH_MODE: "session",
+        QUORUM_ROUTER_WRAPPER_PROVIDER_LABEL: "xAI",
         [genericProviderCredentialEnv]: wrapperCredential,
       },
       stdout: "piped",
@@ -7665,7 +8141,7 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
     }).output();
     assertEquals(dryRun.code, 0, new TextDecoder().decode(dryRun.stderr));
     assertStringIncludes(new TextDecoder().decode(dryRun.stdout), "dry-run");
-    await assertRejects(() => Deno.stat(`${tempDir}/share/fusion-router`));
+    await assertRejects(() => Deno.stat(`${tempDir}/share/quorum-router`));
   } finally {
     await Deno.remove(tempDir, { recursive: true });
   }
@@ -7678,12 +8154,20 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
     const normalized = doc.replace(/\s+/g, " ");
     assertStringIncludes(normalized, "Source-Available Non-Commercial");
     assertStringIncludes(normalized, "not open source");
-    assertStringIncludes(normalized, "No production autonomous runtime");
     assertStringIncludes(normalized, "No service-role runtime");
     assertStringIncludes(normalized, "No live Supabase");
     assert(!/is open source/i.test(normalized));
   }
-  assertStringIncludes(installDocs, "npx --yes create-fusion-router@latest");
+  assertStringIncludes(
+    installDocs,
+    "Production autonomous repository execution",
+  );
+  assertStringIncludes(
+    productHunt,
+    "real integration smoke now passes",
+  );
+  assertStringIncludes(productHunt, "sole policy, approval, execution");
+  assertStringIncludes(installDocs, "npx --yes create-quorum-router@latest");
   assertStringIncludes(installDocs, "--dry-run");
   assertStringIncludes(installDocs, "Uninstall");
   assertStringIncludes(productHunt, "Maker comment draft");
@@ -7696,7 +8180,7 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
 Deno.test("README and v0.1.2 docs expose install paths without hardcoded target SHA", async () => {
   const readme = await Deno.readTextFile("README.md");
   const normalizedMainReadme = readme.replace(/\s+/g, " ");
-  assertStringIncludes(readme, "npx --yes create-fusion-router@latest");
+  assertStringIncludes(readme, "npx --yes create-quorum-router@latest");
   assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
   assertStringIncludes(readme, "Source-Available Non-Commercial");
   assertStringIncludes(normalizedMainReadme, "not an open source license");

@@ -6,8 +6,8 @@ import {
 import type { ProviderDescriptor } from "../schemas.ts";
 import type { SetupCommanderConfig } from "./setup-schema.ts";
 import {
-  type GeneratedFusionRouterConfig,
-  GeneratedFusionRouterConfigSchema,
+  type GeneratedQuorumRouterConfig,
+  GeneratedQuorumRouterConfigSchema,
   type NormalizedSetupWizardInput,
   type SetupProfileName,
   SetupProfileNameSchema,
@@ -17,7 +17,7 @@ import {
   SetupWizardInputSchema,
 } from "./setup-schema.ts";
 
-const DEFAULT_CONFIG_PATH = "fusion-router.config.json";
+const DEFAULT_CONFIG_PATH = "quorum-router.config.json";
 
 const NON_GOALS = [
   "no production autonomous agent_chat runtime",
@@ -491,12 +491,12 @@ function envPlaceholdersFor(input: NormalizedSetupWizardInput): string[] {
     placeholders.add("OTEL_EXPORTER_OTLP_ENDPOINT=");
   }
   if (input.persistence.mode === "supabaseAuditRpc") {
-    placeholders.add("FUSION_ROUTER_SUPABASE_URL=");
-    placeholders.add("FUSION_ROUTER_SUPABASE_ANON_KEY=");
-    placeholders.add("FUSION_ROUTER_SUPABASE_SESSION_JWT=");
+    placeholders.add("QUORUM_ROUTER_SUPABASE_URL=");
+    placeholders.add("QUORUM_ROUTER_SUPABASE_ANON_KEY=");
+    placeholders.add("QUORUM_ROUTER_SUPABASE_SESSION_JWT=");
   }
   if (input.adaptiveDirect.budgetLimitUsd !== undefined) {
-    placeholders.add("FUSION_ROUTER_BUDGET_LIMIT_USD=");
+    placeholders.add("QUORUM_ROUTER_BUDGET_LIMIT_USD=");
   }
   return [...placeholders].sort();
 }
@@ -544,7 +544,7 @@ function doctorExpectationsFor(input: NormalizedSetupWizardInput): string[] {
 
 function buildConfig(
   input: NormalizedSetupWizardInput,
-): GeneratedFusionRouterConfig {
+): GeneratedQuorumRouterConfig {
   const config = {
     profile: input.profile,
     routing: { mode: input.routingMode },
@@ -556,18 +556,18 @@ function buildConfig(
     agentRuntime: input.agentRuntime,
     commander: input.commander,
     setup: {
-      generatedBy: "fusion-router setup" as const,
+      generatedBy: "quorum-router setup" as const,
       warnings: warningsFor(input),
       nonGoals: NON_GOALS,
     },
   };
 
-  return GeneratedFusionRouterConfigSchema.parse(config);
+  return GeneratedQuorumRouterConfigSchema.parse(config);
 }
 
-export function generateFusionRouterConfig(
+export function generateQuorumRouterConfig(
   input: SetupWizardInput = {},
-): GeneratedFusionRouterConfig {
+): GeneratedQuorumRouterConfig {
   const normalized = normalizeInput(input);
   assertAgentChatExplicit(normalized);
   assertProviderCombinations(normalized);
@@ -575,11 +575,17 @@ export function generateFusionRouterConfig(
   return buildConfig(normalized);
 }
 
-export function stringifyGeneratedFusionRouterConfig(
-  config: GeneratedFusionRouterConfig,
+export function stringifyGeneratedQuorumRouterConfig(
+  config: GeneratedQuorumRouterConfig,
 ): string {
   return `${JSON.stringify(config, null, 2)}\n`;
 }
+
+/** @deprecated Use generateQuorumRouterConfig. */
+export const generateFusionRouterConfig = generateQuorumRouterConfig;
+/** @deprecated Use stringifyGeneratedQuorumRouterConfig. */
+export const stringifyGeneratedFusionRouterConfig =
+  stringifyGeneratedQuorumRouterConfig;
 
 export function generateEnvExample(input: SetupWizardInput = {}): string {
   const normalized = normalizeInput(input);
@@ -588,9 +594,9 @@ export function generateEnvExample(input: SetupWizardInput = {}): string {
   assertCommanderCombination(normalized);
   const placeholders = envPlaceholdersFor(normalized);
   const lines = [
-    "# fusion-router setup placeholders",
+    "# quorum-router setup placeholders",
     "# Fill these in your shell, deployment environment, or secret manager.",
-    "# Do not put raw secrets in fusion-router.config.json.",
+    "# Do not put raw secrets in quorum-router.config.json.",
     "# Supabase service-role credentials are admin/migration-only and must never be present at runtime.",
     ...placeholders,
   ];

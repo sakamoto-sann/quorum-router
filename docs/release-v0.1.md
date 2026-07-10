@@ -1,13 +1,13 @@
-# Fusion Router v0.1.1 Experimental AgentRuntime Release
+# QuorumRouter v0.1.1 Experimental AgentRuntime Release
 
-v0.1.1 is the first real AgentRuntime threshold for Fusion Router. It builds on
+v0.1.1 is the first real AgentRuntime threshold for QuorumRouter. It builds on
 the earlier v0.1 Safe Direct Router baseline without silently retargeting the
 existing v0.1.0 tag/release. Direct remains the production-ready best-answer
 routing path; `agent_chat` becomes an **explicit opt-in experimental runtime**.
 
 ## What v0.1.1 includes
 
-- Default-compatible `FusionRouter` direct routing with fixture-friendly adapter
+- Default-compatible `QuorumRouter` direct routing with fixture-friendly adapter
   and synthesis contracts.
 - Provider-native direct HTTP adapter surfaces for OpenAI and Anthropic, with
   injectable fetch boundaries for tests/examples.
@@ -88,7 +88,7 @@ The route runs only when:
 
 1. `routingMode` resolves to `agent_chat`;
 2. route options include `experimentalAgentRuntime: true`;
-3. `FusionRouterOptions.agentRuntime` exists;
+3. `QuorumRouterOptions.agentRuntime` exists;
 4. `agentRuntime.enabled === true`;
 5. `agentRuntime.experimental === true`;
 6. all required role bindings are present exactly once.
@@ -190,7 +190,7 @@ two jobs:
 
 - `deno-checks`: runs `deno task lock:check`, `deno task check`,
   `deno task lint`, `deno fmt --check`, `deno task test`, `deno task doctor`,
-  and `deno task smoke:v0.1` under Deno only. create-fusion-router tarball
+  and `deno task smoke:v0.1` under Deno only. create-quorum-router tarball
   whitelist coverage lives in `deno task test` (and release `publish.yml`).
 - `optional-secret-scan`: installs gitleaks, checks out full git history, and
   runs `gitleaks git --redact --no-banner`. The job id stays

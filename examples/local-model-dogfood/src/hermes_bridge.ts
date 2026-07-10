@@ -5,6 +5,7 @@ import {
 import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
 import { parseAuthMode, type ProviderResult } from "./schema.ts";
 import { score } from "./trace.ts";
+import { readRouterEnv } from "./env.ts";
 
 type BridgeRequest = {
   operation: "health" | "route_once" | "best_route";
@@ -37,7 +38,7 @@ async function readRequest(): Promise<BridgeRequest> {
   for await (const chunk of Deno.stdin.readable) {
     totalBytes += chunk.byteLength;
     if (totalBytes > MAX_INPUT_BYTES) {
-      throw new Error("fusion-router Hermes bridge input exceeds 120000 bytes");
+      throw new Error("quorum-router Hermes bridge input exceeds 120000 bytes");
     }
     chunks.push(chunk);
   }
@@ -52,10 +53,10 @@ async function readRequest(): Promise<BridgeRequest> {
   if (
     !["health", "route_once", "best_route"].includes(parsed.operation ?? "")
   ) {
-    throw new Error("fusion-router Hermes bridge operation is invalid");
+    throw new Error("quorum-router Hermes bridge operation is invalid");
   }
   if (parsed.operation !== "health" && !parsed.prompt?.trim()) {
-    throw new Error("fusion-router Hermes bridge prompt is required");
+    throw new Error("quorum-router Hermes bridge prompt is required");
   }
   return parsed as BridgeRequest;
 }
@@ -63,14 +64,14 @@ async function readRequest(): Promise<BridgeRequest> {
 function selectedResult(results: ProviderResult[]): ProviderResult {
   const ranked = results.map((result) => ({ result, row: score(result) }))
     .sort((a, b) => b.row.final_score - a.row.final_score);
-  if (!ranked[0]) throw new Error("fusion-router returned no provider result");
+  if (!ranked[0]) throw new Error("quorum-router returned no provider result");
   return ranked[0].result;
 }
 
 async function main(): Promise<void> {
   const request = await readRequest();
   if (request.operation === "health") {
-    const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
+    const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
     const inventory = await discoverInventoryWithModelListing(authMode);
     const providers = inventory.entries.map((entry) => ({
       provider: entry.provider,

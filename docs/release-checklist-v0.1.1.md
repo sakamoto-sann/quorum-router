@@ -8,7 +8,7 @@
 
 ## License
 
-- [ ] LICENSE title is `Fusion Router Source-Available Non-Commercial License`
+- [ ] LICENSE title is `QuorumRouter Source-Available Non-Commercial License`
 - [ ] README says this is not an open source license
 - [ ] MIT wording remains only as historical replacement note
 - [ ] No project-level “open source” description remains

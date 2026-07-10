@@ -1,6 +1,6 @@
 # Dev dogfood bug taxonomy
 
-Use this taxonomy for failures found while dogfooding Fusion Router on real
+Use this taxonomy for failures found while dogfooding QuorumRouter on real
 development tasks.
 
 ## P0 — launch blocker / stop immediately

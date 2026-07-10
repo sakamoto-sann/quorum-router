@@ -15,8 +15,8 @@ permissions:
   id-token: write
 
 jobs:
-  publish-create-fusion-router:
-    name: publish-create-fusion-router
+  publish-create-quorum-router:
+    name: publish-create-quorum-router
     runs-on: ubuntu-latest
     steps:
       - name: Resolve release ref
@@ -60,11 +60,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd packages/create-fusion-router
+          cd packages/create-quorum-router
           node -e '
             const pkg = require("./package.json");
             const expectedVersion = process.env.EXPECTED_VERSION;
-            if (pkg.name !== "create-fusion-router") {
+            if (pkg.name !== "create-quorum-router") {
               throw new Error(`unexpected package name: ${pkg.name}`);
             }
             if (pkg.version !== expectedVersion) {
@@ -73,7 +73,7 @@ jobs:
             if (pkg.license !== "SEE LICENSE IN LICENSE") {
               throw new Error(`unexpected license: ${pkg.license}`);
             }
-            if (!pkg.bin || pkg.bin["create-fusion-router"] !== "bin/create-fusion-router.js") {
+            if (!pkg.bin || pkg.bin["create-quorum-router"] !== "bin/create-quorum-router.js") {
               throw new Error("unexpected bin mapping");
             }
           '
@@ -85,9 +85,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd packages/create-fusion-router
-          if npm view "create-fusion-router@${EXPECTED_VERSION}" version >/dev/null 2>&1; then
-            echo "create-fusion-router@${EXPECTED_VERSION} is already published; refusing to republish" >&2
+          cd packages/create-quorum-router
+          if npm view "create-quorum-router@${EXPECTED_VERSION}" version >/dev/null 2>&1; then
+            echo "create-quorum-router@${EXPECTED_VERSION} is already published; refusing to republish" >&2
             exit 1
           fi
         env:
@@ -98,12 +98,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd packages/create-fusion-router
-          npm pack --json > /tmp/create-fusion-router-pack.json
+          cd packages/create-quorum-router
+          npm pack --json > /tmp/create-quorum-router-pack.json
           node - <<'NODE'
           const fs = require('fs');
-          const raw = JSON.parse(fs.readFileSync('/tmp/create-fusion-router-pack.json', 'utf8'));
-          const packed = Array.isArray(raw) ? raw[0] : raw?.['create-fusion-router'];
+          const raw = JSON.parse(fs.readFileSync('/tmp/create-quorum-router-pack.json', 'utf8'));
+          const packed = Array.isArray(raw) ? raw[0] : raw?.['create-quorum-router'];
           if (!packed?.files || !packed?.filename) {
             console.error('Unexpected npm pack JSON:', JSON.stringify(raw));
             process.exit(1);
@@ -112,7 +112,7 @@ jobs:
           const expected = [
             'LICENSE',
             'README.md',
-            'bin/create-fusion-router.js',
+            'bin/create-quorum-router.js',
             'package.json',
             'templates/basic/README.md',
             'templates/basic/deno.json',
@@ -158,9 +158,9 @@ jobs:
       - name: Upgrade npm for OIDC trusted publishing
         run: npm install -g npm@11.16.0
 
-      - name: Publish create-fusion-router
+      - name: Publish create-quorum-router
         shell: bash
         run: |
           set -euo pipefail
-          cd packages/create-fusion-router
+          cd packages/create-quorum-router
           npm publish "./${{ steps.package_tarball.outputs.filename }}" --access public --provenance

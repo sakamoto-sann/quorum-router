@@ -10,6 +10,14 @@ import type {
   AgentBusMessage,
   AgentBusStore,
 } from "../agent-chat/bus/types.ts";
+import type { ActionProposal } from "./execution.ts";
+import type { ActionRunner } from "./repo-action-runner.ts";
+import type {
+  SafeLoopApprovalResolver,
+  SafeLoopArtifact,
+  SafeLoopClient,
+  SafeLoopExecutionReceipt,
+} from "../safeloop/types.ts";
 
 export const AGENT_RUNTIME_ROLES = Object.freeze(
   [
@@ -34,6 +42,7 @@ export type AgentRuntimeLimits = {
   maxDurationMs: number;
   maxBudgetUsd?: number;
   maxPromptChars: number;
+  maxRounds: number;
 };
 
 export type AgentRuntimeBusIds = {
@@ -44,13 +53,29 @@ export type AgentRuntimeBusIds = {
 
 export type AgentRuntimeConfig = {
   enabled: boolean;
-  experimental: boolean;
+  experimental?: boolean;
   bus: AgentBusStore;
   commander: CommanderConfig;
   roles: AgentRuntimeRoleBinding[];
   limits?: Partial<AgentRuntimeLimits>;
   busIds?: Partial<AgentRuntimeBusIds> & {
     roleAgentIds?: Partial<Record<AgentRuntimeRole, string>>;
+  };
+  execution?: {
+    safeloop: SafeLoopClient;
+    repo: string;
+    runRoot: string;
+    taskId: string | ((proposal: ActionProposal) => string);
+    runId:
+      | string
+      | ((proposal: ActionProposal, executionIndex: number) => string);
+    policyVersion: string;
+    policyRef: string;
+    requestedBy: string;
+    approvalResolver?: SafeLoopApprovalResolver;
+    expectedArtifactScope: string[];
+    timeoutSeconds?: number;
+    actionRunner: ActionRunner;
   };
 };
 
@@ -60,6 +85,8 @@ export type AgentRuntimeResult = {
   transcript: AgentChatTranscript;
   messages: AgentBusMessage[];
   events: AgentBusEvent[];
+  receipts: SafeLoopExecutionReceipt[];
+  artifacts: SafeLoopArtifact[];
   finalAnswer?: string;
   runtimeSummary: {
     turns: number;
@@ -89,6 +116,7 @@ export type ParsedAgentRuntimeRoleOutput = {
   objection: string | null;
   finalAnswer: string | null;
   budgetUsd: number;
+  actions: ActionProposal[];
 };
 
 export const DEFAULT_AGENT_RUNTIME_LIMITS: AgentRuntimeLimits = {
@@ -96,6 +124,7 @@ export const DEFAULT_AGENT_RUNTIME_LIMITS: AgentRuntimeLimits = {
   maxDurationMs: 30_000,
   maxBudgetUsd: 0,
   maxPromptChars: 24_000,
+  maxRounds: 3,
 };
 
 export const DEFAULT_AGENT_RUNTIME_BUS_IDS: AgentRuntimeBusIds = {

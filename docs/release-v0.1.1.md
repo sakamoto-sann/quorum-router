@@ -1,4 +1,4 @@
-# Fusion Router v0.1.1
+# QuorumRouter v0.1.1
 
 ## Status
 
@@ -6,7 +6,7 @@ First AgentRuntime release.
 
 ## Summary
 
-v0.1.1 is the first Fusion Router release with an explicit opt-in experimental
+v0.1.1 is the first QuorumRouter release with an explicit opt-in experimental
 AgentRuntime path.
 
 ## What changed since v0.1.0
@@ -82,7 +82,7 @@ Not included:
 
 ## License
 
-Fusion Router is Source-Available Non-Commercial.
+QuorumRouter is Source-Available Non-Commercial.
 
 This is not an open source license.
 

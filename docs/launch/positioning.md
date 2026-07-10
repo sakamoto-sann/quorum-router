@@ -1,21 +1,22 @@
-# Positioning — Fusion Router v0.1 Public RC
+# Positioning — QuorumRouter current release
 
 ## Crisp positioning
 
-Fusion Router is a source-available routing/runtime framework for
-production-ready `direct` best-answer routing and explicit opt-in experimental
-agent routing.
+QuorumRouter is a source-available routing/runtime framework for
+production-ready `direct` best-answer routing and read-only explicit agent
+routing.
 
-The v0.1 Public RC message is:
+The current release message is:
 
 > Routing first, agents second.
 
-Fusion Router makes the stable path a fail-closed best-answer router.
-Agent-style routing exists only as an explicitly opted-in experimental surface.
+QuorumRouter makes the stable path a fail-closed best-answer router. Agent-style
+conversation is read-only; action execution is experimental and delegated to
+SafeLoop as the sole authority.
 
 ## Anti-positioning
 
-Fusion Router v0.1 Public RC is not:
+QuorumRouter current release is not:
 
 - not an open source project;
 - not a production autonomous agent runtime;
@@ -31,7 +32,7 @@ Fusion Router v0.1 Public RC is not:
 Generic agent frameworks often start from autonomous loops, tools, memory, and
 delegation.
 
-Fusion Router starts one layer earlier:
+QuorumRouter starts one layer earlier:
 
 1. Which routing path is allowed?
 2. Which adapter outputs are valid?
@@ -40,38 +41,38 @@ Fusion Router starts one layer earlier:
    behavior?
 5. If agent routing is requested, did the caller explicitly opt in?
 
-That makes `direct` the production-ready path and keeps `agent_chat`
-experimental.
+That makes `direct` the production-ready path. `agent_chat` remains
+launch-blocked until an end-to-end real SafeLoop repo-mutation smoke passes.
 
 ## Comparison framing against prompt routers
 
 Prompt routers often focus on choosing a model or prompt path.
 
-Fusion Router frames routing as a runtime safety boundary:
+QuorumRouter frames routing as a runtime safety boundary:
 
 - adapters return structured outputs;
 - validation is part of the route;
 - synthesis is explicit;
 - failures are fail-closed;
-- experimental agent routing is gated, not implicit.
+- read-only conversation routing is gated, not implicit.
 
 The goal is not only “pick a model.” The goal is to make the route inspectable
 and bounded.
 
 ## Launch narrative
 
-Fusion Router v0.1 Public RC is ready for external evaluation through the public
+QuorumRouter current release is ready for external evaluation through the public
 NPX scaffold:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
-The npm package is `create-fusion-router@0.1.4` (`latest -> 0.1.4`). Version
+The npm package is `create-quorum-router@0.1.4` (`latest -> 0.1.4`). Version
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the current release line, not a separate product milestone.
 
 The release is deliberately narrow: prove the public path, explain the safety
 boundaries, and give builders a readable generated demo.
@@ -80,10 +81,10 @@ boundaries, and give builders a readable generated demo.
 
 A routing framework should not require autonomous agents to be useful.
 
-In Fusion Router:
+In QuorumRouter:
 
 - `direct` handles production-ready best-answer routing.
-- `agent_chat` is available only as experimental explicit opt-in.
+- `agent_chat` is available only as read-only explicit opt-in.
 - no hidden fallback turns an invalid route into an unsafe route.
 - no production autonomous runtime is claimed.
 
@@ -93,11 +94,14 @@ a clear path for future explicit agent experiments.
 
 ## Safety boundary
 
-The Public RC safety boundary is:
+The current release safety boundary is:
 
 - `direct` remains the production-ready best-answer routing path.
-- `agent_chat` remains experimental explicit opt-in only.
-- No production autonomous runtime.
+- Conversation-only `agent_chat` remains explicit opt-in.
+- SafeLoop-backed repo/shell mutation is supported only for the verified local
+  execution slice after approval/preflight capability and smoke gates pass.
+- SafeLoop-backed AgentRuntime production claims are limited to the verified
+  local repository execution slice with signed policy and distinct approval.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
 - No full multi-agent production-system claim.
@@ -105,7 +109,7 @@ The Public RC safety boundary is:
 
 ## License boundary
 
-Fusion Router is Source-Available Non-Commercial.
+QuorumRouter is Source-Available Non-Commercial.
 
 This is not an open source license.
 

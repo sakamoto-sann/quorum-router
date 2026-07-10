@@ -1,5 +1,6 @@
 import { discoverInventory, invokableEntries } from "./auth_discovery.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
+import { readRouterEnv } from "./env.ts";
 import {
   assertAgentChatOptIn,
   assertOptIn,
@@ -14,7 +15,7 @@ export async function runAgentChat(
 ): Promise<{ tracePath: string }> {
   assertAgentChatOptIn();
   assertOptIn();
-  const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
+  const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
   const inventory = discoverInventory(authMode);
   const candidates = invokableEntries(inventory);
   if (candidates.length === 0) {

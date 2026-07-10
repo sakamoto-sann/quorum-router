@@ -129,12 +129,12 @@ function validateHttpBaseUrl(raw: string, envName: string): string {
 }
 
 function providerTimeoutMs(): number {
-  const raw = env("FUSION_ROUTER_PROVIDER_TIMEOUT_MS");
+  const raw = env("QUORUM_ROUTER_PROVIDER_TIMEOUT_MS");
   if (!raw) return DEFAULT_PROVIDER_TIMEOUT_MS;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(
-      "external dogfood blocked: FUSION_ROUTER_PROVIDER_TIMEOUT_MS must be a positive number",
+      "external dogfood blocked: QUORUM_ROUTER_PROVIDER_TIMEOUT_MS must be a positive number",
     );
   }
   return Math.floor(parsed);
@@ -159,8 +159,8 @@ function splitProviderList(raw: string | undefined): ProviderId[] {
 }
 
 export function selectedProviderIds(matrix: boolean): ProviderId[] {
-  if (matrix) return splitProviderList(env("FUSION_ROUTER_EXTERNAL_PROVIDERS"));
-  return splitProviderList(env("FUSION_ROUTER_EXTERNAL_PROVIDER") ?? "openai")
+  if (matrix) return splitProviderList(env("QUORUM_ROUTER_EXTERNAL_PROVIDERS"));
+  return splitProviderList(env("QUORUM_ROUTER_EXTERNAL_PROVIDER") ?? "openai")
     .slice(0, 1);
 }
 
@@ -241,24 +241,24 @@ export async function loadExternalProviderConfig(
   };
 
   if (id === "grok") {
-    const mode = firstEnv("FUSION_ROUTER_GROK_MODE") ??
+    const mode = firstEnv("QUORUM_ROUTER_GROK_MODE") ??
       stringField(providerConfig, "mode") ?? "cli";
     if (mode === "http") {
       return httpConfig(
         id,
         stringField(providerConfig, "provider_label", "providerLabel") ??
           "Grok",
-        firstEnv("FUSION_ROUTER_GROK_MODEL") ??
+        firstEnv("QUORUM_ROUTER_GROK_MODEL") ??
           stringField(providerConfig, "model") ?? "grok-4",
-        firstEnv("FUSION_ROUTER_GROK_BASE_URL") ??
+        firstEnv("QUORUM_ROUTER_GROK_BASE_URL") ??
           stringField(providerConfig, "base_url", "baseUrl") ??
           "https://api.x.ai/v1",
-        firstEnv("FUSION_ROUTER_GROK_API_KEY", "XAI_API_KEY", "GROK_API_KEY"),
-        "FUSION_ROUTER_GROK_API_KEY or XAI_API_KEY",
-        "FUSION_ROUTER_GROK_BASE_URL",
+        firstEnv("QUORUM_ROUTER_GROK_API_KEY", "XAI_API_KEY", "GROK_API_KEY"),
+        "QUORUM_ROUTER_GROK_API_KEY or XAI_API_KEY",
+        "QUORUM_ROUTER_GROK_BASE_URL",
       );
     }
-    const command = firstEnv("FUSION_ROUTER_GROK_COMMAND") ??
+    const command = firstEnv("QUORUM_ROUTER_GROK_COMMAND") ??
       stringField(providerConfig, "command") ?? "grok";
     return cliConfig(id, "Grok CLI", "grok-cli", command, [
       "-p",
@@ -272,7 +272,7 @@ export async function loadExternalProviderConfig(
   }
 
   if (id === "devin") {
-    const command = firstEnv("FUSION_ROUTER_DEVIN_COMMAND") ??
+    const command = firstEnv("QUORUM_ROUTER_DEVIN_COMMAND") ??
       stringField(providerConfig, "command") ?? "devin";
     return cliConfig(id, "Devin CLI", "devin-cli", command, [
       "-p",
@@ -281,9 +281,9 @@ export async function loadExternalProviderConfig(
   }
 
   if (id === "localqwen") {
-    const command = firstEnv("FUSION_ROUTER_LOCALQWEN_COMMAND") ??
+    const command = firstEnv("QUORUM_ROUTER_LOCALQWEN_COMMAND") ??
       stringField(providerConfig, "command") ?? "qwen";
-    const model = firstEnv("FUSION_ROUTER_LOCALQWEN_MODEL") ??
+    const model = firstEnv("QUORUM_ROUTER_LOCALQWEN_MODEL") ??
       stringField(providerConfig, "model") ?? "qwen3-coder-max";
     return cliConfig(id, "Local Qwen CLI", model, command, [
       "-p",
@@ -294,12 +294,12 @@ export async function loadExternalProviderConfig(
   }
 
   if (id === "glm") {
-    const mode = firstEnv("FUSION_ROUTER_GLM_MODE") ??
+    const mode = firstEnv("QUORUM_ROUTER_GLM_MODE") ??
       stringField(providerConfig, "mode") ?? "http";
     if (mode === "cli") {
-      const command = firstEnv("FUSION_ROUTER_GLM_COMMAND") ??
+      const command = firstEnv("QUORUM_ROUTER_GLM_COMMAND") ??
         stringField(providerConfig, "command") ?? "zcode-headless";
-      const model = firstEnv("FUSION_ROUTER_GLM_MODEL") ??
+      const model = firstEnv("QUORUM_ROUTER_GLM_MODEL") ??
         stringField(providerConfig, "model") ?? "glm-zcode";
       return cliConfig(id, "GLM CLI", model, command, [
         "--cwd",
@@ -314,28 +314,28 @@ export async function loadExternalProviderConfig(
       id,
       stringField(providerConfig, "provider_label", "providerLabel") ??
         "GLM OpenAI-compatible",
-      firstEnv("FUSION_ROUTER_GLM_MODEL") ??
+      firstEnv("QUORUM_ROUTER_GLM_MODEL") ??
         stringField(providerConfig, "model") ?? "glm-4.5",
-      firstEnv("FUSION_ROUTER_GLM_BASE_URL") ??
+      firstEnv("QUORUM_ROUTER_GLM_BASE_URL") ??
         stringField(providerConfig, "base_url", "baseUrl") ??
         "https://open.bigmodel.cn/api/paas/v4",
       firstEnv(
-        "FUSION_ROUTER_GLM_API_KEY",
+        "QUORUM_ROUTER_GLM_API_KEY",
         "GLM_API_KEY",
         "ZHIPUAI_API_KEY",
         "BIGMODEL_API_KEY",
       ),
-      "FUSION_ROUTER_GLM_API_KEY or GLM_API_KEY",
-      "FUSION_ROUTER_GLM_BASE_URL",
+      "QUORUM_ROUTER_GLM_API_KEY or GLM_API_KEY",
+      "QUORUM_ROUTER_GLM_BASE_URL",
     );
   }
 
-  const openAiMode = firstEnv("FUSION_ROUTER_OPENAI_MODE") ??
+  const openAiMode = firstEnv("QUORUM_ROUTER_OPENAI_MODE") ??
     stringField(providerConfig, "mode") ?? "http";
   if (openAiMode === "cli") {
-    const command = firstEnv("FUSION_ROUTER_OPENAI_COMMAND") ??
+    const command = firstEnv("QUORUM_ROUTER_OPENAI_COMMAND") ??
       stringField(providerConfig, "command") ?? "codex";
-    const model = firstEnv("FUSION_ROUTER_OPENAI_MODEL") ??
+    const model = firstEnv("QUORUM_ROUTER_OPENAI_MODEL") ??
       stringField(providerConfig, "model") ?? "codex-cli";
     return cliConfig(id, "OpenAI Codex CLI", model, command, [
       "exec",
@@ -350,25 +350,25 @@ export async function loadExternalProviderConfig(
 
   return httpConfig(
     id,
-    firstEnv("FUSION_ROUTER_PROVIDER_LABEL") ??
+    firstEnv("QUORUM_ROUTER_PROVIDER_LABEL") ??
       stringField(providerConfig, "provider_label", "providerLabel") ??
       stringField(merged, "provider_label", "providerLabel") ??
       "OpenAI-compatible provider",
-    firstEnv("FUSION_ROUTER_PROVIDER_MODEL", "FUSION_ROUTER_OPENAI_MODEL") ??
+    firstEnv("QUORUM_ROUTER_PROVIDER_MODEL", "QUORUM_ROUTER_OPENAI_MODEL") ??
       stringField(providerConfig, "model") ?? stringField(merged, "model") ??
       "gpt-4o-mini",
     firstEnv(
-      "FUSION_ROUTER_PROVIDER_BASE_URL",
-      "FUSION_ROUTER_OPENAI_BASE_URL",
+      "QUORUM_ROUTER_PROVIDER_BASE_URL",
+      "QUORUM_ROUTER_OPENAI_BASE_URL",
     ) ?? stringField(providerConfig, "base_url", "baseUrl") ??
       stringField(merged, "base_url", "baseUrl") ?? "https://api.openai.com/v1",
     firstEnv(
-      "FUSION_ROUTER_PROVIDER_API_KEY",
-      "FUSION_ROUTER_OPENAI_API_KEY",
+      "QUORUM_ROUTER_PROVIDER_API_KEY",
+      "QUORUM_ROUTER_OPENAI_API_KEY",
       "OPENAI_API_KEY",
     ),
-    "FUSION_ROUTER_PROVIDER_API_KEY or FUSION_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
-    "FUSION_ROUTER_PROVIDER_BASE_URL or FUSION_ROUTER_OPENAI_BASE_URL",
+    "QUORUM_ROUTER_PROVIDER_API_KEY or QUORUM_ROUTER_OPENAI_API_KEY or OPENAI_API_KEY",
+    "QUORUM_ROUTER_PROVIDER_BASE_URL or QUORUM_ROUTER_OPENAI_BASE_URL",
   );
 }
 

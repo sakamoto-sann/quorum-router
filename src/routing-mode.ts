@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { failClosed } from "./errors.ts";
+import { readRouterEnv } from "./env.ts";
 
 export const RoutingModeSchema = z.enum(["direct", "agent_chat"]);
 export type RoutingMode = z.infer<typeof RoutingModeSchema>;
@@ -18,7 +19,7 @@ export type RoutingModeResolveInput = {
   envMode?: unknown;
 };
 
-export const ROUTING_MODE_ENV = "FUSION_ROUTER_MODE";
+export const ROUTING_MODE_ENV = "QUORUM_ROUTER_MODE";
 export const ALLOWED_ROUTING_MODES = RoutingModeSchema.options;
 
 export function parseRoutingMode(
@@ -91,7 +92,7 @@ export function describeRoutingModeDecision(
 
 export function readRoutingModeEnv(): string | undefined {
   try {
-    return Deno.env.get(ROUTING_MODE_ENV);
+    return readRouterEnv(ROUTING_MODE_ENV);
   } catch {
     return undefined;
   }

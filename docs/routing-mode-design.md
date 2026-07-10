@@ -1,6 +1,6 @@
 # Routing mode design
 
-Phase 3 design pass for the fusion router routing-mode switch. This document is
+Phase 3 design pass for the quorum router routing-mode switch. This document is
 the contract for future runtime work. Implementation slices 1-3 add the safe
 parser/resolver boundary, config-loader skeleton, and sanitized routing decision
 summary: `direct` is active on the existing router flow, and `agent_chat` is
@@ -147,8 +147,8 @@ The minimal config-file shape is now:
 The environment setting is:
 
 ```dotenv
-FUSION_ROUTER_MODE=direct
-FUSION_ROUTER_MODE=agent_chat
+QUORUM_ROUTER_MODE=direct
+QUORUM_ROUTER_MODE=agent_chat
 ```
 
 Invalid values fail closed before adapter execution. Examples of invalid values:
@@ -164,7 +164,7 @@ The future implementation may support three selection surfaces plus the default:
 | ---------------- | ---------------------------- | ----------------------------- |
 | Request metadata | `routing_mode: "agent_chat"` | Per-request caller / gateway. |
 | Config file      | `routing.mode = "direct"`    | Deployment operator.          |
-| Environment      | `FUSION_ROUTER_MODE=direct`  | Runtime environment.          |
+| Environment      | `QUORUM_ROUTER_MODE=direct`  | Runtime environment.          |
 | Default          | `direct`                     | Built-in safe fallback.       |
 
 ### Precedence
@@ -369,21 +369,21 @@ boundary.
 Implemented in slices 1-3:
 
 - routing mode parser for `direct` and `agent_chat`;
-- config loader skeleton for `fusion-router.config.json` using only
+- config loader skeleton for `quorum-router.config.json` using only
   `routing.mode`;
 - sanitized routing decision summary with `mode`, `source`, and `implemented`;
 - default mode of `direct`;
 - fail-closed handling for invalid explicit values, including explicit empty
   strings, malformed config JSON, wrong config shape, non-string config values,
   and unknown mode strings;
-- selection precedence: request metadata > config file > `FUSION_ROUTER_MODE`
+- selection precedence: request metadata > config file > `QUORUM_ROUTER_MODE`
   > default;
 - `direct` connected to the existing router flow;
 - `agent_chat` recognized and gated behind explicit experimental runtime opt-in,
   with fail-closed behavior before adapter execution and sanitized errors.
 
 Foundation Wave also preserves these contracts after the module split and adds
-operator-facing doctor checks for config-file validity, `FUSION_ROUTER_MODE`
+operator-facing doctor checks for config-file validity, `QUORUM_ROUTER_MODE`
 validity, config-over-env precedence, effective routing decision, `agent_chat`
 implementation status, and direct-mode readiness. These checks report only
 bounded enum/status information and hide raw invalid values or config contents.

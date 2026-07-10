@@ -155,7 +155,7 @@ export type NormalizedSetupWizardInput = z.output<
   typeof SetupWizardInputSchema
 >;
 
-export const GeneratedFusionRouterConfigSchema = z.object({
+export const GeneratedQuorumRouterConfigSchema = z.object({
   profile: SetupProfileNameSchema,
   routing: z.object({
     mode: RoutingModeSchema,
@@ -168,14 +168,20 @@ export const GeneratedFusionRouterConfigSchema = z.object({
   agentRuntime: SetupAgentRuntimeSchema,
   commander: CommanderConfigSchema,
   setup: z.object({
-    generatedBy: z.literal("fusion-router setup"),
+    generatedBy: z.literal("quorum-router setup"),
     warnings: z.array(z.string()),
     nonGoals: z.array(z.string()),
   }).strict(),
 }).strict();
-export type GeneratedFusionRouterConfig = z.infer<
-  typeof GeneratedFusionRouterConfigSchema
+export type GeneratedQuorumRouterConfig = z.infer<
+  typeof GeneratedQuorumRouterConfigSchema
 >;
+
+/** @deprecated Use GeneratedQuorumRouterConfigSchema. */
+export const GeneratedFusionRouterConfigSchema =
+  GeneratedQuorumRouterConfigSchema;
+/** @deprecated Use GeneratedQuorumRouterConfig. */
+export type GeneratedFusionRouterConfig = GeneratedQuorumRouterConfig;
 
 export type SetupReport = {
   profile: SetupProfileName;

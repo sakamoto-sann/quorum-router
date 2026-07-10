@@ -11,6 +11,7 @@ const JSON_CONTRACT = `Return only strict JSON with this shape:
   "objection": null,
   "finalAnswer": null,
   "budgetUsd": 0
+  ,"actions": []
 }
 Rules: no markdown fences; content must be non-empty; budgetUsd must be finite and nonnegative.`;
 
@@ -41,13 +42,13 @@ export function buildAgentRuntimeRolePrompt(input: {
   const task = redactAgentChatContent(input.prompt);
   const prior = summarizePrior(input.priorOutputs);
   const prefix =
-    `You are the ${input.role} in an explicit opt-in experimental AgentRuntime.\nTask: ${task}\n\nPrior role outputs:\n${prior}\n\n${JSON_CONTRACT}\n`;
+    `You are the ${input.role} in the QuorumRouter AgentRuntime.\nTask: ${task}\n\nPrior role outputs:\n${prior}\n\n${JSON_CONTRACT}\n`;
 
   switch (input.role) {
     case "commander":
       return `${prefix}\nAs commander, produce a concise execution plan. Use status "plan". objection and finalAnswer must be null.`;
     case "coder":
-      return `${prefix}\nAs coder, produce the implementation/result summary. Use status "result". objection and finalAnswer must be null.`;
+      return `${prefix}\nAs coder, propose structured actions in actions. Allowed action kinds are read_file, write_file, patch_file, and run_command. You never execute tools or approve your own actions. Use status "result". objection and finalAnswer must be null.`;
     case "reviewer":
       return `${prefix}\nAs reviewer, return status "pass" if the coder result is acceptable; otherwise status "object" with a concrete objection. finalAnswer must be null.`;
     case "red_team":

@@ -1,7 +1,7 @@
-# Fusion Router v0.1 Public RC launch checklist
+# QuorumRouter v0.1 public preview launch checklist
 
 Use this checklist before external announcements or operational usage of the
-**Fusion Router v0.1 Public RC** line.
+**QuorumRouter v0.1 public preview** line.
 
 ## 1. GitHub release readback
 
@@ -10,18 +10,18 @@ Use this checklist before external announcements or operational usage of the
 - [ ] `git rev-parse origin/main`
 - [ ] `git rev-parse v0.1.4^{}`
 - [ ] `gh release view v0.1.4 --json tagName,targetCommitish,isDraft,isPrerelease,publishedAt,url`
-- [ ] Confirm `v0.1.4^{}` equals the intended Public RC commit.
+- [ ] Confirm `v0.1.4^{}` equals the intended public preview commit.
 - [ ] Confirm the release is not draft.
 - [ ] Confirm the release URL is reachable.
 
 ## 2. npm readback
 
-- [ ] `npm view create-fusion-router@0.1.4 name version license bin dist.tarball --json`
-- [ ] `npm dist-tag ls create-fusion-router`
-- [ ] Confirm package name: `create-fusion-router`.
+- [ ] `npm view create-quorum-router@0.1.4 name version license bin dist.tarball --json`
+- [ ] `npm dist-tag ls create-quorum-router`
+- [ ] Confirm package name: `create-quorum-router`.
 - [ ] Confirm package version: `0.1.4`.
 - [ ] Confirm license: `SEE LICENSE IN LICENSE`.
-- [ ] Confirm bin: `create-fusion-router -> bin/create-fusion-router.js`.
+- [ ] Confirm bin: `create-quorum-router -> bin/create-quorum-router.js`.
 - [ ] Confirm `latest -> 0.1.4`.
 
 ## 3. NPX smoke
@@ -30,8 +30,8 @@ Use this checklist before external announcements or operational usage of the
 - [ ] Run:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task check
 deno task smoke
 ```
@@ -46,7 +46,7 @@ deno task smoke
 ./src/cli.ts
 ```
 
-Full package contents are gated by the create-fusion-router tarball whitelist in
+Full package contents are gated by the create-quorum-router tarball whitelist in
 `publish.yml` / `deno task test` (27 pack entries for 0.1.4).
 
 - [ ] Confirm `deno task check` passes.
@@ -58,20 +58,20 @@ Full package contents are gated by the create-fusion-router tarball whitelist in
 - [ ] Top public quickstart uses:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
-- [ ] Fixed quickstart uses `create-fusion-router@0.1.4`.
-- [ ] README labels the external line as **Fusion Router v0.1 Public RC**.
+- [ ] Fixed quickstart uses `create-quorum-router@0.1.4`.
+- [ ] README labels the external line as **QuorumRouter v0.1 public preview**.
 - [ ] README states `0.1.4` is an engineering NPX scaffold / generated-demo
       compatibility patch, not a separate product milestone.
 
 ## 5. Product Hunt copy check
 
-- [ ] Product Hunt copy uses the external label **Fusion Router v0.1 Public
-      RC**.
+- [ ] Product Hunt copy uses the external label **QuorumRouter v0.1 public
+      preview**.
 - [ ] Copy says Source-Available Non-Commercial.
 - [ ] Copy says not open source.
 - [ ] Copy does not imply production autonomous runtime.
@@ -118,5 +118,6 @@ deno task smoke
 
 - [ ] Do not run `npm dist-tag add`, `npm dist-tag rm`, or equivalent registry
       mutation unless explicitly approved.
-- [ ] Readback with `npm dist-tag ls create-fusion-router` is safe.
-- [ ] For this Public RC closeout, expected readback remains `latest: 0.1.4`.
+- [ ] Readback with `npm dist-tag ls create-quorum-router` is safe.
+- [ ] For this public preview closeout, expected readback remains
+      `latest: 0.1.4`.

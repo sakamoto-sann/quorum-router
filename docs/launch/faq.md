@@ -1,8 +1,8 @@
-# Fusion Router v0.1 Public RC FAQ
+# QuorumRouter v0.1 public preview FAQ
 
-## Is Fusion Router open source?
+## Is QuorumRouter open source?
 
-No. Fusion Router is Source-Available Non-Commercial. This is not an open source
+No. QuorumRouter is Source-Available Non-Commercial. This is not an open source
 license.
 
 The source is available for source review, personal evaluation, academic or
@@ -19,14 +19,16 @@ requires prior written permission.
 ## What is production-ready?
 
 The `direct` path is the production-ready best-answer routing path in the v0.1
-Public RC positioning.
+public preview positioning.
 
 It routes through model adapters, validates structured outputs, and synthesizes
 a final answer through fail-closed behavior.
 
 ## What is experimental?
 
-`agent_chat` is experimental explicit opt-in only.
+The conversation-only `agent_chat` mode is explicit opt-in. The
+production-capable local repository execution slice additionally requires
+SafeLoop, signed policy, and distinct approval.
 
 It requires explicit runtime configuration and opt-in. If those requirements are
 not met, it fails closed before adapter execution.
@@ -47,11 +49,12 @@ It is not the default path and is not claimed as production-ready.
 
 ## Does this run autonomous agents in production?
 
-No. Fusion Router v0.1 Public RC does not claim a production autonomous runtime.
+No. QuorumRouter v0.1 public preview does not claim a production autonomous
+runtime.
 
 ## Does it write to Supabase live runtime?
 
-No. The Public RC does not claim live Supabase Agent Bus runtime writes.
+No. The public preview does not claim live Supabase Agent Bus runtime writes.
 
 Supabase Agent Bus docs describe contracts and future/live-runtime boundaries,
 but the launch positioning does not claim live runtime writes.
@@ -62,14 +65,14 @@ No. The launch path and generated demo do not require service-role credentials.
 
 The runtime boundary explicitly excludes service-role runtime.
 
-## Why npm version 0.1.4 but label v0.1 Public RC?
+## Why npm version 0.1.4 but label v0.1 public preview?
 
-The external launch label is **Fusion Router v0.1 Public RC**.
+The external launch label is **QuorumRouter v0.1 public preview**.
 
-The npm package is `create-fusion-router@0.1.4` with `latest -> 0.1.4`. Version
+The npm package is `create-quorum-router@0.1.4` with `latest -> 0.1.4`. Version
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line with GitHub URL context dogfood and release packaging
-hardening, not a separate product milestone.
+the v0.1 public preview line with GitHub URL context dogfood and release
+packaging hardening, not a separate product milestone.
 
 ## Why NPX?
 
@@ -77,8 +80,8 @@ NPX gives evaluators a short, copy-pasteable way to create a local demo without
 cloning the full repository first:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -89,8 +92,8 @@ The generated demo is intentionally small and inspectable.
 Use the fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@0.1.4 my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -103,7 +106,7 @@ https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
 The scaffold creates a local directory. Remove that directory:
 
 ```bash
-rm -rf my-fusion-router-demo
+rm -rf my-quorum-router-demo
 ```
 
 If you used a different directory name, remove that directory instead.
@@ -119,7 +122,7 @@ Common issues:
 - Deno import-map resolution fails if you run outside the generated demo
   directory or delete `deno.json`.
 - future npm/package versions may change generated-demo behavior; pin
-  `create-fusion-router@0.1.4` to reproduce this Public RC scaffold.
+  `create-quorum-router@0.1.4` to reproduce this public preview scaffold.
 
 ## How do I report issues?
 
@@ -134,5 +137,5 @@ When reporting an issue, include:
 - Node/npm version if the issue involves NPX
 - command run
 - full error output
-- whether `create-fusion-router@latest` or a fixed version was used
+- whether `create-quorum-router@latest` or a fixed version was used
 - whether network access to `raw.githubusercontent.com` is available

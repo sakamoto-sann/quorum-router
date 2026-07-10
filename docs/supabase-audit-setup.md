@@ -7,7 +7,7 @@ introduce a new runtime mode or installer.
 ## What this audit log is for
 
 `workflow_access_audit` is the durable audit log for workflow/access decisions
-made by the fusion router and adjacent agent workflows. It is intentionally
+made by the quorum router and adjacent agent workflows. It is intentionally
 different from best-effort telemetry:
 
 - telemetry may drop old entries to keep the request path healthy;
@@ -130,11 +130,11 @@ recognizes the non-prefixed Supabase names as fallbacks.
 ```dotenv
 # Supabase audit RPC endpoint. Use your project URL, for example
 # https://<project-ref>.supabase.co
-FUSION_ROUTER_SUPABASE_URL=
+QUORUM_ROUTER_SUPABASE_URL=
 
 # Supabase project anon key. Keep empty in examples; inject at runtime from a
 # secret manager or deployment environment.
-FUSION_ROUTER_SUPABASE_ANON_KEY=
+QUORUM_ROUTER_SUPABASE_ANON_KEY=
 
 # Optional fallback names if your runtime already standardizes on SUPABASE_*.
 SUPABASE_URL=
@@ -166,12 +166,12 @@ deno task doctor
 
 Supabase-related checks mean:
 
-| Check                                                        | Meaning                                                                                                             | Operator action                                                                              |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `supabase_audit_config`, `not configured`, severity `info`   | Neither URL nor anon key is set. This is acceptable for local PoC runs that do not enable Supabase audit transport. | No action unless this host should emit audit records.                                        |
-| `supabase_audit_config`, partial config, severity `warn`     | Only URL or anon key is set. The RPC transport would be incomplete.                                                 | Configure both values or remove the partial config.                                          |
-| `supabase_service_role_absent`, severity `error` when failed | A service-role-like Supabase env var is present in runtime.                                                         | Remove it from runtime. Keep service-role/admin credentials only in migration/admin tooling. |
-| `cli_zcode`, `not found`, severity `warn`                    | Optional GLM/ZCode lane is unavailable on this host.                                                                | Install/configure ZCode only on hosts expected to run that lane.                             |
+| Check                                                        | Meaning                                                                                                                          | Operator action                                                                              |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `supabase_audit_config`, `not configured`, severity `info`   | Neither URL nor anon key is set. This is acceptable for local local evaluation runs that do not enable Supabase audit transport. | No action unless this host should emit audit records.                                        |
+| `supabase_audit_config`, partial config, severity `warn`     | Only URL or anon key is set. The RPC transport would be incomplete.                                                              | Configure both values or remove the partial config.                                          |
+| `supabase_service_role_absent`, severity `error` when failed | A service-role-like Supabase env var is present in runtime.                                                                      | Remove it from runtime. Keep service-role/admin credentials only in migration/admin tooling. |
+| `cli_zcode`, `not found`, severity `warn`                    | Optional GLM/ZCode lane is unavailable on this host.                                                                             | Install/configure ZCode only on hosts expected to run that lane.                             |
 
 Doctor must never print credential values. If a Supabase service-role-like env
 var is present, doctor reports the variable name and redacts the value.

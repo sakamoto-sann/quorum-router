@@ -1,6 +1,6 @@
-# Versioning and Public RC policy
+# Versioning and public preview policy
 
-External launch label: **Fusion Router v0.1 Public RC**.
+External launch label: **QuorumRouter v0.1 public preview**.
 
 ## What version numbers mean
 
@@ -10,10 +10,10 @@ tags, release notes, npm scaffold packaging, and compatibility patches.
 
 ## Current public artifacts
 
-- `v0.1.4` is the current Public RC release line target for GitHub release tags,
-  install-helper docs, and generated scaffold packaging.
-- `create-fusion-router@0.1.4` is the current NPX package target.
-- `create-fusion-router@latest` should resolve to `0.1.4` after release
+- `v0.1.4` is the current public preview release line target for GitHub release
+  tags, install-helper docs, and generated scaffold packaging.
+- `create-quorum-router@0.1.4` is the current NPX package target.
+- `create-quorum-router@latest` should resolve to `0.1.4` after release
   approval.
 - `0.1.4` is an engineering patch for NPX scaffold / generated-demo
   compatibility, GitHub URL context dogfood, and release packaging hardening.
@@ -21,16 +21,16 @@ tags, release notes, npm scaffold packaging, and compatibility patches.
 ## Public quickstart
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
 Fixed package version:
 
 ```bash
-npx --yes create-fusion-router@0.1.4 my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@0.1.4 my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -43,7 +43,7 @@ deno task smoke
 
 ## License and runtime boundaries
 
-Fusion Router is **Source-Available Non-Commercial**. This is **not open
+QuorumRouter is **Source-Available Non-Commercial**. This is **not open
 source**. Commercial, production, hosted-service/SaaS/API, redistribution,
 sublicensing, integration, derivative commercialization, or competing
 product/service use requires prior written permission.

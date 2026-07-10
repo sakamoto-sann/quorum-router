@@ -1,8 +1,8 @@
 import {
   generateEnvExample,
-  generateFusionRouterConfig,
+  generateQuorumRouterConfig,
   generateSetupReport,
-  stringifyGeneratedFusionRouterConfig,
+  stringifyGeneratedQuorumRouterConfig,
 } from "./config-generator.ts";
 import {
   type SetupProfileName,
@@ -22,12 +22,12 @@ type ParsedSetupArgs = {
   help: boolean;
 };
 
-const DEFAULT_CONFIG_PATH = "fusion-router.config.json";
+const DEFAULT_CONFIG_PATH = "quorum-router.config.json";
 
 function usage(): string {
-  return `fusion-router setup (dry-run by default)\n\nUsage:\n  deno task setup -- [--profile NAME] [--write [PATH]]\n  deno run --allow-read --allow-write setup.ts [--profile NAME] [--write [PATH]]\n\nProfiles:\n  ${
+  return `quorum-router setup (dry-run by default)\n\nUsage:\n  deno task setup -- [--profile NAME] [--write [PATH]]\n  deno run --allow-read --allow-write setup.ts [--profile NAME] [--write [PATH]]\n\nProfiles:\n  ${
     SetupProfileNameSchema.options.join("\n  ")
-  }\n\nOptions:\n  --profile NAME   Select a built-in setup profile. Default: minimal-direct.\n  --write [PATH]   Write generated config JSON. Without PATH writes fusion-router.config.json.\n  --help           Show this help.\n`;
+  }\n\nOptions:\n  --profile NAME   Select a built-in setup profile. Default: minimal-direct.\n  --write [PATH]   Write generated config JSON. Without PATH writes quorum-router.config.json.\n  --help           Show this help.\n`;
 }
 
 function parseArgs(args: string[]): ParsedSetupArgs {
@@ -121,8 +121,8 @@ export async function runSetupCli(
   }
 
   const input = { profile: parsed.profile };
-  const config = generateFusionRouterConfig(input);
-  const configJson = stringifyGeneratedFusionRouterConfig(config);
+  const config = generateQuorumRouterConfig(input);
+  const configJson = stringifyGeneratedQuorumRouterConfig(config);
   const envExample = generateEnvExample(input);
   const report = generateSetupReport(input, parsed.configPath);
 
@@ -131,7 +131,7 @@ export async function runSetupCli(
     await Deno.writeTextFile(parsed.configPath, configJson);
   }
 
-  console.log("# fusion-router.config.json");
+  console.log("# quorum-router.config.json");
   console.log(configJson.trimEnd());
   console.log("\n# env placeholder guidance");
   console.log(envExample.trimEnd());

@@ -99,7 +99,7 @@ Use a non-production project or disposable test records for these calls.
   ```bash
   curl -sS -X POST \
     "https://<project-ref>.supabase.co/rest/v1/rpc/insert_workflow_access_audit_batch" \
-    -H "apikey: ${FUSION_ROUTER_SUPABASE_ANON_KEY}" \
+    -H "apikey: ${QUORUM_ROUTER_SUPABASE_ANON_KEY}" \
     -H "content-type: application/json" \
     -d '{"records":[{"event_type":"verification.missing-auth","decision":"allow"}]}'
   ```
@@ -117,7 +117,7 @@ Use a non-production project or disposable test records for these calls.
   ```bash
   curl -sS -X POST \
     "https://<project-ref>.supabase.co/rest/v1/rpc/insert_workflow_access_audit_batch" \
-    -H "apikey: ${FUSION_ROUTER_SUPABASE_ANON_KEY}" \
+    -H "apikey: ${QUORUM_ROUTER_SUPABASE_ANON_KEY}" \
     -H "authorization: Bearer ${TEST_USER_SESSION_JWT_WITHOUT_ORG}" \
     -H "content-type: application/json" \
     -d '{"records":[{"event_type":"verification.missing-org","decision":"allow"}]}'
@@ -188,7 +188,8 @@ Use a non-production project or disposable test records for these calls.
 
 ## Doctor and runtime environment checks
 
-- [ ] Fully unset Supabase audit config is informational for local PoC hosts:
+- [ ] Fully unset Supabase audit config is informational for local evaluation
+      hosts:
 
   ```bash
   deno task doctor

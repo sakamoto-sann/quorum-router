@@ -1,4 +1,4 @@
-# X launch drafts — Fusion Router v0.1 Public RC
+# X launch drafts — QuorumRouter v0.1 public preview
 
 > Draft asset only. Do not post automatically from this file without explicit
 > approval.
@@ -7,11 +7,11 @@ Links:
 
 - GitHub release:
   https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
-- npm package: https://www.npmjs.com/package/create-fusion-router
+- npm package: https://www.npmjs.com/package/create-quorum-router
 
 ## Short launch tweet
 
-Fusion Router v0.1 Public RC is live.
+QuorumRouter v0.1 public preview is live.
 
 A source-available routing/runtime framework for production-ready Best Route /
 `direct` best-answer routing and explicit opt-in experimental `agent_chat`.
@@ -23,39 +23,40 @@ Source-Available Non-Commercial; not open source.
 
 ## Technical launch tweet
 
-Fusion Router v0.1 Public RC:
+QuorumRouter v0.1 public preview:
 
 - Best Route / `direct` = production-ready best-answer path
 - Zod-validated adapter + synthesis outputs
 - fail-closed runtime boundaries
 - `agent_chat` = experimental explicit opt-in only
 - Best Route does not imply `agent_chat`
-- no production autonomous runtime
+- SafeLoop-backed AgentRuntime production claims are limited to the verified
+  local repository execution slice with signed policy and distinct approval.
 - no live Supabase runtime writes
 - no service-role runtime
 
 Try:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-fusion-router
+https://www.npmjs.com/package/create-quorum-router
 
 ## Two-GIF thread: 7 tweets
 
 ### 1/7
 
-Fusion Router v0.1 Public RC is live.
+QuorumRouter v0.1 public preview is live.
 
 It is a source-available routing/runtime framework for builders who want routing
 safety before agent autonomy.
 
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-fusion-router
+https://www.npmjs.com/package/create-quorum-router
 
 ### 2/7
 
@@ -85,8 +86,8 @@ Best Route does not imply `agent_chat`.
 Quickstart:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -96,17 +97,18 @@ The generated Deno demo should print a JSON result containing `"ok": true`.
 
 Runtime boundaries:
 
-- no production autonomous runtime
+- SafeLoop-backed AgentRuntime production claims are limited to the verified
+  local repository execution slice with signed policy and distinct approval.
 - no live Supabase Agent Bus runtime writes
 - no service-role runtime
 - no hidden runtime expansion from the scaffold
 
 ### 7/7
 
-The npm package is `create-fusion-router@0.1.4`; `latest -> 0.1.4`.
+The npm package is `create-quorum-router@0.1.4`; `latest -> 0.1.4`.
 
 `0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 Public RC line, not a separate product milestone.
+the v0.1 public preview line, not a separate product milestone.
 
 Source-Available Non-Commercial; not open source.
 
@@ -120,7 +122,7 @@ If you are building with multiple model adapters, the hard part is not only
 It is deciding which path is allowed to run, validating every output, and
 failing closed when the system cannot prove safety.
 
-That is the focus of Fusion Router v0.1 Public RC.
+That is the focus of QuorumRouter v0.1 public preview.
 
 ### 2/6
 
@@ -143,7 +145,8 @@ claim of production-ready autonomy.
 The mode boundary matters:
 
 - Best Route does not imply `agent_chat`
-- no production autonomous runtime
+- SafeLoop-backed AgentRuntime production claims are limited to the verified
+  local repository execution slice with signed policy and distinct approval.
 - no live Supabase runtime writes
 - no service-role runtime
 
@@ -152,8 +155,8 @@ The mode boundary matters:
 Try the generated demo:
 
 ```bash
-npx --yes create-fusion-router@latest my-fusion-router-demo
-cd my-fusion-router-demo
+npx --yes create-quorum-router@latest my-quorum-router-demo
+cd my-quorum-router-demo
 deno task smoke
 ```
 
@@ -162,7 +165,7 @@ Then inspect `main.ts` and `deno.json`.
 ### 6/6
 
 Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-fusion-router
+https://www.npmjs.com/package/create-quorum-router
 
 License: Source-Available Non-Commercial, not open source. Check permissions
 before commercial or production use.

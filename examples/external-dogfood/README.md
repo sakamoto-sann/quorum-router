@@ -1,7 +1,7 @@
-# Fusion Router external provider dogfood example
+# QuorumRouter external provider dogfood example
 
 This example is the committed counterpart of the generated
-`create-fusion-router` external dogfood scaffold.
+`create-quorum-router` external dogfood scaffold.
 
 ## Purpose
 
@@ -22,7 +22,7 @@ selected provider.
 deno task check
 deno task external:check
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:once
-FUSION_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
+QUORUM_ROUTER_EXTERNAL_PROVIDERS=grok,devin,openai,localqwen,glm \
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task external:matrix -- -- "Compare direct fix vs refactor."
 ```
 
@@ -46,13 +46,13 @@ out/external-dogfood/external-matrix-trace.json
 The scaffold supports:
 
 - Grok via `grok` CLI by default, or xAI OpenAI-compatible HTTP with
-  `FUSION_ROUTER_GROK_MODE=http`.
+  `QUORUM_ROUTER_GROK_MODE=http`.
 - Devin via `devin` CLI.
 - OpenAI via OpenAI-compatible HTTP, or Codex CLI with
-  `FUSION_ROUTER_OPENAI_MODE=cli`.
+  `QUORUM_ROUTER_OPENAI_MODE=cli`.
 - local Qwen via `qwen` CLI.
 - GLM via OpenAI-compatible HTTP, or zcode-compatible CLI with
-  `FUSION_ROUTER_GLM_MODE=cli`.
+  `QUORUM_ROUTER_GLM_MODE=cli`.
 
 ## Env/config
 
@@ -61,17 +61,17 @@ not print provider credentials.
 
 Useful env vars:
 
-- `FUSION_ROUTER_EXTERNAL_PROVIDER` for a single provider.
-- `FUSION_ROUTER_EXTERNAL_PROVIDERS` for matrix mode.
-- Generic OpenAI-compatible default: `FUSION_ROUTER_PROVIDER_BASE_URL`,
-  `FUSION_ROUTER_PROVIDER_API_KEY`, `FUSION_ROUTER_PROVIDER_MODEL`, and optional
-  `FUSION_ROUTER_PROVIDER_LABEL`.
-- `FUSION_ROUTER_OPENAI_API_KEY` or `OPENAI_API_KEY`.
-- `FUSION_ROUTER_GLM_API_KEY` or `GLM_API_KEY` / `ZHIPUAI_API_KEY` /
+- `QUORUM_ROUTER_EXTERNAL_PROVIDER` for a single provider.
+- `QUORUM_ROUTER_EXTERNAL_PROVIDERS` for matrix mode.
+- Generic OpenAI-compatible default: `QUORUM_ROUTER_PROVIDER_BASE_URL`,
+  `QUORUM_ROUTER_PROVIDER_API_KEY`, `QUORUM_ROUTER_PROVIDER_MODEL`, and optional
+  `QUORUM_ROUTER_PROVIDER_LABEL`.
+- `QUORUM_ROUTER_OPENAI_API_KEY` or `OPENAI_API_KEY`.
+- `QUORUM_ROUTER_GLM_API_KEY` or `GLM_API_KEY` / `ZHIPUAI_API_KEY` /
   `BIGMODEL_API_KEY`.
-- `FUSION_ROUTER_GROK_API_KEY` or `XAI_API_KEY` / `GROK_API_KEY` when using Grok
+- `QUORUM_ROUTER_GROK_API_KEY` or `XAI_API_KEY` / `GROK_API_KEY` when using Grok
   HTTP mode.
-- `FUSION_ROUTER_*_COMMAND` overrides for CLI providers.
+- `QUORUM_ROUTER_*_COMMAND` overrides for CLI providers.
 
 `provider_config.example.json` contains only non-secret labels, model names,
 base URLs, and command names.

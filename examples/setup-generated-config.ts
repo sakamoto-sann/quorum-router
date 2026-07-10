@@ -1,20 +1,20 @@
 import {
-  FusionRouter,
-  generateFusionRouterConfig,
-  loadFusionRouterConfigValue,
+  generateQuorumRouterConfig,
+  loadQuorumRouterConfigValue,
+  QuorumRouter,
 } from "../router.ts";
 import {
   FixtureModelAdapter,
   FixtureSynthesisAdapter,
 } from "./v0_1_fixtures.ts";
 
-const generatedConfig = generateFusionRouterConfig({
+const generatedConfig = generateQuorumRouterConfig({
   profile: "minimal-direct",
 });
-const loadedConfig = loadFusionRouterConfigValue(generatedConfig);
+const loadedConfig = loadQuorumRouterConfigValue(generatedConfig);
 
 const adapter = new FixtureModelAdapter();
-const router = new FusionRouter({
+const router = new QuorumRouter({
   modelAdapters: [adapter],
   synthesisAdapter: new FixtureSynthesisAdapter(),
   minSuccessfulAdapters: 1,

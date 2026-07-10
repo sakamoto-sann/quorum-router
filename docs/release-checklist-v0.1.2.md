@@ -18,7 +18,7 @@
 
 ## Developer adoption paths
 
-- [ ] `packages/create-fusion-router` npm create package scaffold present
+- [ ] `packages/create-quorum-router` npm create package scaffold present
 - [ ] generated demo does not require secrets
 - [ ] generated demo documents tagged `v0.1.2` runtime import
 - [ ] `install.sh` dry-run path present
@@ -41,7 +41,7 @@
 
 ## License
 
-- [ ] LICENSE title is `Fusion Router Source-Available Non-Commercial License`
+- [ ] LICENSE title is `QuorumRouter Source-Available Non-Commercial License`
 - [ ] README says this is not an open source license
 - [ ] No project-level “open source” description remains
 

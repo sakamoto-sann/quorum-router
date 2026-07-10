@@ -9,6 +9,7 @@ import { inventoryCommand, writeInventory } from "./model_inventory.ts";
 import { parseAuthMode } from "./schema.ts";
 import { buildTrace, writeTrace } from "./trace.ts";
 import { summarize } from "./redact.ts";
+import { readRouterEnv } from "./env.ts";
 
 function argValue(name: string, fallback: string): string {
   const index = Deno.args.indexOf(name);
@@ -23,7 +24,7 @@ function argValue(name: string, fallback: string): string {
 function printInventorySummary(
   inventory: ReturnType<typeof discoverInventory>,
 ): void {
-  console.log("Fusion Router local model inventory");
+  console.log("QuorumRouter local model inventory");
   console.log(`auth_mode: ${inventory.auth_mode}`);
   console.log(`available_count: ${inventory.available_count}`);
   console.log(`blocked_count: ${inventory.blocked_count}`);
@@ -61,12 +62,12 @@ async function main(): Promise<void> {
   if (command === "intake") {
     const inventory = await discoverInventoryWithModelListing();
     await writeInventory(inventory);
-    console.log("Fusion Router intake");
+    console.log("QuorumRouter intake");
     console.log("Step 1 — Detect local providers");
     printInventorySummary(inventory);
     console.log("Step 2 — Recommended next action");
     if (invokableEntries(inventory).length === 0) {
-      console.log("Fusion Router intake blocked");
+      console.log("QuorumRouter intake blocked");
       console.log("No usable OAuth/session/wrapper provider is available yet.");
       console.log("Next:");
       console.log("  deno task auth:login");
@@ -83,7 +84,7 @@ async function main(): Promise<void> {
     printInventorySummary(inventory);
     if (invokableEntries(inventory).length === 0) {
       console.log(
-        "next_action: install/login to a local provider CLI, or explicitly set FUSION_ROUTER_AUTH_MODE=env with generic provider env",
+        "next_action: install/login to a local provider CLI, or explicitly set QUORUM_ROUTER_AUTH_MODE=env with generic provider env",
       );
     }
     return;
@@ -107,7 +108,7 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "health") {
-    const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
+    const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
     const inventory = discoverInventory(authMode);
     await writeInventory(inventory);
     const trace = await buildTrace({
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
         : [],
     });
     const path = await writeTrace("health-trace", trace);
-    console.log("Fusion Router local model dogfood health");
+    console.log("QuorumRouter local model dogfood health");
     console.log(
       `available_invokable_models: ${invokableEntries(inventory).length}`,
     );
@@ -130,7 +131,7 @@ async function main(): Promise<void> {
   const prompt = argValue("--prompt", "Review this README for risky claims.");
   if (command === "route:once") {
     const { results, tracePath } = await invokeSelected(prompt);
-    console.log("Fusion Router local model dogfood");
+    console.log("QuorumRouter local model dogfood");
     console.log("mode: route_once");
     console.log(`provider: ${results[0].provider}`);
     console.log(`model: ${results[0].model}`);
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
   }
   if (command === "best-route") {
     const { results, tracePath } = await runBestRoute(prompt);
-    console.log("Fusion Router local model dogfood");
+    console.log("QuorumRouter local model dogfood");
     console.log("mode: best_route");
     console.log(`models_called: ${results.length}`);
     console.log(`trace: ${tracePath}`);
@@ -149,7 +150,7 @@ async function main(): Promise<void> {
   }
   if (command === "agent-chat") {
     const { tracePath } = await runAgentChat(prompt);
-    console.log("Fusion Router local model dogfood");
+    console.log("QuorumRouter local model dogfood");
     console.log("mode: agent_chat experimental explicit opt-in");
     console.log(`trace: ${tracePath}`);
     return;

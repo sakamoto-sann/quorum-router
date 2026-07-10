@@ -80,19 +80,19 @@ Deno.test("local model dogfood parses auth modes and rejects invalid values", ()
 });
 
 Deno.test("local model dogfood auto mode reports env fallback but does not use it", () => {
-  const previous = Deno.env.get("FUSION_ROUTER_AUTH_MODE");
+  const previous = Deno.env.get("QUORUM_ROUTER_AUTH_MODE");
   const providerKey = ["FUSION", "ROUTER", "PROVIDER", "API", "KEY"].join("_");
-  const oldBase = Deno.env.get("FUSION_ROUTER_PROVIDER_BASE_URL");
+  const oldBase = Deno.env.get("QUORUM_ROUTER_PROVIDER_BASE_URL");
   const oldKey = Deno.env.get(providerKey);
-  const oldModel = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL");
+  const oldModel = Deno.env.get("QUORUM_ROUTER_PROVIDER_MODEL");
   try {
-    Deno.env.delete("FUSION_ROUTER_AUTH_MODE");
+    Deno.env.delete("QUORUM_ROUTER_AUTH_MODE");
     Deno.env.set(
-      "FUSION_ROUTER_PROVIDER_BASE_URL",
+      "QUORUM_ROUTER_PROVIDER_BASE_URL",
       "https://example.invalid/v1",
     );
     Deno.env.set(providerKey, ["fixture", "secret", "value"].join("-"));
-    Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", "fixture-model");
+    Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", "fixture-model");
     const inventory = discoverInventory();
     assertEquals(inventory.auth_mode, "auto");
     assertEquals(inventory.env_fallback_configured, true);
@@ -104,21 +104,21 @@ Deno.test("local model dogfood auto mode reports env fallback but does not use i
     assertEquals(fallback.available, false);
     assertStringIncludes(
       fallback.blocked_reason ?? "",
-      "not used unless FUSION_ROUTER_AUTH_MODE=env",
+      "not used unless QUORUM_ROUTER_AUTH_MODE=env",
     );
   } finally {
     previous === undefined
-      ? Deno.env.delete("FUSION_ROUTER_AUTH_MODE")
-      : Deno.env.set("FUSION_ROUTER_AUTH_MODE", previous);
+      ? Deno.env.delete("QUORUM_ROUTER_AUTH_MODE")
+      : Deno.env.set("QUORUM_ROUTER_AUTH_MODE", previous);
     oldBase === undefined
-      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_BASE_URL")
-      : Deno.env.set("FUSION_ROUTER_PROVIDER_BASE_URL", oldBase);
+      ? Deno.env.delete("QUORUM_ROUTER_PROVIDER_BASE_URL")
+      : Deno.env.set("QUORUM_ROUTER_PROVIDER_BASE_URL", oldBase);
     oldKey === undefined
       ? Deno.env.delete(providerKey)
       : Deno.env.set(providerKey, oldKey);
     oldModel === undefined
-      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_MODEL")
-      : Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", oldModel);
+      ? Deno.env.delete("QUORUM_ROUTER_PROVIDER_MODEL")
+      : Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", oldModel);
   }
 });
 
@@ -175,8 +175,8 @@ Deno.test("local model dogfood parses safe grok model list output", () => {
 Deno.test("local model dogfood selection honors provider label aliases", () => {
   for (const label of ["grok-cli", "xAI", "xai"]) {
     setEnvForTest({
-      FUSION_ROUTER_PROVIDER_LABEL: label,
-      FUSION_ROUTER_PROVIDER_MODEL: undefined,
+      QUORUM_ROUTER_PROVIDER_LABEL: label,
+      QUORUM_ROUTER_PROVIDER_MODEL: undefined,
     }, () => {
       const [selected] = selectInvokableCandidates(fixtureCandidates());
       assertEquals(selected.provider, "xAI");
@@ -184,8 +184,8 @@ Deno.test("local model dogfood selection honors provider label aliases", () => {
     });
   }
   setEnvForTest({
-    FUSION_ROUTER_PROVIDER_LABEL: "codex-cli",
-    FUSION_ROUTER_PROVIDER_MODEL: undefined,
+    QUORUM_ROUTER_PROVIDER_LABEL: "codex-cli",
+    QUORUM_ROUTER_PROVIDER_MODEL: undefined,
   }, () => {
     const [selected] = selectInvokableCandidates(fixtureCandidates());
     assertEquals(selected.provider, "OpenAI");
@@ -196,8 +196,8 @@ Deno.test("local model dogfood selection honors provider label aliases", () => {
 Deno.test("local model dogfood selection honors Grok listed model aliases", () => {
   for (const model of ["grok-build", "grok-composer-2.5-fast"]) {
     setEnvForTest({
-      FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-      FUSION_ROUTER_PROVIDER_MODEL: model,
+      QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+      QUORUM_ROUTER_PROVIDER_MODEL: model,
     }, () => {
       const [selected] = selectInvokableCandidates(fixtureCandidates());
       assertEquals(selected.provider, "xAI");
@@ -214,8 +214,8 @@ Deno.test("local model dogfood selection honors Grok listed model aliases", () =
 
 Deno.test("local model dogfood unknown requested provider fails safely", () => {
   setEnvForTest({
-    FUSION_ROUTER_PROVIDER_LABEL: "missing-provider",
-    FUSION_ROUTER_PROVIDER_MODEL: undefined,
+    QUORUM_ROUTER_PROVIDER_LABEL: "missing-provider",
+    QUORUM_ROUTER_PROVIDER_MODEL: undefined,
   }, () => {
     assertThrows(
       () => selectInvokableCandidates(fixtureCandidates()),
@@ -227,8 +227,8 @@ Deno.test("local model dogfood unknown requested provider fails safely", () => {
 
 Deno.test("local model dogfood requested wrapper does not silently use env fallback", () => {
   setEnvForTest({
-    FUSION_ROUTER_PROVIDER_LABEL: "grok-cli",
-    FUSION_ROUTER_PROVIDER_MODEL: "env-model",
+    QUORUM_ROUTER_PROVIDER_LABEL: "grok-cli",
+    QUORUM_ROUTER_PROVIDER_MODEL: "env-model",
   }, () => {
     assertThrows(
       () => selectInvokableCandidates(fixtureCandidates()),
@@ -241,10 +241,10 @@ Deno.test("local model dogfood requested wrapper does not silently use env fallb
 Deno.test("local model dogfood env fallback is available only in env mode", () => {
   const providerKey = ["FUSION", "ROUTER", "PROVIDER", "API", "KEY"].join("_");
   setEnvForTest({
-    FUSION_ROUTER_AUTH_MODE: "env",
-    FUSION_ROUTER_PROVIDER_BASE_URL: "https://example.invalid/v1",
+    QUORUM_ROUTER_AUTH_MODE: "env",
+    QUORUM_ROUTER_PROVIDER_BASE_URL: "https://example.invalid/v1",
     [providerKey]: ["fixture", "secret", "value"].join("-"),
-    FUSION_ROUTER_PROVIDER_MODEL: "env-model",
+    QUORUM_ROUTER_PROVIDER_MODEL: "env-model",
   }, () => {
     const inventory = discoverInventory();
     assertEquals(inventory.env_fallback_configured, true);
@@ -260,11 +260,11 @@ Deno.test("local model dogfood env fallback is available only in env mode", () =
 });
 
 Deno.test("local model dogfood selects requested Grok listed model", () => {
-  const oldLabel = Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL");
-  const oldModel = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL");
+  const oldLabel = Deno.env.get("QUORUM_ROUTER_PROVIDER_LABEL");
+  const oldModel = Deno.env.get("QUORUM_ROUTER_PROVIDER_MODEL");
   try {
-    Deno.env.set("FUSION_ROUTER_PROVIDER_LABEL", "grok-cli");
-    Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", "grok-build");
+    Deno.env.set("QUORUM_ROUTER_PROVIDER_LABEL", "grok-cli");
+    Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", "grok-build");
     const [selected] = selectInvokableCandidates([{
       provider: "xAI",
       auth_mode: "oauth",
@@ -287,18 +287,18 @@ Deno.test("local model dogfood selects requested Grok listed model", () => {
     );
   } finally {
     oldLabel === undefined
-      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_LABEL")
-      : Deno.env.set("FUSION_ROUTER_PROVIDER_LABEL", oldLabel);
+      ? Deno.env.delete("QUORUM_ROUTER_PROVIDER_LABEL")
+      : Deno.env.set("QUORUM_ROUTER_PROVIDER_LABEL", oldLabel);
     oldModel === undefined
-      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_MODEL")
-      : Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", oldModel);
+      ? Deno.env.delete("QUORUM_ROUTER_PROVIDER_MODEL")
+      : Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", oldModel);
   }
 });
 
 Deno.test("local model dogfood fails safely for unknown requested model", () => {
-  const oldModel = Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL");
+  const oldModel = Deno.env.get("QUORUM_ROUTER_PROVIDER_MODEL");
   try {
-    Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", "missing-grok-model");
+    Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", "missing-grok-model");
     assertThrows(
       () =>
         selectInvokableCandidates([{
@@ -319,8 +319,8 @@ Deno.test("local model dogfood fails safely for unknown requested model", () => 
     );
   } finally {
     oldModel === undefined
-      ? Deno.env.delete("FUSION_ROUTER_PROVIDER_MODEL")
-      : Deno.env.set("FUSION_ROUTER_PROVIDER_MODEL", oldModel);
+      ? Deno.env.delete("QUORUM_ROUTER_PROVIDER_MODEL")
+      : Deno.env.set("QUORUM_ROUTER_PROVIDER_MODEL", oldModel);
   }
 });
 

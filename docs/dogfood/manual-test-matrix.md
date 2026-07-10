@@ -15,13 +15,13 @@ Severity guidance:
 
 | Case ID | Case                                     | Steps                                                                                                                                                              | Expected result                                                                                                           | Failure severity |
 | ------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| A1      | Clean temp install with latest           | `tmp="$(mktemp -d)"`; `cd "$tmp"`; `npx --yes create-fusion-router@latest my-fusion-router-demo`; `cd my-fusion-router-demo`; `deno task check`; `deno task smoke` | Scaffold succeeds; generated demo checks and smokes successfully; no credentials required; no secret-like values printed. | P0/P1            |
-| A2      | Clean temp install with pinned version   | `tmp="$(mktemp -d)"`; `cd "$tmp"`; `npx --yes create-fusion-router@0.1.4 my-fusion-router-demo`; `cd my-fusion-router-demo`; `deno task check`; `deno task smoke`  | Same as A1, using the pinned package.                                                                                     | P0/P1            |
+| A1      | Clean temp install with latest           | `tmp="$(mktemp -d)"`; `cd "$tmp"`; `npx --yes create-quorum-router@latest my-quorum-router-demo`; `cd my-quorum-router-demo`; `deno task check`; `deno task smoke` | Scaffold succeeds; generated demo checks and smokes successfully; no credentials required; no secret-like values printed. | P0/P1            |
+| A2      | Clean temp install with pinned version   | `tmp="$(mktemp -d)"`; `cd "$tmp"`; `npx --yes create-quorum-router@0.1.4 my-quorum-router-demo`; `cd my-quorum-router-demo`; `deno task check`; `deno task smoke`  | Same as A1, using the pinned package.                                                                                     | P0/P1            |
 | A3      | Non-empty directory behavior             | Create a non-empty target directory, run the scaffold into it, then retry with `--force` only if intentionally testing overwrite behavior.                         | Default run refuses or safely stops; no files are overwritten unexpectedly; `--force` behavior is explicit.               | P1               |
 | A4      | Invalid project name: spaces             | Try a target with spaces, such as `"bad name"`.                                                                                                                    | Failure is understandable and does not create confusing partial output.                                                   | P2               |
 | A5      | Invalid project name: special characters | Try names with shell-safe special characters such as `bad@name` or `bad:name`.                                                                                     | Failure is understandable or name normalization is clearly documented; no unexpected overwrite.                           | P2               |
 | A6      | Invalid target: existing file path       | Create a file and pass that file path as the target.                                                                                                               | Scaffold refuses clearly and does not replace the file.                                                                   | P1               |
-| A7      | Nested path behavior                     | Try a nested path such as `tmp/nested/my-fusion-router-demo`.                                                                                                      | Either creates the nested project safely or fails with clear parent-directory guidance.                                   | P2               |
+| A7      | Nested path behavior                     | Try a nested path such as `tmp/nested/my-quorum-router-demo`.                                                                                                      | Either creates the nested project safely or fails with clear parent-directory guidance.                                   | P2               |
 | A8      | Re-run behavior                          | Run the scaffold once, then run it again with the same target.                                                                                                     | Safe failure by default or explicit `--force` requirement; no silent overwrite.                                           | P1               |
 | A9      | Network failure observation              | Temporarily block or simulate failure reaching `raw.githubusercontent.com`, then run scaffold or smoke.                                                            | Error explains the network dependency; no credentials or secrets are printed. Record exact message.                       | P2               |
 | A10     | Deno missing note                        | On a machine without Deno, or by temporarily moving Deno off `PATH`, run generated checks/smoke.                                                                   | Failure points to installing/upgrading Deno and is understandable to a first-time user.                                   | P2               |
@@ -32,8 +32,8 @@ Severity guidance:
 Command:
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/examples/best-route-game"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/examples/best-route-game"
 deno task demo
 ```
 
@@ -58,8 +58,8 @@ deno task demo
 Command:
 
 ```bash
-export FUSION_ROUTER_REPO="${FUSION_ROUTER_REPO:-/Users/tetsu/work/fusion-router}"
-cd "$FUSION_ROUTER_REPO/examples/agent-chat-game"
+export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
+cd "$QUORUM_ROUTER_REPO/examples/agent-chat-game"
 deno task demo
 ```
 
@@ -98,8 +98,8 @@ deno task demo
 
 | Case ID | Case                     | Command or action                                                                  | Expected result                                                                    | Failure severity |
 | ------- | ------------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------- |
-| E1      | npm latest               | `npm dist-tag ls create-fusion-router`                                             | `latest: 0.1.4`.                                                                   | P0               |
-| E2      | npm version readback     | `npm view create-fusion-router@0.1.4 name version license bin dist.tarball --json` | Published package readback succeeds for `0.1.4`.                                   | P0/P1            |
+| E1      | npm latest               | `npm dist-tag ls create-quorum-router`                                             | `latest: 0.1.4`.                                                                   | P0               |
+| E2      | npm version readback     | `npm view create-quorum-router@0.1.4 name version license bin dist.tarball --json` | Published package readback succeeds for `0.1.4`.                                   | P0/P1            |
 | E3      | GitHub release assets    | `gh release view v0.1.4 --json assets,url,targetCommitish`                         | Four assets exist: Best Route GIF, Best Route MP4, Agent Chat GIF, Agent Chat MP4. | P1               |
 | E4      | Release target unchanged | Compare target commit with recorded release readback.                              | Release target remains unchanged during dogfood.                                   | P0               |
 | E5      | README asset paths       | Click README GIF/MP4 paths or inspect repository paths.                            | Asset paths resolve.                                                               | P1               |
@@ -158,5 +158,5 @@ For each manual tester, record:
 | G1      | First-time quickstart | Tester can complete README quickstart without extra help.                           | P1               |
 | G2      | Error comprehension   | Tester can explain any failure and next step from the error message.                | P2               |
 | G3      | Mode comprehension    | Tester can explain Best Route vs Agent Chat after reading README and running demos. | P1/P2            |
-| G4      | Time to success       | Time from first command to successful smoke is acceptable for a public RC.          | P2               |
+| G4      | Time to success       | Time from first command to successful smoke is acceptable for a public preview.     | P2               |
 | G5      | Evidence quality      | Tester records enough logs/screenshots to reproduce failures.                       | P2               |

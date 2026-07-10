@@ -3,6 +3,7 @@ import {
   invokableEntries,
 } from "./auth_discovery.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
+import { readRouterEnv } from "./env.ts";
 import {
   assertOptIn,
   type ModelInventoryEntry,
@@ -63,10 +64,10 @@ export function selectInvokableCandidates(
   candidates: ModelInventoryEntry[],
 ): ModelInventoryEntry[] {
   const requestedProvider = normalized(
-    Deno.env.get("FUSION_ROUTER_PROVIDER_LABEL"),
+    readRouterEnv("QUORUM_ROUTER_PROVIDER_LABEL"),
   );
   const requestedModel = normalized(
-    Deno.env.get("FUSION_ROUTER_PROVIDER_MODEL"),
+    readRouterEnv("QUORUM_ROUTER_PROVIDER_MODEL"),
   );
   if (!requestedProvider && !requestedModel) return candidates;
 
@@ -99,7 +100,7 @@ export async function invokeSelected(
   prompt: string,
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
-  const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
+  const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
   const inventory = await discoverInventoryWithModelListing(authMode);
   const candidates = selectInvokableCandidates(invokableEntries(inventory));
   if (candidates.length === 0) {
@@ -129,7 +130,7 @@ export async function runBestRoute(
   prompt: string,
 ): Promise<{ results: ProviderResult[]; tracePath: string }> {
   assertOptIn();
-  const authMode = parseAuthMode(Deno.env.get("FUSION_ROUTER_AUTH_MODE"));
+  const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
   const inventory = await discoverInventoryWithModelListing(authMode);
   const candidates = selectInvokableCandidates(invokableEntries(inventory));
   if (candidates.length === 0) {

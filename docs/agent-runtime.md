@@ -1,6 +1,6 @@
 # Experimental AgentRuntime
 
-Fusion Router now includes an **explicit opt-in experimental AgentRuntime** for
+QuorumRouter now includes an **explicit opt-in experimental AgentRuntime** for
 `agent_chat`. It is not a production autonomous worker system. It is an
 in-process, adapter-based loop that calls only the role adapters supplied by the
 caller.
@@ -12,12 +12,13 @@ direct = production-ready best-answer routing path
 agent_chat = recognized multi-role path; fails closed unless explicitly opted in
 AgentRuntime = in-process experimental role loop
 Agent Bus = durable coordination/message/event contract
+SafeLoopClient = sole authority for any proposed action execution
 ```
 
 Default behavior is unchanged:
 
 - `direct` remains the default and production-ready route.
-- `FusionRouter.route(..., { routingMode: "agent_chat" })` fails closed before
+- `QuorumRouter.route(..., { routingMode: "agent_chat" })` fails closed before
   adapter execution when `experimentalAgentRuntime` is not `true`.
 - `agentRuntime.enabled=true` and `agentRuntime.experimental=true` are both
   required.
@@ -43,6 +44,22 @@ Runtime callers provide an `AgentRuntimeConfig`:
   limits,
 }
 ```
+
+Execution configuration injects one `SafeLoopClient`, repository/run-root paths,
+policy version/reference, requester identity, expected artifact scope, an
+external approval resolver, and a confined action runner. QuorumRouter does not
+approve requests, sign policy, or implement audit/verification authority. The
+CLI client submits one immutable `safeloop execute-request` request and accepts
+only a strictly bound `safeloop.execution-receipt.v1` with successful artifact
+and anchor verification. Write requests require a pre-issued distinct-actor
+approval for the exact canonical action digest.
+
+The production repository runner translates validated `read_file`, `write_file`,
+exact-string `patch_file`, and allowlisted `run_command` proposals into a
+non-shell worker argv. Its action payload is a mode-0600 temporary file outside
+the repository and is removed after the SafeLoop lifecycle completes. Repository
+paths are realpath-confined; traversal and symlink escapes fail closed.
+Signing-key bytes are never added to prompts, action payloads, or receipts.
 
 Required roles:
 
@@ -132,8 +149,9 @@ an Edge Function gateway, or worker spawning.
 
 ## Safety boundaries
 
-- No automatic worker spawn.
-- No external tool execution by agents.
+- Worker execution occurs only beneath a verified SafeLoop execute-request.
+- Command execution uses exact argv allowlisting and never a shell.
+- QuorumRouter cannot self-approve and ignores model-provided approval claims.
 - No live Supabase Agent Bus runtime client.
 - No service-role runtime credentials.
 - No OAuth/API-key setup.

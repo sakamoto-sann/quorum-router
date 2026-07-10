@@ -1,4 +1,4 @@
-# Known limitations for v0.1 Public RC dogfood
+# Known limitations for v0.1 public preview dogfood
 
 These limitations are acceptable only if they are visible to testers and all
 must-pass launch checks pass.
@@ -9,7 +9,7 @@ must-pass launch checks pass.
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Deno is required.                                                              | Users without Deno cannot run generated `deno task` checks or demos until they install Deno.      | Document in quickstart/troubleshooting.                                      |
 | Network is required for remote module resolution.                              | First run may fail when Deno, npm, or GitHub raw content is unreachable.                          | Error should be understandable; record network failures during dogfood.      |
-| npm/NPX relies on public registry availability.                                | `npx create-fusion-router@latest` can fail when npm is unavailable or blocked.                    | Treat as external dependency if registry readback is healthy.                |
+| npm/NPX relies on public registry availability.                                | `npx create-quorum-router@latest` can fail when npm is unavailable or blocked.                    | Treat as external dependency if registry readback is healthy.                |
 | `agent_chat` is a deterministic demo fixture / experimental.                   | It demonstrates mode separation and role output; it is not a production-ready Agent Chat runtime. | Keep explicit opt-in experimental wording.                                   |
 | Source-Available Non-Commercial may limit commercial use.                      | Commercial use requires prior written permission.                                                 | Keep license boundary visible and concise.                                   |
 | v0.1.3 tag predates PR #40 demo files, while README/main has latest demo docs. | Release tag assets and package exist, but main README/docs may include later launch docs.         | Keep release target readback explicit; do not mutate existing tags/releases. |

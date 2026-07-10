@@ -7,12 +7,47 @@ import {
   type ParsedAgentRuntimeRoleOutput,
 } from "./types.ts";
 
+const ActionBase = {
+  id: z.string().trim().min(1),
+  proposedBy: z.string().trim().min(1),
+};
+const ActionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    ...ActionBase,
+    kind: z.literal("read_file"),
+    classification: z.literal("read_only"),
+    path: z.string().min(1),
+  }).strip(),
+  z.object({
+    ...ActionBase,
+    kind: z.literal("write_file"),
+    classification: z.literal("repo_write"),
+    path: z.string().min(1),
+    content: z.string(),
+  }).strip(),
+  z.object({
+    ...ActionBase,
+    kind: z.literal("patch_file"),
+    classification: z.literal("repo_write"),
+    path: z.string().min(1),
+    find: z.string().min(1),
+    replace: z.string(),
+  }).strip(),
+  z.object({
+    ...ActionBase,
+    kind: z.literal("run_command"),
+    classification: z.literal("shell_write"),
+    command: z.array(z.string().min(1)).min(1),
+  }).strip(),
+]);
+
 const RoleOutputSchema = z.object({
   status: z.enum(AgentRuntimeOutputStatuses),
   content: z.string().trim().min(1),
   objection: z.string().trim().min(1).nullable().optional(),
   finalAnswer: z.string().trim().min(1).nullable().optional(),
   budgetUsd: z.number().finite().nonnegative().optional(),
+  actions: z.array(ActionSchema).optional(),
 }).passthrough();
 
 function expectedStatusesForRole(role: AgentRuntimeRole): readonly string[] {
@@ -106,6 +141,14 @@ export function parseAgentRuntimeRoleOutput(
       { role, status: output.status },
     );
   }
+  if (role !== "coder" && output.actions?.length) {
+    failClosed(
+      4401,
+      "agent_runtime_unsafe_actions",
+      "Only coder may propose actions.",
+      { role },
+    );
+  }
 
   return {
     status: output.status,
@@ -117,5 +160,6 @@ export function parseAgentRuntimeRoleOutput(
       ? redactAgentChatContent(output.finalAnswer)
       : null,
     budgetUsd: output.budgetUsd ?? 0,
+    actions: (output.actions ?? []) as ParsedAgentRuntimeRoleOutput["actions"],
   };
 }

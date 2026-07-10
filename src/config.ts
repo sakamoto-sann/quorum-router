@@ -20,7 +20,7 @@ import {
   SetupTelemetrySchema,
 } from "./setup/setup-schema.ts";
 
-export type FusionRouterConfig = {
+export type QuorumRouterConfig = {
   routingMode?: RoutingMode;
   setupProfile?: SetupProfileName;
   providers?: SetupProviderSelection[];
@@ -32,7 +32,7 @@ export type FusionRouterConfig = {
   commander?: SetupCommanderConfig;
 };
 
-export const FusionRouterConfigFileSchema = z.object({
+export const QuorumRouterConfigFileSchema = z.object({
   profile: SetupProfileNameSchema.optional(),
   routing: z.object({
     mode: z.unknown().optional(),
@@ -45,22 +45,25 @@ export const FusionRouterConfigFileSchema = z.object({
   agentRuntime: SetupAgentRuntimeSchema.optional(),
   commander: CommanderConfigSchema.optional(),
   setup: z.object({
-    generatedBy: z.literal("fusion-router setup").optional(),
+    generatedBy: z.enum([
+      "quorum-router setup",
+      "fusion-router setup",
+    ]).optional(),
     warnings: z.array(z.string()).optional(),
     nonGoals: z.array(z.string()).optional(),
   }).strict().optional(),
 }).strict();
 
-function normalizeFusionRouterConfig(
+function normalizeQuorumRouterConfig(
   parsedJson: unknown,
   path: string,
-): FusionRouterConfig {
-  const parsedConfig = FusionRouterConfigFileSchema.safeParse(parsedJson);
+): QuorumRouterConfig {
+  const parsedConfig = QuorumRouterConfigFileSchema.safeParse(parsedJson);
   if (!parsedConfig.success) {
     failClosed(
       4400,
       "invalid_config_shape",
-      "Fusion router config has an invalid shape; raw contents hidden.",
+      "QuorumRouter config has an invalid shape; raw contents hidden.",
       { path },
     );
   }
@@ -99,17 +102,17 @@ function normalizeFusionRouterConfig(
   };
 }
 
-export function loadFusionRouterConfigValue(
+export function loadQuorumRouterConfigValue(
   parsedJson: unknown,
   path = "<memory>",
-): FusionRouterConfig {
-  return normalizeFusionRouterConfig(parsedJson, path);
+): QuorumRouterConfig {
+  return normalizeQuorumRouterConfig(parsedJson, path);
 }
 
-export function loadFusionRouterConfigText(
+export function loadQuorumRouterConfigText(
   rawConfig: string,
   path = "<memory>",
-): FusionRouterConfig {
+): QuorumRouterConfig {
   let parsedJson: unknown;
   try {
     parsedJson = JSON.parse(rawConfig);
@@ -117,16 +120,16 @@ export function loadFusionRouterConfigText(
     failClosed(
       4400,
       "invalid_config_json",
-      "Fusion router config contains malformed JSON.",
+      "QuorumRouter config contains malformed JSON.",
       { path },
     );
   }
-  return normalizeFusionRouterConfig(parsedJson, path);
+  return normalizeQuorumRouterConfig(parsedJson, path);
 }
 
-export async function loadFusionRouterConfig(
+export async function loadQuorumRouterConfig(
   path: string,
-): Promise<FusionRouterConfig> {
+): Promise<QuorumRouterConfig> {
   let rawConfig: string;
   try {
     rawConfig = await Deno.readTextFile(path);
@@ -138,10 +141,21 @@ export async function loadFusionRouterConfig(
     failClosed(
       4400,
       "config_load_failed",
-      "Fusion router config could not be loaded.",
+      "QuorumRouter config could not be loaded.",
       { path },
     );
   }
 
-  return loadFusionRouterConfigText(rawConfig, path);
+  return loadQuorumRouterConfigText(rawConfig, path);
 }
+
+/** @deprecated Use QuorumRouterConfig. */
+export type FusionRouterConfig = QuorumRouterConfig;
+/** @deprecated Use QuorumRouterConfigFileSchema. */
+export const FusionRouterConfigFileSchema = QuorumRouterConfigFileSchema;
+/** @deprecated Use loadQuorumRouterConfigValue. */
+export const loadFusionRouterConfigValue = loadQuorumRouterConfigValue;
+/** @deprecated Use loadQuorumRouterConfigText. */
+export const loadFusionRouterConfigText = loadQuorumRouterConfigText;
+/** @deprecated Use loadQuorumRouterConfig. */
+export const loadFusionRouterConfig = loadQuorumRouterConfig;

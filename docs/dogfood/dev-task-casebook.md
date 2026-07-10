@@ -1,6 +1,6 @@
 # Dev task casebook
 
-Use these realistic development tasks for dogfooding Fusion Router on work where
+Use these realistic development tasks for dogfooding QuorumRouter on work where
 answers are not known in advance. Each task should produce a session log and a
 score using `dev-go-no-go-rubric.md`.
 

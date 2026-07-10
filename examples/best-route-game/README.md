@@ -1,9 +1,9 @@
 # Best Route Shogi demo
 
-This demo is **GIF 1** for Fusion Router v0.1 Public RC.
+This demo is **GIF 1** for QuorumRouter v0.1 public preview.
 
 It shows **Best Route mode** as a production-ready best-answer routing path:
-Fusion Router compares deterministic candidate lines for a small shogi opening
+QuorumRouter compares deterministic candidate lines for a small shogi opening
 excerpt, selects a next move, and fades out before the full match.
 
 The fixture agents are named `Grok` and `GLM`, but no external Grok/GLM

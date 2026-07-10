@@ -1,4 +1,4 @@
-# Best Route Shogi GIF — Fusion Router v0.1 Public RC
+# Best Route Shogi GIF — QuorumRouter v0.1 public preview
 
 > GIF 1. This is the production-ready best-answer routing path demo. Do not
 > describe it as Agent Chat, a live Grok/GLM model call, or autonomous runtime.
@@ -29,7 +29,7 @@ See
 Required visible markers:
 
 ```text
-Fusion Router v0.1 Public RC
+QuorumRouter v0.1 public preview
 Mode: best_route
 Demo: Mini Shogi Opening Excerpt
 Fixture agents: Grok vs GLM
@@ -50,15 +50,15 @@ The output must **not** contain `Mode: agent_chat` or role-conversation framing.
 
 1. “GIF 1: Best Route mode chooses the next move in a Grok vs GLM shogi
    excerpt.”
-2. “Fusion Router compares candidate shogi lines, selects
-   `balanced_development`, and fades out before the full match.”
+2. “QuorumRouter compares candidate shogi lines, selects `balanced_development`,
+   and fades out before the full match.”
 3. “Production-ready best-answer routing path. No role conversation, no external
    Grok/GLM model/API call.”
 4. “Best Route mode is separate from experimental `agent_chat`.”
 
 ## Alt text
 
-Terminal recording of Fusion Router v0.1 Public RC running
+Terminal recording of QuorumRouter v0.1 public preview running
 `cd examples/best-route-game && deno task demo`. The output shows
 `Mode: best_route`, fixture agents `Grok vs GLM`, a simple mini shogi board,
 opening moves, route scores, selected route `balanced_development`, next move
@@ -73,13 +73,13 @@ out before the full match.
 
 ## Short X caption
 
-GIF 1: Best Route mode. Fusion Router compares Grok vs GLM shogi lines, selects
+GIF 1: Best Route mode. QuorumRouter compares Grok vs GLM shogi lines, selects
 `balanced_development`, and fades out before the full match. Separate from
 experimental `agent_chat`.
 
 ## Claims to avoid
 
-- Do not call Fusion Router open source.
+- Do not call QuorumRouter open source.
 - Do not claim real Grok or GLM external model/API calls are made.
 - Do not claim production autonomous runtime.
 - Do not imply Best Route always invokes `agent_chat`.

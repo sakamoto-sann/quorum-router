@@ -1,8 +1,8 @@
-# Agent Chat Shogi GIF — Fusion Router v0.1 Public RC
+# Agent Chat Shogi GIF — QuorumRouter v0.1 public preview
 
-> GIF 2. This is the experimental explicit opt-in `agent_chat` conversation
-> demo. Do not describe it as Best Route mode, a live Grok/GLM model call, or
-> production autonomous runtime.
+> GIF 2. This is the conversation-only `agent_chat` fixture demo, not the
+> production SafeLoop execution demo. Do not describe it as Best Route mode or a
+> live Grok/GLM model call.
 
 ![Agent Chat mode demo](../assets/launch/fusion-router-agent-chat-game.gif)
 
@@ -30,7 +30,7 @@ See
 Required visible markers:
 
 ```text
-Fusion Router v0.1 Public RC
+QuorumRouter v0.1 public preview
 Mode: agent_chat
 Status: experimental explicit opt-in
 Demo: Mini Shogi Opening Excerpt
@@ -58,7 +58,7 @@ The output must **not** contain a Best Route score table.
 
 ## Alt text
 
-Terminal recording of Fusion Router v0.1 Public RC running
+Terminal recording of QuorumRouter v0.1 public preview running
 `cd examples/agent-chat-game && deno task demo`. The output shows
 `Mode: agent_chat`, `Status: experimental explicit opt-in`, fixture agents
 `Grok vs GLM`, a simple mini shogi board, six opening half-moves, a fadeout line
@@ -77,7 +77,7 @@ excerpt, then the demo fades out before the full match.
 
 ## Claims to avoid
 
-- Do not call Fusion Router open source.
+- Do not call QuorumRouter open source.
 - Do not claim real Grok or GLM external model/API calls are made.
 - Do not claim `agent_chat` is production-ready.
 - Do not claim production autonomous runtime.

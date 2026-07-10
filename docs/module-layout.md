@@ -10,7 +10,7 @@ without editing one large file.
 Existing imports from `./router.ts` remain supported. The root file is now a
 barrel that re-exports the public contracts from the split modules, including:
 
-- `FusionRouter`
+- `QuorumRouter`
 - `RouterError` and `ProcessExecutionError`
 - routing-mode parser / resolver / decision helpers
 - config loader exports
@@ -35,9 +35,9 @@ exports are still present.
 router.ts                         # public compatibility barrel + CLI entrypoint
 setup.ts                          # setup CLI entrypoint wrapper
 src/
-  router.ts                       # FusionRouter core route/telemetry flow
+  router.ts                       # QuorumRouter core route/telemetry flow
   routing-mode.ts                 # direct/agent_chat schema, precedence, decision summary
-  config.ts                       # fusion-router.config.json loader
+  config.ts                       # quorum-router.config.json loader
   errors.ts                       # RouterError, ProcessExecutionError, sanitizers
   schemas.ts                      # provider/model/synthesis/telemetry schemas
   contracts.ts                    # ModelAdapter/SynthesisAdapter/TelemetrySink interfaces
@@ -112,7 +112,7 @@ The split is intended to be behavior-preserving:
   make `agent_chat` production-ready
 - `routing.mode` remains `direct | agent_chat`; no `agent_bus` routing mode is
   introduced
-- Agent Bus config under `agentBus` does not connect `FusionRouter.route()` to a
+- Agent Bus config under `agentBus` does not connect `QuorumRouter.route()` to a
   production `agent_chat` runtime; experimental runtime requires explicit role
   adapters
 - `BufferedBatchSink` delivery semantics are unchanged
@@ -145,7 +145,7 @@ setup state without exposing raw config contents or invalid env values. The new
 routing checks cover:
 
 - default config path absent / present / valid / invalid
-- `FUSION_ROUTER_MODE` absent / valid / invalid
+- `QUORUM_ROUTER_MODE` absent / valid / invalid
 - config-vs-env precedence note
 - effective routing decision and implementation status
 - explicit note that `agent_chat` is gated behind experimental runtime opt-in
@@ -162,7 +162,7 @@ generator, and dry-run CLI. This wave adds:
 
 - deterministic built-in profiles for minimal direct, direct HTTP, CLI OAuth,
   Adaptive Direct, and Supabase audit RPC setup;
-- `fusion-router.config.json` output with provider/auth/transport/routing /
+- `quorum-router.config.json` output with provider/auth/transport/routing /
   persistence / telemetry / Adaptive Direct selections;
 - empty env placeholder guidance only, never raw secret values;
 - doctor checks for profile, provider capability, auth/transport match, Supabase
@@ -197,7 +197,7 @@ AgentChat skeleton. This wave adds protocol roles, bounded run limits,
 transcript redaction, in-memory audit milestone taxonomy, and a deterministic
 simulator for planner → coder → reviewer → red-team → closeout. The simulator
 performs no LLM, network, process, tool, persistence, or Supabase work and is
-not connected to `FusionRouter.route()`.
+not connected to `QuorumRouter.route()`.
 
 ## Non-goals for this foundation wave
 

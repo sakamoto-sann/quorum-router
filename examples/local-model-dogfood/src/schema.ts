@@ -83,7 +83,7 @@ export function parseAuthMode(value: string | undefined): AuthMode {
     return mode as AuthMode;
   }
   throw new Error(
-    `local model dogfood blocked: invalid FUSION_ROUTER_AUTH_MODE '${mode}'`,
+    `local model dogfood blocked: invalid QUORUM_ROUTER_AUTH_MODE '${mode}'`,
   );
 }
 

@@ -3,11 +3,11 @@ import {
   type AgentRuntimeRole,
   type CommanderConfig,
   DEFAULT_AGENT_RUNTIME_BUS_IDS,
-  FusionRouter,
   InMemoryAgentBusStore,
   type ModelAdapter,
   type ModelOutput,
   type ProviderDescriptor,
+  QuorumRouter,
   RouterError,
   runAgentRuntime,
 } from "../router.ts";
@@ -156,7 +156,7 @@ const malformedError = await assertRejects(
 assertEquals(malformedError.status, 4401);
 assertEquals(malformedError.code, "agent_runtime_malformed_role_output");
 
-const gatedRouter = new FusionRouter({
+const gatedRouter = new QuorumRouter({
   modelAdapters: [new TextRoleAdapter("coder", json("result", "unused"))],
   synthesisAdapter: new FixtureSynthesisAdapter(),
   minSuccessfulAdapters: 1,

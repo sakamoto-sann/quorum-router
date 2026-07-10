@@ -1,4 +1,4 @@
-# Demo GIF shot list — Fusion Router v0.1 Public RC
+# Demo GIF shot list — QuorumRouter v0.1 public preview
 
 > Screen recording plan only. Do not post media without explicit launch
 > approval.
@@ -35,7 +35,7 @@ deno task demo
 ### Final frame text
 
 ```text
-Fusion Router v0.1 Public RC — Best Route chooses a Grok vs GLM shogi line
+QuorumRouter v0.1 public preview — Best Route chooses a Grok vs GLM shogi line
 ```
 
 ### Must not appear
@@ -67,7 +67,7 @@ deno task demo
 ### Final frame text
 
 ```text
-Fusion Router v0.1 Public RC — experimental Agent Chat shogi excerpt, explicit opt-in
+QuorumRouter v0.1 public preview — experimental Agent Chat shogi excerpt, explicit opt-in
 ```
 
 ### Must not appear
@@ -101,7 +101,7 @@ Fusion Router v0.1 Public RC — experimental Agent Chat shogi excerpt, explicit
 
 ## Social preview text
 
-Fusion Router v0.1 Public RC has two intentionally separate demos:
+QuorumRouter v0.1 public preview has two intentionally separate demos:
 
 ```text
 GIF 1: Best Route mode chooses a shogi next move.

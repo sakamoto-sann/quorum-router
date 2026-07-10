@@ -1,5 +1,6 @@
 import type { CoFailureTelemetry, TelemetryFailure } from "../schemas.ts";
 import type { TelemetrySink } from "../contracts.ts";
+import { readRouterEnv } from "../env.ts";
 import {
   credentialValuesFromUrl,
   errorMessage,
@@ -113,7 +114,7 @@ export function boundedEnvInteger(
   fallback: number,
   max: number,
 ): number {
-  const value = Number(Deno.env.get(name));
+  const value = Number(readRouterEnv(name));
   return boundedInteger(value, fallback, max);
 }
 
@@ -176,7 +177,7 @@ function toOtlpLogPayload(
         },
         scopeLogs: [
           {
-            scope: { name: "fusion-router" },
+            scope: { name: "quorum-router" },
             logRecords,
           },
         ],
@@ -228,7 +229,7 @@ export function createOtlpTelemetryHandler(
         body: JSON.stringify(
           toOtlpLogPayload(
             records,
-            options.serviceName ?? "fusion-router",
+            options.serviceName ?? "quorum-router",
             Date.now(),
           ),
         ),

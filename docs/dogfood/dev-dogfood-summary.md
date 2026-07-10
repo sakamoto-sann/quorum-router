@@ -1,7 +1,7 @@
 # Dev dogfood summary
 
 This pack extends the manual QA dogfood work with a real development workflow.
-The purpose is to test whether Fusion Router helps with ordinary development
+The purpose is to test whether QuorumRouter helps with ordinary development
 judgment, not whether a fixed demo puzzle still prints the known answer.
 
 ## Added workflow pieces

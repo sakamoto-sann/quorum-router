@@ -9,7 +9,7 @@ import {
 } from "./external_provider.ts";
 
 const DEFAULT_PROMPT =
-  "Fusion Router external dogfood: answer with one concise paragraph explaining one real development decision this router should help with.";
+  "QuorumRouter external dogfood: answer with one concise paragraph explaining one real development decision this router should help with.";
 const OUT_DIR = "out/external-dogfood";
 
 type Trace = {
@@ -129,7 +129,7 @@ function buildTrace(
 async function runCheckOnly(matrix: boolean): Promise<void> {
   const ids = selectedProviderIds(matrix);
   const configs = await loadExternalProviderConfigs(ids);
-  console.log("Fusion Router external dogfood");
+  console.log("QuorumRouter external dogfood");
   console.log("Mode: best_route");
   console.log("Provider mode: external");
   console.log(
@@ -159,7 +159,7 @@ async function runProviderDogfood(matrix: boolean): Promise<void> {
   const trace = buildTrace(configs, prompt, results, matrix);
   const tracePath = await writeTrace(trace, matrix);
 
-  console.log("Fusion Router external dogfood");
+  console.log("QuorumRouter external dogfood");
   console.log("Mode: best_route");
   console.log("Provider mode: external");
   console.log(`Provider count: ${configs.length}`);

@@ -35,6 +35,6 @@ Deno.test("Hermes bridge rejects oversized stdin before JSON parsing", async () 
   assertEquals(payload.ok, false);
   assertEquals(
     payload.error,
-    "fusion-router Hermes bridge input exceeds 120000 bytes",
+    "quorum-router Hermes bridge input exceeds 120000 bytes",
   );
 });

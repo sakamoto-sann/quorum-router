@@ -7,13 +7,13 @@ from unittest import mock
 
 
 TOOLS_PATH = Path(__file__).resolve().parents[1] / "tools.py"
-SPEC = importlib.util.spec_from_file_location("fusion_router_tools", TOOLS_PATH)
+SPEC = importlib.util.spec_from_file_location("quorum_router_tools", TOOLS_PATH)
 assert SPEC and SPEC.loader
 TOOLS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TOOLS)
 
 
-class FusionRouterToolsTest(unittest.TestCase):
+class QuorumRouterToolsTest(unittest.TestCase):
     def test_route_rejects_empty_prompt(self):
         result = json.loads(TOOLS.route({"prompt": "  "}))
         self.assertFalse(result["ok"])
@@ -121,9 +121,9 @@ class FusionRouterToolsTest(unittest.TestCase):
                 args, kwargs = run.call_args
                 self.assertNotIn("TOP SECRET TEST", args[0])
                 self.assertIn("TOP SECRET TEST", kwargs["input_text"])
-                self.assertEqual(kwargs["env"]["FUSION_ROUTER_PROVIDER_LABEL"], "codex")
-                self.assertEqual(kwargs["env"]["FUSION_ROUTER_AUTH_MODE"], "wrapper")
-                self.assertNotIn("FUSION_ROUTER_PROVIDER_MODEL", kwargs["env"])
+                self.assertEqual(kwargs["env"]["QUORUM_ROUTER_PROVIDER_LABEL"], "codex")
+                self.assertEqual(kwargs["env"]["QUORUM_ROUTER_AUTH_MODE"], "wrapper")
+                self.assertNotIn("QUORUM_ROUTER_PROVIDER_MODEL", kwargs["env"])
                 self.assertNotIn("TELEGRAM_BOT_TOKEN", kwargs["env"])
 
     def test_trial_telemetry_never_stores_prompt_or_answer(self):

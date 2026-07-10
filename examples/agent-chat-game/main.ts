@@ -112,7 +112,7 @@ async function writeArtifacts() {
   );
 }
 
-console.log("Fusion Router v0.1 Public RC");
+console.log("QuorumRouter v0.1 public preview");
 console.log("Mode: agent_chat");
 console.log("Status: experimental explicit opt-in");
 console.log("Demo: Mini Shogi Opening Excerpt");

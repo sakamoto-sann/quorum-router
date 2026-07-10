@@ -1,8 +1,8 @@
 # Supabase Agent Bus
 
-The Supabase Agent Bus is Fusion Router's durable coordination-plane contract
-for `agent_chat` / commander runtime work. The experimental AgentRuntime can use
-the in-memory store interface, but this document's Supabase path is still future
+The Supabase Agent Bus is QuorumRouter's durable coordination-plane contract for
+`agent_chat` / commander runtime work. The experimental AgentRuntime can use the
+in-memory store interface, but this document's Supabase path is still future
 live runtime work. It is **not** a replacement for the current production direct
 router path.
 
@@ -76,7 +76,7 @@ Rules:
 - Commander config lives under `commander` and remains role/selection metadata;
   the experimental runtime still requires explicit role adapters.
 - Enabling Agent Bus does not make `agent_chat` production-ready.
-- `FusionRouter.route(..., { routingMode: "agent_chat" })` still fails closed
+- `QuorumRouter.route(..., { routingMode: "agent_chat" })` still fails closed
   before adapter execution unless `experimentalAgentRuntime: true` and an
   enabled experimental runtime config are present.
 

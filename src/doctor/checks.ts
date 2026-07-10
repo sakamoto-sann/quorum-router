@@ -4,8 +4,9 @@ import {
   resolveRoutingMode,
   ROUTING_MODE_ENV,
 } from "../routing-mode.ts";
-import { type FusionRouterConfig, loadFusionRouterConfig } from "../config.ts";
+import { loadQuorumRouterConfig, type QuorumRouterConfig } from "../config.ts";
 import { RouterError } from "../errors.ts";
+import { readRouterEnv, routerEnvPresent } from "../env.ts";
 import {
   createDefaultProviderCapabilityRegistry,
   providerDescriptorKey,
@@ -35,20 +36,21 @@ export type DoctorRunOptions = {
   checkCliCommands?: boolean;
 };
 
-const DEFAULT_CONFIG_PATH = "fusion-router.config.json";
-const CONFIG_PATH_ENV = "FUSION_ROUTER_CONFIG";
+const DEFAULT_CONFIG_PATH = "quorum-router.config.json";
+const CONFIG_PATH_ENV = "QUORUM_ROUTER_CONFIG";
+const LEGACY_CONFIG_PATH = "fusion-router.config.json";
 
 function envFlagEnabled(name: string): boolean {
-  const value = Deno.env.get(name);
+  const value = readRouterEnv(name);
   return value === "1" || value === "true" || value === "yes";
 }
 
 function envPresent(name: string): boolean {
-  return Boolean(Deno.env.get(name)?.trim());
+  return routerEnvPresent(name);
 }
 
 function boundedEnv(name: string, fallback: number, max: number): number {
-  const value = Number(Deno.env.get(name));
+  const value = Number(readRouterEnv(name));
   return Number.isFinite(value) && value > 0
     ? Math.min(Math.floor(value), max)
     : fallback;
@@ -83,10 +85,13 @@ async function commandAvailable(command: string): Promise<boolean> {
 
 const FORBIDDEN_SUPABASE_PRIVILEGE_ENV_KEYS = new Set([
   "SUPABASE_SERVICE_ROLE_KEY",
+  "QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY",
   "FUSION_ROUTER_SUPABASE_SERVICE_ROLE_KEY",
   "SUPABASE_SERVICE_KEY",
+  "QUORUM_ROUTER_SUPABASE_SERVICE_KEY",
   "FUSION_ROUTER_SUPABASE_SERVICE_KEY",
   "SUPABASE_ADMIN_KEY",
+  "QUORUM_ROUTER_SUPABASE_ADMIN_KEY",
   "FUSION_ROUTER_SUPABASE_ADMIN_KEY",
 ]);
 
@@ -97,8 +102,21 @@ function serviceRoleEnvKeys(): string[] {
   );
 }
 
-function configPath(): string {
-  return Deno.env.get(CONFIG_PATH_ENV)?.trim() || DEFAULT_CONFIG_PATH;
+async function configPath(): Promise<string> {
+  const configured = readRouterEnv(CONFIG_PATH_ENV)?.trim();
+  if (configured) return configured;
+  try {
+    await Deno.stat(DEFAULT_CONFIG_PATH);
+    return DEFAULT_CONFIG_PATH;
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  try {
+    await Deno.stat(LEGACY_CONFIG_PATH);
+    return LEGACY_CONFIG_PATH;
+  } catch {
+    return DEFAULT_CONFIG_PATH;
+  }
 }
 
 function safeRoutingConfigError(error: unknown): string {
@@ -135,7 +153,7 @@ function isLocalModelPlaceholder(provider: SetupProviderSelection): boolean {
 
 function pushSetupConfigChecks(
   checks: DoctorCheck[],
-  config: FusionRouterConfig | undefined,
+  config: QuorumRouterConfig | undefined,
 ): void {
   if (!config) {
     checks.push({
@@ -306,8 +324,8 @@ export async function runDoctorChecks(
   });
 
   const directHttpEnabled =
-    envFlagEnabled("FUSION_ROUTER_ENABLE_DIRECT_HTTP") ||
-    envFlagEnabled("FUSION_ROUTER_DIRECT_HTTP_ONLY") ||
+    envFlagEnabled("QUORUM_ROUTER_ENABLE_DIRECT_HTTP") ||
+    envFlagEnabled("QUORUM_ROUTER_DIRECT_HTTP_ONLY") ||
     envPresent("OPENAI_API_KEY") || envPresent("ANTHROPIC_API_KEY");
   checks.push({
     name: "direct_http_state",
@@ -327,10 +345,10 @@ export async function runDoctorChecks(
     severity: "error",
   });
 
-  const supabaseUrlConfigured = envPresent("FUSION_ROUTER_SUPABASE_URL") ||
+  const supabaseUrlConfigured = envPresent("QUORUM_ROUTER_SUPABASE_URL") ||
     envPresent("SUPABASE_URL");
   const supabaseAnonKeyConfigured =
-    envPresent("FUSION_ROUTER_SUPABASE_ANON_KEY") ||
+    envPresent("QUORUM_ROUTER_SUPABASE_ANON_KEY") ||
     envPresent("SUPABASE_ANON_KEY");
   const supabaseAuditConfigured = supabaseUrlConfigured &&
     supabaseAnonKeyConfigured;
@@ -359,11 +377,11 @@ export async function runDoctorChecks(
     severity: "error",
   });
 
-  const path = configPath();
+  const path = await configPath();
   let configMode: string | undefined;
-  let loadedConfig: FusionRouterConfig | undefined;
+  let loadedConfig: QuorumRouterConfig | undefined;
   try {
-    const config = await loadFusionRouterConfig(path);
+    const config = await loadQuorumRouterConfig(path);
     loadedConfig = config;
     configMode = config.routingMode;
     checks.push({
@@ -387,14 +405,14 @@ export async function runDoctorChecks(
 
   pushSetupConfigChecks(checks, loadedConfig);
 
-  const envMode = Deno.env.get(ROUTING_MODE_ENV);
+  const envMode = readRouterEnv(ROUTING_MODE_ENV);
   pushRoutingEnvCheck(checks, envMode);
 
   if (configMode !== undefined && envMode !== undefined) {
     checks.push({
       name: "routing_config_env_precedence",
       ok: true,
-      detail: "config routing.mode takes precedence over FUSION_ROUTER_MODE",
+      detail: "config routing.mode takes precedence over QUORUM_ROUTER_MODE",
       severity: "info",
     });
   } else {
@@ -475,22 +493,22 @@ export async function runDoctorChecks(
     severity: "info",
     detail: JSON.stringify({
       maxQueue: boundedEnv(
-        "FUSION_ROUTER_TELEMETRY_MAX_QUEUE",
+        "QUORUM_ROUTER_TELEMETRY_MAX_QUEUE",
         1_000,
         TELEMETRY_MAX_QUEUE_SIZE,
       ),
       maxBatch: boundedEnv(
-        "FUSION_ROUTER_TELEMETRY_MAX_BATCH",
+        "QUORUM_ROUTER_TELEMETRY_MAX_BATCH",
         30,
         TELEMETRY_MAX_BATCH_SIZE,
       ),
       drainMs: boundedEnv(
-        "FUSION_ROUTER_TELEMETRY_DRAIN_MS",
+        "QUORUM_ROUTER_TELEMETRY_DRAIN_MS",
         200,
         TELEMETRY_MAX_DRAIN_MS,
       ),
       httpTimeoutMs: boundedEnv(
-        "FUSION_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS",
+        "QUORUM_ROUTER_TELEMETRY_HTTP_TIMEOUT_MS",
         500,
         TELEMETRY_MAX_HTTP_TIMEOUT_MS,
       ),
