@@ -47,10 +47,11 @@ jobs:
           deno-version: v2.x
 
       - name: Setup Node for npm trusted publishing
+        # Do not set registry-url: setup-node then exports a dummy NODE_AUTH_TOKEN,
+        # which takes precedence over npm's OIDC Trusted Publishing exchange.
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Use npm 10 for tagged repository verification
         run: npm install -g npm@10.9.4
