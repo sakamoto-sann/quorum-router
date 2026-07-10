@@ -52,8 +52,8 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@latest
+      - name: Use npm 10 for tagged repository verification
+        run: npm install -g npm@10.9.4
 
       - name: Verify release package metadata
         shell: bash
@@ -153,6 +153,9 @@ jobs:
           deno task test
           deno task doctor
           deno task smoke:v0.1
+
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11.16.0
 
       - name: Publish create-fusion-router
         shell: bash

@@ -6644,6 +6644,36 @@ Deno.test("generated prompt context rejects off-host blob URLs and oversized blo
   assertStringIncludes(prepared.prompt, JSON.stringify("ok.ts"));
 });
 
+type NpmPackResult = { files: Array<{ path: string }> };
+
+function normalizeNpmPackResult(raw: unknown): NpmPackResult {
+  const packed = Array.isArray(raw)
+    ? raw[0]
+    : raw && typeof raw === "object"
+    ? (raw as Record<string, unknown>)["create-fusion-router"]
+    : undefined;
+  assert(
+    packed && typeof packed === "object" &&
+      Array.isArray((packed as NpmPackResult).files),
+    `unexpected npm pack JSON: ${JSON.stringify(raw)}`,
+  );
+  return packed as NpmPackResult;
+}
+
+Deno.test("npm pack JSON normalization accepts npm 10 and npm 11 shapes", () => {
+  const packed: NpmPackResult = { files: [{ path: "package.json" }] };
+  assertEquals(normalizeNpmPackResult([packed]), packed);
+  assertEquals(
+    normalizeNpmPackResult({ "create-fusion-router": packed }),
+    packed,
+  );
+  assertThrows(
+    () => normalizeNpmPackResult({ unexpected: packed }),
+    Error,
+    "unexpected npm pack JSON",
+  );
+});
+
 Deno.test("create-fusion-router npm tarball contents are constrained", async () => {
   const npmProbe = await new Deno.Command("npm", {
     args: ["--version"],
@@ -6662,10 +6692,9 @@ Deno.test("create-fusion-router npm tarball contents are constrained", async () 
     stderr: "piped",
   }).output();
   assertEquals(pack.code, 0, new TextDecoder().decode(pack.stderr));
-  const tarballs = JSON.parse(new TextDecoder().decode(pack.stdout)) as Array<{
-    files: Array<{ path: string }>;
-  }>;
-  const actual = tarballs[0].files.map((file) => file.path).sort();
+  const raw = JSON.parse(new TextDecoder().decode(pack.stdout)) as unknown;
+  const packed = normalizeNpmPackResult(raw);
+  const actual = packed.files.map((file) => file.path).sort();
   assertEquals(actual, [
     "LICENSE",
     "README.md",
