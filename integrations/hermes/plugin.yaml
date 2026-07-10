@@ -1,0 +1,8 @@
+name: fusion-router
+version: "0.1.0"
+description: "Route selected Hermes tasks through Fusion Router's verified local OAuth/session providers"
+author: sakamoto-sann
+requires_env: []
+provides_tools:
+  - fusion_router_route
+  - fusion_router_health

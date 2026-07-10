@@ -87,6 +87,8 @@ deno task smoke:v0.1
 - launch assets: [docs/launch/](docs/launch/)
 - internal dogfood QA:
   [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)
+- Hermes Agent on-demand integration:
+  [integrations/hermes/](integrations/hermes/)
 - examples: [examples/](examples/)
 - security notes: [docs/security.md](docs/security.md)
 
