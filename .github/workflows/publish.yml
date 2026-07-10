@@ -92,15 +92,20 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ steps.release-ref.outputs.version }}
 
-      - name: Verify package tarball contents
+      - name: Pack and verify package tarball contents
+        id: package_tarball
         shell: bash
         run: |
           set -euo pipefail
           cd packages/create-fusion-router
-          npm pack --dry-run --json > /tmp/create-fusion-router-pack.json
+          npm pack --json > /tmp/create-fusion-router-pack.json
           node - <<'NODE'
           const fs = require('fs');
           const data = JSON.parse(fs.readFileSync('/tmp/create-fusion-router-pack.json', 'utf8'));
+          if (!Array.isArray(data) || data.length !== 1 || !data[0]?.files || !data[0]?.filename) {
+            console.error('Unexpected npm pack JSON:', JSON.stringify(data));
+            process.exit(1);
+          }
           const actual = data[0].files.map((file) => file.path).sort();
           const expected = [
             'LICENSE',
@@ -135,6 +140,7 @@ jobs:
             console.error('Unexpected tarball contents:', actual);
             process.exit(1);
           }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `filename=${data[0].filename}\n`);
           console.log(actual.join('\n'));
           NODE
 
@@ -152,4 +158,4 @@ jobs:
         run: |
           set -euo pipefail
           cd packages/create-fusion-router
-          npm publish --access public --provenance
+          npm publish "./${{ steps.package_tarball.outputs.filename }}" --access public --provenance
