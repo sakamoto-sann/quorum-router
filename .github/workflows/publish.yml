@@ -101,12 +101,13 @@ jobs:
           npm pack --json > /tmp/create-fusion-router-pack.json
           node - <<'NODE'
           const fs = require('fs');
-          const data = JSON.parse(fs.readFileSync('/tmp/create-fusion-router-pack.json', 'utf8'));
-          if (!Array.isArray(data) || data.length !== 1 || !data[0]?.files || !data[0]?.filename) {
-            console.error('Unexpected npm pack JSON:', JSON.stringify(data));
+          const raw = JSON.parse(fs.readFileSync('/tmp/create-fusion-router-pack.json', 'utf8'));
+          const packed = Array.isArray(raw) ? raw[0] : raw?.['create-fusion-router'];
+          if (!packed?.files || !packed?.filename) {
+            console.error('Unexpected npm pack JSON:', JSON.stringify(raw));
             process.exit(1);
           }
-          const actual = data[0].files.map((file) => file.path).sort();
+          const actual = packed.files.map((file) => file.path).sort();
           const expected = [
             'LICENSE',
             'README.md',
@@ -140,7 +141,7 @@ jobs:
             console.error('Unexpected tarball contents:', actual);
             process.exit(1);
           }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `filename=${data[0].filename}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `filename=${packed.filename}\n`);
           console.log(actual.join('\n'));
           NODE
 
