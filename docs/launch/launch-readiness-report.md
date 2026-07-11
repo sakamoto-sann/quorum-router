@@ -40,7 +40,10 @@ Verified public assets:
 - README embeds separate optimized GIFs and links both MP4 files
 
 The recordings are deterministic CLI visualizations and must not be described as
-live external model/API traffic.
+live external model/API traffic. The separately verified source-backed CLI does
+run live wrapper-backed dialogue: OpenAI/codex-cli ↔ Cognition/devin-cli
+completed four visible turns with bound reply lineage, valid schema, and
+redaction checks.
 
 ## Runtime boundaries
 

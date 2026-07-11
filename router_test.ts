@@ -7661,6 +7661,10 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         "#!/bin/sh",
         "printf 'codex was invoked\\n' >> \"$HOME/codex-called.txt\"",
         'case " $* " in',
+        '  *"live multi model dialogue"*)',
+        "    printf 'Codex read the prior Grok turn and challenges its missing verification step.\\n'",
+        "    exit 0",
+        "    ;;",
         '  *"auto route should fall back after grok failure"*)',
         "    printf 'Codex fallback fixture answer.\\n'",
         "    exit 0",
@@ -7812,18 +7816,56 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
     const forcedAgentChatOutput =
       new TextDecoder().decode(forcedAgentChat.stdout) +
       new TextDecoder().decode(forcedAgentChat.stderr);
-    assertEquals(forcedAgentChat.code, 0, forcedAgentChatOutput);
-    const agentChatTrace = JSON.parse(
-      await Deno.readTextFile(`${tempDir}/demo/out/agent-chat-trace.json`),
-    ) as Record<string, unknown>;
-    assertEquals(agentChatTrace.requested_provider_label, "grok-cli");
-    assertEquals(agentChatTrace.requested_model, "grok-composer-2.5-fast");
-    assertEquals(agentChatTrace.selected_provider, "xAI");
-    assertEquals(agentChatTrace.selected_model, "grok-composer-2.5-fast");
-    assertEquals(agentChatTrace.provider_selection_honored, true);
-    assertEquals(agentChatTrace.fallback_used, false);
+    assert(forcedAgentChat.code !== 0, forcedAgentChatOutput);
+    assertStringIncludes(
+      forcedAgentChatOutput,
+      "requires at least two distinct invokable provider/model identities",
+    );
+    await assertRejects(() =>
+      Deno.stat(`${tempDir}/demo/out/agent-chat-trace.json`)
+    );
 
     await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
+
+    const liveAgentChat = await new Deno.Command("deno", {
+      args: ["task", "agent-chat", "--prompt", "live multi model dialogue"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: {
+        ...baseEnv,
+        RUN_EXPERIMENTAL_AGENT_CHAT: "1",
+        QUORUM_ROUTER_AGENT_CHAT_MAX_TURNS: "2",
+      },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const liveAgentChatOutput = new TextDecoder().decode(liveAgentChat.stdout) +
+      new TextDecoder().decode(liveAgentChat.stderr);
+    assertEquals(liveAgentChat.code, 0, liveAgentChatOutput);
+    assertStringIncludes(
+      liveAgentChatOutput,
+      "agents: xAI/grok-composer-2.5-fast ↔ OpenAI/codex-cli",
+    );
+    assertStringIncludes(liveAgentChatOutput, "Round 1");
+    assertStringIncludes(liveAgentChatOutput, "Round 2");
+    assertStringIncludes(
+      liveAgentChatOutput,
+      "replying to xAI/grok-composer-2.5-fast (round 1)",
+    );
+    const liveAgentChatTrace = JSON.parse(
+      await Deno.readTextFile(`${tempDir}/demo/out/agent-chat-trace.json`),
+    ) as {
+      agent_chat_turns?: Array<Record<string, unknown>>;
+      redaction_ok?: boolean;
+    };
+    assertEquals(liveAgentChatTrace.agent_chat_turns?.length, 2);
+    assertEquals(liveAgentChatTrace.redaction_ok, true);
+    assertEquals(liveAgentChatTrace.agent_chat_turns?.[1].reply_to, {
+      provider: "xAI",
+      model: "grok-composer-2.5-fast",
+      round: 1,
+    });
+    await Deno.remove(`${tempDir}/codex-called.txt`);
 
     const stdoutAuthFailure = await new Deno.Command("deno", {
       args: ["task", "route:once", "--prompt", "stdout auth failure"],
