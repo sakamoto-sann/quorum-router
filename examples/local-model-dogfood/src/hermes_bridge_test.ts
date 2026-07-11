@@ -27,8 +27,11 @@ Deno.test("Hermes bridge rejects oversized stdin before JSON parsing", async () 
     stderr: "piped",
   }).spawn();
   const writer = child.stdin.getWriter();
-  await writer.write(new TextEncoder().encode("x".repeat(120_001)));
-  await writer.close();
+  const chunk = new TextEncoder().encode("x".repeat(60_000));
+  await writer.write(chunk);
+  await writer.write(chunk);
+  await writer.write(new TextEncoder().encode("x")).catch(() => undefined);
+  await writer.close().catch(() => undefined);
   const output = await child.output();
   assertEquals(output.code, 1);
   const payload = JSON.parse(new TextDecoder().decode(output.stdout));

@@ -34,3 +34,13 @@ def register(ctx) -> None:
         description="Run bounded live dialogue between distinct model providers",
         emoji="💬",
     )
+    ctx.register_tool(
+        name="quorum_router_update",
+        toolset="quorum_router",
+        schema=tools.UPDATE_SCHEMA,
+        handler=tools.update,
+        check_fn=lambda: True,
+        requires_env=[],
+        description="Check or safely fast-forward QuorumRouter and refresh the plugin",
+        emoji="⬆️",
+    )
