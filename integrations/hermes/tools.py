@@ -55,6 +55,33 @@ ROUTE_SCHEMA = {
     },
 }
 
+AGENT_CHAT_SCHEMA = {
+    "name": "quorum_router_agent_chat",
+    "description": (
+        "Run a bounded live multi-model dialogue through QuorumRouter. Use for "
+        "architecture decisions, difficult reviews, and explicit cross-model debate. "
+        "Requires at least two distinct working provider/model identities. Returns "
+        "round-by-round reply lineage. Do not include secrets or tasks requiring Hermes tools."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "prompt": {
+                "type": "string",
+                "description": "Self-contained discussion task without credentials or raw secrets.",
+            },
+            "max_turns": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 12,
+                "default": 6,
+                "description": "Total bounded dialogue turns across two distinct participants.",
+            },
+        },
+        "required": ["prompt"],
+    },
+}
+
 HEALTH_SCHEMA = {
     "name": "quorum_router_health",
     "description": (
@@ -264,6 +291,9 @@ def _invoke(
     env["PATH"] = os.pathsep.join(safe_path_dirs)
     env["RUN_EXTERNAL_MODEL_DOGFOOD"] = "1"
     env["QUORUM_ROUTER_AUTH_MODE"] = "wrapper"
+    if operation == "agent_chat":
+        env["RUN_EXPERIMENTAL_AGENT_CHAT"] = "1"
+        env["QUORUM_ROUTER_AGENT_CHAT_MAX_TURNS"] = str(payload["max_turns"])
     if provider:
         env["QUORUM_ROUTER_PROVIDER_LABEL"] = provider
     else:
@@ -285,7 +315,7 @@ def _invoke(
         f"--allow-write={out_dir}",
         str(_bridge_path()),
     ])
-    timeout = 600 if payload.get("operation") == "best_route" else 180
+    timeout = 600 if payload.get("operation") in {"best_route", "agent_chat"} else 180
     started = time.monotonic()
     try:
         returncode, bridge_stdout, bridge_stderr, timed_out = _run_bridge_process(
@@ -355,6 +385,24 @@ def route(args: dict[str, Any], **_: Any) -> str:
         provider=provider,
         model=model,
     )
+
+
+def agent_chat(args: dict[str, Any], **_: Any) -> str:
+    prompt = str(args.get("prompt", "")).strip()
+    if not prompt:
+        return _error("prompt is required")
+    if len(prompt.encode("utf-8")) > 100_000:
+        return _error("prompt exceeds 100000 bytes")
+    raw_max_turns = args.get("max_turns", 6)
+    if isinstance(raw_max_turns, bool) or not isinstance(raw_max_turns, int):
+        return _error("max_turns must be an integer from 2 to 12")
+    if raw_max_turns < 2 or raw_max_turns > 12:
+        return _error("max_turns must be an integer from 2 to 12")
+    return _invoke({
+        "operation": "agent_chat",
+        "prompt": prompt,
+        "max_turns": raw_max_turns,
+    })
 
 
 def health(args: dict[str, Any] | None = None, **_: Any) -> str:

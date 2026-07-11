@@ -10,6 +10,9 @@ caching while allowing selective real-provider dogfood.
   call.
 - `quorum_router_route` — `route_once` by default, optional `best_route`
   comparison.
+- `quorum_router_agent_chat` — bounded live dialogue between at least two
+  distinct working provider/model identities. Returns every round with explicit
+  reply lineage; `max_turns` is constrained to 2–12.
 
 The bridge sends JSON over stdin so prompt text does not appear in the child
 process command line. Provider credentials are not copied into plugin config;
@@ -30,6 +33,13 @@ Restart the Hermes gateway or start a fresh CLI session after enabling the
 plugin. Keep `route_once` as the normal trial mode; `best_route` may call
 several providers and should be used only when comparison value justifies the
 cost.
+
+Example request from Hermes:
+
+```text
+Use quorum_router_agent_chat with max_turns=4 to have two models debate this
+architecture and return the transcript plus a concise conclusion.
+```
 
 ## Boundaries
 

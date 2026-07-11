@@ -24,3 +24,13 @@ def register(ctx) -> None:
         description="Check QuorumRouter provider readiness without generation",
         emoji="🩺",
     )
+    ctx.register_tool(
+        name="quorum_router_agent_chat",
+        toolset="quorum_router",
+        schema=tools.AGENT_CHAT_SCHEMA,
+        handler=tools.agent_chat,
+        check_fn=tools.is_available,
+        requires_env=[],
+        description="Run bounded live dialogue between distinct model providers",
+        emoji="💬",
+    )

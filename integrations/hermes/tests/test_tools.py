@@ -20,9 +20,25 @@ class QuorumRouterToolsTest(unittest.TestCase):
         self.assertEqual(result["error"], "prompt is required")
 
     def test_route_rejects_invalid_mode(self):
-        result = json.loads(TOOLS.route({"prompt": "test", "mode": "agent_chat"}))
+        result = json.loads(TOOLS.route({"prompt": "test", "mode": "invalid"}))
         self.assertFalse(result["ok"])
         self.assertIn("route_once", result["error"])
+
+    def test_agent_chat_validates_turn_bounds(self):
+        for value in (1, 13, True, 2.5, "4"):
+            result = json.loads(TOOLS.agent_chat({"prompt": "test", "max_turns": value}))
+            self.assertFalse(result["ok"])
+            self.assertIn("2 to 12", result["error"])
+
+    def test_agent_chat_invokes_bounded_operation(self):
+        with mock.patch.object(TOOLS, "_invoke", return_value='{"ok":true}') as invoke:
+            result = json.loads(TOOLS.agent_chat({"prompt": "debate this", "max_turns": 4}))
+        self.assertTrue(result["ok"])
+        invoke.assert_called_once_with({
+            "operation": "agent_chat",
+            "prompt": "debate this",
+            "max_turns": 4,
+        })
 
     def test_health_never_sets_generation_operation(self):
         with mock.patch.object(TOOLS, "_invoke", return_value='{"ok":true}') as invoke:

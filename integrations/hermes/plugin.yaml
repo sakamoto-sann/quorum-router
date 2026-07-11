@@ -1,8 +1,9 @@
 name: quorum-router
-version: "0.1.0"
-description: "Route selected Hermes tasks through QuorumRouter's verified local OAuth/session providers"
+version: "0.2.0"
+description: "Route and run bounded Agent Chat through QuorumRouter's verified local OAuth/session providers"
 author: sakamoto-sann
 requires_env: []
 provides_tools:
   - quorum_router_route
   - quorum_router_health
+  - quorum_router_agent_chat

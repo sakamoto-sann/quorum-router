@@ -2,13 +2,14 @@ import {
   discoverInventoryWithModelListing,
   invokableEntries,
 } from "./auth_discovery.ts";
+import { runAgentChat } from "./agent_chat_runner.ts";
 import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
 import { parseAuthMode, type ProviderResult } from "./schema.ts";
 import { score } from "./trace.ts";
 import { readRouterEnv } from "./env.ts";
 
 type BridgeRequest = {
-  operation: "health" | "route_once" | "best_route";
+  operation: "health" | "route_once" | "best_route" | "agent_chat";
   prompt?: string;
 };
 
@@ -51,7 +52,9 @@ async function readRequest(): Promise<BridgeRequest> {
   const raw = new TextDecoder().decode(bytes);
   const parsed = JSON.parse(raw) as Partial<BridgeRequest>;
   if (
-    !["health", "route_once", "best_route"].includes(parsed.operation ?? "")
+    !["health", "route_once", "best_route", "agent_chat"].includes(
+      parsed.operation ?? "",
+    )
   ) {
     throw new Error("quorum-router Hermes bridge operation is invalid");
   }
@@ -94,6 +97,29 @@ async function main(): Promise<void> {
   }
 
   const prompt = request.prompt!.trim();
+  if (request.operation === "agent_chat") {
+    const chat = await runAgentChat(prompt);
+    const transcript = chat.turns.map((turn) =>
+      `Round ${turn.round}/${chat.turns.length} — ${turn.provider}/${turn.model}${
+        turn.reply_to
+          ? ` → replying to ${turn.reply_to.provider}/${turn.reply_to.model}`
+          : ""
+      }\n${turn.content}`
+    ).join("\n\n");
+    const bounded = boundedContent(transcript);
+    emit({
+      ok: true,
+      operation: "agent_chat",
+      agents: chat.agents.map(({ provider, model }) => ({ provider, model })),
+      turns: chat.turns,
+      content: bounded.content,
+      truncated: bounded.truncated,
+      candidates_called: chat.agents.length,
+      trace_path: chat.tracePath,
+      schema_valid: true,
+    });
+    return;
+  }
   const routed = request.operation === "route_once"
     ? await invokeSelected(prompt)
     : await runBestRoute(prompt);
