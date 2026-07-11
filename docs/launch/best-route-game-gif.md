@@ -1,11 +1,12 @@
-# Archived Best Route shogi GIF
+# Best Route CLI video
 
-This Best Route-only shogi fixture has been superseded as launch media by the
-combined Best Route + SafeLoop Agent Chat video:
+![Best Route CLI](../assets/launch/quorum-router-best-route.gif)
 
-- [Combined launch video plan](combined-launch-video.md)
-- [HD MP4](../assets/launch/quorum-router-best-route-agent-chat.mp4)
-- [Animated GIF](../assets/launch/quorum-router-best-route-agent-chat.gif)
+[HD MP4](../assets/launch/quorum-router-best-route.mp4)
 
-The replacement retains explainable Best Route selection and adds the complete
-bounded Agent Chat execution/review/repair story.
+The 15-second visualization shows Grok, Claude, and Local Qwen producing
+independent candidates. QuorumRouter then compares capability, evidence, safety,
+and reviewer diversity before selecting and synthesizing the best answer.
+
+This video intentionally contains no inter-model conversation. That behavior is
+shown separately in the Agent Chat video.

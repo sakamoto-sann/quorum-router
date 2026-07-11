@@ -46,19 +46,40 @@ Dry-run the installer without changing the machine:
 curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
-## Demo — Best Route + SafeLoop Agent Chat
+## Demo 1 — Best Route
 
-One prompt first takes the Best Route path, then escalates into the bounded
-Agent Chat workflow: strategist → coder → operator-approved SafeLoop execution →
-reviewer objection → repair → second approval → red team → closeout.
+Best Route asks models for **independent candidates**. They do not talk to each
+other. QuorumRouter compares the answers, explains the selection, and
+synthesizes the strongest final answer.
 
-![QuorumRouter Best Route and SafeLoop Agent Chat demo](docs/assets/launch/quorum-router-best-route-agent-chat.gif)
+![QuorumRouter Best Route CLI demo](docs/assets/launch/quorum-router-best-route.gif)
 
-[Watch the 22-second HD MP4](docs/assets/launch/quorum-router-best-route-agent-chat.mp4)
+[Watch the 15-second Best Route MP4](docs/assets/launch/quorum-router-best-route.mp4)
 
-The animation is a deterministic launch visualization; it does not claim live
-external model/API calls. The execution sequence mirrors the verified SafeLoop
-E2E contract.
+```bash
+quorum run "Find the race condition and propose the safest fix" \
+  --mode best_route --models grok,claude,qwen
+```
+
+## Demo 2 — Agent Chat
+
+Agent Chat is intentionally different: **Grok and GLM share conversation context
+and respond to each other over multiple rounds**. The CLI log shows
+disagreement, a counterargument, a changed strategy, a follow-up challenge, and
+convergence.
+
+![QuorumRouter Grok vs GLM Agent Chat CLI demo](docs/assets/launch/quorum-router-agent-chat.gif)
+
+[Watch the 26-second Agent Chat MP4](docs/assets/launch/quorum-router-agent-chat.mp4)
+
+```bash
+quorum run "Debate the best move from this position" \
+  --mode agent_chat --models grok,glm --max-rounds 6
+```
+
+Both recordings are deterministic CLI visualizations and do not claim live
+external model/API traffic. SafeLoop execution is a separate authorization
+boundary; it is not a substitute for the inter-model conversation shown here.
 
 ## Modes
 

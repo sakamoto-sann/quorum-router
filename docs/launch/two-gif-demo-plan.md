@@ -1,16 +1,25 @@
-# Archived two-GIF demo plan
+# Two-video launch plan
 
-The separate Best Route and conversation-only Agent Chat shogi GIFs have been
-superseded by the combined launch video:
+## Video 1 — Best Route
 
-- [Combined launch video plan](combined-launch-video.md)
-- [HD MP4](../assets/launch/quorum-router-best-route-agent-chat.mp4)
-- [Animated GIF](../assets/launch/quorum-router-best-route-agent-chat.gif)
+Best Route shows independent Grok, Claude, and Local Qwen candidates followed by
+router comparison, explainable selection, and synthesis. Models do not talk to
+each other in this mode.
 
-The new 22-second artifact shows both Best Route and the production bounded
-SafeLoop Agent Chat execution slice: strategist → coder → operator approval →
-verified write → reviewer objection → repair → second approval → red team →
-closeout.
+- GIF: `../assets/launch/quorum-router-best-route.gif`
+- MP4: `../assets/launch/quorum-router-best-route.mp4`
+- Duration: 15 seconds
 
-The old shogi assets remain only as historical deterministic fixtures. Do not
-use them as the primary Product Hunt or X launch media.
+## Video 2 — Agent Chat
+
+Agent Chat shows Grok and GLM sharing context and replying to one another over
+six turns. The visible CLI log includes disagreement, counterargument, strategy
+revision, challenge, defense, and convergence.
+
+- GIF: `../assets/launch/quorum-router-agent-chat.gif`
+- MP4: `../assets/launch/quorum-router-agent-chat.mp4`
+- Duration: 26 seconds
+
+The videos must remain separate because the interaction contracts are different.
+SafeLoop authorization may follow an Agent Chat proposal, but execution status
+is not a replacement for visible inter-model conversation.
