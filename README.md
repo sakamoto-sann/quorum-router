@@ -1,7 +1,7 @@
 # QuorumRouter
 
-Source-available Deno routing framework for fail-closed best-answer routing and
-experimental, SafeLoop-authorized action proposals.
+Source-available Deno control plane for fail-closed best-answer routing and
+SafeLoop-authorized multi-role agent execution.
 
 ## Quickstart
 
@@ -31,18 +31,18 @@ RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest la
 RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
 ```
 
-Best Route/direct remains the production best-answer path. Agent Chat is an
-explicit experimental mode. Its coder emits structured proposals, and an
-injected SafeLoop client is the sole execution authority. The current real
-SafeLoop execute-request API requires a pre-issued distinct-actor approval bound
-to the exact canonical digest for every repo or shell write. QuorumRouter does
-not approve or sign policy and accepts only a strictly verified SafeLoop v1
-receipt.
+Best Route/direct remains the production best-answer path. Conversation-only
+Agent Chat is explicit opt-in. SafeLoop-backed Agent Chat provides a bounded
+production repository execution slice. Its coder emits structured proposals, and
+an injected SafeLoop client is the sole execution authority. The current real
+SafeLoop execute-request API requires a distinct-actor approval bound to the
+exact canonical digest for every repo or shell write. QuorumRouter does not
+approve or sign policy and accepts only a strictly verified SafeLoop v1 receipt.
 
 Dry-run the installer without changing the machine:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
 ## Demos
@@ -68,11 +68,11 @@ MP4 fallback:
 
 ## Modes
 
-| Mode                      | Status                    | Purpose                              |
-| ------------------------- | ------------------------- | ------------------------------------ |
-| Best Route / direct       | Production-ready path     | Best-answer routing                  |
-| agent_chat (conversation) | Explicit read-only mode   | Multi-role review conversation       |
-| agent_chat (execution)    | Launch-blocked experiment | SafeLoop-authorized action proposals |
+| Mode                      | Status                    | Purpose                            |
+| ------------------------- | ------------------------- | ---------------------------------- |
+| Best Route / direct       | Production-ready path     | Best-answer routing                |
+| agent_chat (conversation) | Explicit read-only mode   | Multi-role review conversation     |
+| agent_chat (execution)    | Production, bounded slice | SafeLoop-authorized repo execution |
 
 Agent Chat and Commander contracts do not change default direct routing.
 
@@ -88,13 +88,14 @@ deno task smoke:v0.1
 ## Links
 
 - npm: https://www.npmjs.com/package/create-quorum-router
-- release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
+- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
 - launch assets: [docs/launch/](docs/launch/)
 - internal dogfood QA:
   [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)
 - Hermes Agent on-demand integration:
   [integrations/hermes/](integrations/hermes/)
 - examples: [examples/](examples/)
+- SafeLoop AgentRuntime setup: [docs/agent-runtime.md](docs/agent-runtime.md)
 - security notes: [docs/security.md](docs/security.md)
 
 ## License and boundaries

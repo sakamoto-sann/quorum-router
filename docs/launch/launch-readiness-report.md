@@ -7,7 +7,7 @@ Prepared for external launch asset closeout.
 - External label: **QuorumRouter v0.1 public preview**
 - GitHub release: `v0.1.3`
 - GitHub release URL:
-  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3
+  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.3
 - npm package: `create-quorum-router`
 - npm package URL: https://www.npmjs.com/package/create-quorum-router
 - npm latest target: `0.1.3`
@@ -25,7 +25,7 @@ Expected release readback:
   "targetCommitish": "34398e6bfa0796d76cfb84c564dd00f7dd84afe7",
   "isDraft": false,
   "isPrerelease": false,
-  "url": "https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.3"
+  "url": "https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.3"
 }
 ```
 

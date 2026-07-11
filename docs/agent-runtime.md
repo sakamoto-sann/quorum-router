@@ -1,16 +1,16 @@
-# Experimental AgentRuntime
+# SafeLoop-backed AgentRuntime
 
-QuorumRouter now includes an **explicit opt-in experimental AgentRuntime** for
-`agent_chat`. It is not a production autonomous worker system. It is an
-in-process, adapter-based loop that calls only the role adapters supplied by the
-caller.
+QuorumRouter includes an explicit opt-in, bounded AgentRuntime for `agent_chat`.
+Conversation-only use remains opt-in. Repository and allowlisted command
+execution is production-capable only when a real SafeLoop authority, signed
+policy, distinct operator approval, and confined action runner are configured.
 
 ## Runtime boundary
 
 ```text
 direct = production-ready best-answer routing path
 agent_chat = recognized multi-role path; fails closed unless explicitly opted in
-AgentRuntime = in-process experimental role loop
+AgentRuntime = bounded role/fix loop; mutation requires SafeLoop
 Agent Bus = durable coordination/message/event contract
 SafeLoopClient = sole authority for any proposed action execution
 ```
@@ -159,6 +159,98 @@ an Edge Function gateway, or worker spawning.
 - No hidden fallback to another role or model.
 - Audit remains must-accept / fail-closed.
 - Telemetry remains best-effort / drop-oldest.
+
+## Operator approval setup
+
+SafeLoop and QuorumRouter are separate repositories. Install SafeLoop first and
+keep its operator key outside the target repository:
+
+```bash
+git clone https://github.com/clawdia-saka/safeloop.git ../safeloop
+cd ../safeloop
+uv sync --extra dev
+mkdir -p ~/.config/safeloop/policies ~/.local/state/safeloop
+openssl rand 32 > ~/.config/safeloop/operator.key
+chmod 600 ~/.config/safeloop/operator.key
+```
+
+Create an unsigned execution policy JSON containing
+`schema_version=safeloop.execution-policy.v1`, a fixed `policy_version`,
+`policy_id`, and explicit `mutation_classes`. Sign it with the operator-only
+command:
+
+```bash
+.venv/bin/safeloop sign-execution-policy \
+  --input /absolute/path/to/unsigned-policy.json \
+  --policy-root "$HOME/.config/safeloop/policies" \
+  --output local-agent.json \
+  --signing-key-file "$HOME/.config/safeloop/operator.key"
+```
+
+Create a private broker directory outside the target repository. The
+QuorumRouter process needs access only to this directory, never to the operator
+key or approval database. Construct the operator client and runner:
+
+```ts
+const safeloop = new SafeLoopOperatorClient({
+  brokerDir: `${Deno.env.get("HOME")}/.local/state/safeloop/broker`,
+  onOperatorRequired(prompt) {
+    console.error("Operator review required for", prompt.actionDigest);
+    console.error("request:", prompt.requestPath);
+    console.error("receipt:", prompt.receiptPath);
+  },
+});
+
+const actionRunner = await RepoActionRunner.create(repoRoot, {
+  commandAllowlist: [
+    ["deno", "task", "check"],
+    ["deno", "task", "test"],
+  ],
+});
+```
+
+Bind them into `AgentRuntimeConfig.execution`:
+
+```ts
+execution: {
+  safeloop,
+  repo: repoRoot,
+  runRoot,
+  taskId: (action) => `agent-${action.id}`,
+  runId: (_action, index) => `agent-run-${index}-${crypto.randomUUID()}`,
+  policyVersion: "p1",
+  policyRef: `${Deno.env.get("HOME")}/.config/safeloop/policies/local-agent.json`,
+  requestedBy: "quorum-coder",
+
+  expectedArtifactScope: ["run.json", "timeline.jsonl"],
+  timeoutSeconds: 120,
+  actionRunner,
+}
+```
+
+Every write pauses after an immutable digest-bound request is written. In a
+separate operator terminal, inspect it and run:
+
+```bash
+safeloop operator-execute \
+  --request /path/printed/request.json \
+  --expected-digest sha256:<printed-digest> \
+  --receipt /path/printed/receipt.json \
+  --approval-db "$HOME/.local/state/safeloop/approvals.sqlite3" \
+  --signing-key-file "$HOME/.config/safeloop/operator.key" \
+  --policy-root "$HOME/.config/safeloop/policies" \
+  --approved-by human-reviewer --json
+```
+
+Only this operator process sees the signing key. It creates the approval,
+executes the immutable request, verifies artifacts and audit anchor, then writes
+a mode-0600 receipt. QuorumRouter can only poll and validate that receipt. Run
+QuorumRouter with Deno read permissions that include the repository, run root,
+and broker directory but explicitly exclude the operator key and approval DB.
+
+The role adapters supplied by the application must return the strict role JSON
+contract below. Production deployments should use trusted, non-shell adapter
+commands or direct HTTP adapters with least-privilege credentials.
 
 ## Examples
 

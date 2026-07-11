@@ -4,7 +4,7 @@ set -eu
 PREFIX=${HOME}/.local
 REF=v0.1.4
 DRY_RUN=0
-REPO_URL=https://github.com/sakamoto-sann/fusion-router.git
+REPO_URL=https://github.com/sakamoto-sann/quorum-router.git
 
 usage() {
   cat <<'USAGE'

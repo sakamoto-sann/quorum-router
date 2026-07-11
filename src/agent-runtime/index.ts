@@ -6,3 +6,4 @@ export * from "./execution.ts";
 export * from "./repo-action-runner.ts";
 export * from "../safeloop/types.ts";
 export * from "../safeloop/cli-client.ts";
+export * from "../safeloop/operator-client.ts";

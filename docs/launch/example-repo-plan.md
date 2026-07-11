@@ -21,9 +21,9 @@ The repo should not become a second source of truth for release state. It should
 point back to:
 
 - GitHub release:
-  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
+  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
 - npm package: https://www.npmjs.com/package/create-quorum-router
-- main repository: https://github.com/sakamoto-sann/fusion-router
+- main repository: https://github.com/sakamoto-sann/quorum-router
 
 ## README structure
 

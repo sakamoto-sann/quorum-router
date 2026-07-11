@@ -62,7 +62,7 @@ import {
   RouterError,
   ROUTING_MODE_ENV,
   runAgentChatSimulator,
-  SafeLoopCliClient,
+  SafeLoopOperatorClient,
   sanitizeDiagnosticText,
   selectCommander,
   SynthesisAdapter,
@@ -1461,8 +1461,7 @@ Deno.test({
   sanitizeResources: false,
   fn: async () => {
     const safeloopBinary = Deno.env.get("SAFELOOP_E2E_BINARY");
-    const python = Deno.env.get("SAFELOOP_E2E_PYTHON");
-    if (!safeloopBinary || !python) return;
+    if (!safeloopBinary) return;
     const base = await Deno.realPath(
       await Deno.makeTempDir({ prefix: "quorum-safeloop-e2e-" }),
     );
@@ -1471,11 +1470,13 @@ Deno.test({
       const runRoot = `${base}/runs`;
       const policyRoot = `${base}/policies`;
       const privateRoot = `${base}/private`;
+      const brokerDir = `${base}/broker`;
       await Promise.all([
         Deno.mkdir(repo),
         Deno.mkdir(runRoot),
         Deno.mkdir(policyRoot),
         Deno.mkdir(privateRoot),
+        Deno.mkdir(brokerDir),
       ]);
       const git = await new Deno.Command("git", {
         args: ["init", "--quiet", repo],
@@ -1520,43 +1521,38 @@ Deno.test({
       assert(signed.success, new TextDecoder().decode(signed.stderr));
       const policyRef = `${policyRoot}/quorum.json`;
       const approvalDb = `${privateRoot}/approvals.sqlite3`;
-      let approvalSequence = 0;
-      const approvalResolver = async (
-        request: {
-          requested_by: string;
-          mutation_class: string;
-          action_digest: string;
+      let operatorPrompts = 0;
+      const operatorClient = new SafeLoopOperatorClient({
+        brokerDir,
+        pollIntervalMs: 10,
+        timeoutMs: 10_000,
+        async onOperatorRequired(prompt) {
+          operatorPrompts += 1;
+          const approved = await new Deno.Command(safeloopBinary, {
+            args: [
+              "operator-execute",
+              "--request",
+              prompt.requestPath,
+              "--expected-digest",
+              prompt.actionDigest,
+              "--receipt",
+              prompt.receiptPath,
+              "--approval-db",
+              approvalDb,
+              "--signing-key-file",
+              keyFile,
+              "--policy-root",
+              policyRoot,
+              "--approved-by",
+              "human-reviewer",
+              "--json",
+            ],
+            stdout: "piped",
+            stderr: "piped",
+          }).output();
+          assert(approved.success, new TextDecoder().decode(approved.stderr));
         },
-      ) => {
-        const approvalId = `qr-e2e-approval-${approvalSequence++}`;
-        const script = [
-          "from datetime import datetime, timezone",
-          "from pathlib import Path",
-          "import sys",
-          "from safeloop.control_plane.sqlite_lifecycle import SQLiteApprovalLifecycleStore",
-          "db,key,approval_id,requested_by,mutation_class,digest=sys.argv[1:]",
-          "store=SQLiteApprovalLifecycleStore(Path(db), Path(key).read_bytes())",
-          "now=datetime.now(timezone.utc)",
-          "store.request(approval_id=approval_id, requested_by=requested_by, action=f'execute:{mutation_class}', subject=digest, created_at=now)",
-          "store.approve(approval_id, now=now, approved_by='human-reviewer')",
-        ].join(";");
-        const approved = await new Deno.Command(python, {
-          args: [
-            "-c",
-            script,
-            approvalDb,
-            keyFile,
-            approvalId,
-            request.requested_by,
-            request.mutation_class,
-            request.action_digest,
-          ],
-          stdout: "piped",
-          stderr: "piped",
-        }).output();
-        assert(approved.success, new TextDecoder().decode(approved.stderr));
-        return { status: "approved" as const, approvalId };
-      };
+      });
       const actionRunner = await RepoActionRunner.create(repo);
       const runtime = makeAgentRuntimeConfig({
         outputs: {
@@ -1600,13 +1596,7 @@ Deno.test({
         },
         limits: { maxTurns: 8, maxRounds: 2, maxDurationMs: 30_000 },
         execution: {
-          safeloop: new SafeLoopCliClient({
-            binary: safeloopBinary,
-            approvalDb,
-            signingKeyFile: keyFile,
-            policyRoot,
-            timeoutMs: 20_000,
-          }),
+          safeloop: operatorClient,
           repo,
           runRoot,
           taskId: (proposal) => proposal.id,
@@ -1614,7 +1604,7 @@ Deno.test({
           policyVersion: "qr-e2e-v1",
           policyRef,
           requestedBy: "quorum-coder",
-          approvalResolver,
+
           expectedArtifactScope: [
             "run.json",
             "timeline.jsonl",
@@ -1643,7 +1633,7 @@ Deno.test({
       );
       assertEquals(await Deno.readTextFile(`${repo}/result.txt`), "fixed\n");
       assertEquals(runtime.adaptersByRole.get("reviewer")?.calls, 2);
-      assertEquals(approvalSequence, 2);
+      assertEquals(operatorPrompts, 2);
     } finally {
       await Deno.remove(base, { recursive: true });
     }
