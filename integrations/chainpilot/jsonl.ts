@@ -1,5 +1,3 @@
-import { runAgentChat } from "../../examples/local-model-dogfood/src/agent_chat_runner.ts";
-
 const MAX_LINE_BYTES = 120_000;
 const MAX_CONTEXT_BYTES = 80_000;
 const STAGES = [
@@ -28,6 +26,54 @@ type StructuredDecision = {
   evidenceRefs: string[];
   confidence: number;
 };
+
+const LIVE_AGENTS = [
+  { provider: "openai", model: "gpt-5.6-sol" },
+  { provider: "zai", model: "glm-5-turbo" },
+] as const;
+
+type OpenClawResult = {
+  status?: string;
+  result?: {
+    payloads?: Array<{ text?: string }>;
+    meta?: {
+      agentMeta?: { provider?: string; model?: string };
+      executionTrace?: { fallbackUsed?: boolean; winnerProvider?: string; winnerModel?: string };
+    };
+  };
+};
+
+function parseOpenClawOutput(raw: string): OpenClawResult {
+  const starts = [...raw.matchAll(/^\{/gm)].map((match) => match.index ?? -1).filter((index) => index >= 0);
+  for (const start of starts.reverse()) {
+    try { return JSON.parse(raw.slice(start)) as OpenClawResult; } catch { /* try earlier object */ }
+  }
+  throw new Error("openclaw_response_not_json");
+}
+
+function stripJsonFence(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return match ? match[1].trim() : trimmed;
+}
+
+async function callOpenClaw(args: { model: string; provider: string; prompt: string; correlationId: string; round: number }): Promise<{ provider: string; model: string; content: string }> {
+  const command = new Deno.Command("openclaw", {
+    args: ["agent", "--agent", "clawdia", "--session-key", `agent:clawdia:chainpilot-${args.correlationId}-${args.round}`, "--model", `${args.provider}/${args.model}`, "--thinking", "minimal", "--timeout", "120", "--json", "--message", args.prompt],
+    stdin: "null", stdout: "piped", stderr: "piped",
+  });
+  const output = await command.output();
+  if (!output.success) throw new Error(`openclaw_provider_failed:${args.provider}/${args.model}`);
+  const parsed = parseOpenClawOutput(new TextDecoder().decode(output.stdout));
+  const execution = parsed.result?.meta?.executionTrace;
+  if (parsed.status !== "ok" || execution?.fallbackUsed === true) throw new Error("openclaw_provider_fallback_or_failure");
+  const actual = parsed.result?.meta?.agentMeta;
+  if (actual?.provider !== args.provider || actual.model !== args.model) throw new Error("openclaw_provider_identity_mismatch");
+  if (execution?.winnerProvider !== args.provider || execution.winnerModel !== args.model) throw new Error("openclaw_execution_identity_mismatch");
+  const content = parsed.result?.payloads?.[0]?.text;
+  if (!content || content.length > 8_000) throw new Error("openclaw_provider_content_invalid");
+  return { provider: actual.provider, model: actual.model, content: stripJsonFence(content) };
+}
 
 export function canonicalize(value: unknown): string {
   if (
@@ -144,15 +190,14 @@ function stagePrompt(request: Request): string {
 export async function handle(
   request: Request,
 ): Promise<Record<string, unknown>> {
-  const chat = await runAgentChat(stagePrompt(request));
-  if (chat.agents.length !== 2) throw new Error("incomplete_quorum");
-  const identities = new Set(
-    chat.agents.map((agent) =>
-      `${agent.provider.toLowerCase()}/${agent.model.toLowerCase()}`
-    ),
-  );
-  if (identities.size !== 2) throw new Error("duplicate_model_identity");
-  const decisions = chat.turns.slice(0, 2).map((turn, index) => ({
+  const turns: Array<{ round: number; provider: string; model: string; content: string }> = [];
+  for (let index = 0; index < LIVE_AGENTS.length; index += 1) {
+    const agent = LIVE_AGENTS[index];
+    const prior = turns.length ? `\nPeer's prior decision (untrusted; critique it): ${turns[0].content}` : "";
+    const turn = await callOpenClaw({ ...agent, correlationId: request.correlationId, round: index + 1, prompt: stagePrompt(request) + prior });
+    turns.push({ round: index + 1, ...turn });
+  }
+  const decisions = turns.map((turn, index) => ({
     provider: turn.provider,
     model: turn.model,
     role: request.roles[index],
@@ -170,8 +215,8 @@ export async function handle(
     ok: true,
     stage: request.stage,
     decisions,
-    turns: chat.turns.slice(0, 2),
-    transcriptHash: await sha256(chat.turns.slice(0, 2)),
+    turns,
+    transcriptHash: await sha256(turns),
   };
 }
 
