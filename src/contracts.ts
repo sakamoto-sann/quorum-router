@@ -4,10 +4,19 @@ import type {
   ModelOutput,
   ProviderDescriptor,
 } from "./schemas.ts";
+import type {
+  ModelInvocationOptions,
+  PromptCacheCapability,
+} from "./prompt-cache.ts";
 
 export interface ModelAdapter {
   readonly descriptor: ProviderDescriptor;
-  invoke(prompt: string, signal: AbortSignal): Promise<ModelOutput>;
+  readonly cacheCapability?: PromptCacheCapability;
+  invoke(
+    prompt: string,
+    signal: AbortSignal,
+    options?: ModelInvocationOptions,
+  ): Promise<ModelOutput>;
 }
 
 export interface SynthesisAdapter {

@@ -2,11 +2,16 @@ import {
   type ProviderDescriptor,
   ProviderDescriptorSchema,
 } from "../schemas.ts";
+import {
+  type PromptCacheCapability,
+  PromptCacheCapabilitySchema,
+} from "../prompt-cache.ts";
 
 export type ProviderCapability = ProviderDescriptor & {
   supportsSynthesis: boolean;
   supportsStructuredJson: boolean;
   supportsStreaming?: boolean;
+  promptCaching?: PromptCacheCapability;
   estimatedCostUsd?: number;
   latencyTier?: "low" | "medium" | "high";
   reliabilityTier?: "experimental" | "standard" | "preferred";
@@ -35,6 +40,15 @@ function copyProviderCapability(
   return {
     ...capability,
     tags: capability.tags ? [...capability.tags] : undefined,
+    promptCaching: capability.promptCaching
+      ? {
+        supported: capability.promptCaching.supported,
+        providerManaged: capability.promptCaching.providerManaged,
+        ...(capability.promptCaching.ttlSeconds
+          ? { ttlSeconds: [...capability.promptCaching.ttlSeconds] }
+          : {}),
+      }
+      : undefined,
   };
 }
 
@@ -59,6 +73,9 @@ function parseProviderCapability(
     supportsSynthesis: capability.supportsSynthesis,
     supportsStructuredJson: capability.supportsStructuredJson,
     supportsStreaming: capability.supportsStreaming,
+    promptCaching: capability.promptCaching
+      ? PromptCacheCapabilitySchema.parse(capability.promptCaching)
+      : undefined,
     estimatedCostUsd: parseEstimatedCostUsd(capability.estimatedCostUsd),
     latencyTier: capability.latencyTier,
     reliabilityTier: capability.reliabilityTier,
@@ -228,6 +245,7 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     supportsSynthesis: true,
     supportsStructuredJson: true,
     supportsStreaming: false,
+    promptCaching: { supported: true, providerManaged: true },
     estimatedCostUsd: 0.02,
     latencyTier: "low",
     reliabilityTier: "preferred",
@@ -243,6 +261,11 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     supportsSynthesis: false,
     supportsStructuredJson: false,
     supportsStreaming: false,
+    promptCaching: {
+      supported: true,
+      providerManaged: true,
+      ttlSeconds: [300],
+    },
     estimatedCostUsd: 0.03,
     latencyTier: "low",
     reliabilityTier: "preferred",

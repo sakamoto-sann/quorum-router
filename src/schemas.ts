@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ModelUsageSchema } from "./prompt-cache.ts";
 
 export const AuthModeSchema = z.enum(["apiKey", "oauth", "session"]);
 export const TransportSchema = z.enum([
@@ -22,6 +23,7 @@ export const ModelOutputSchema = z.object({
   model: z.string().min(1),
   provider: z.string().min(1),
   latencyMs: z.number().nonnegative(),
+  usage: ModelUsageSchema.optional(),
 });
 
 export type ModelOutput = z.infer<typeof ModelOutputSchema>;

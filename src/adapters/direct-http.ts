@@ -26,6 +26,14 @@ import {
   sanitizeDiagnosticText,
 } from "../errors.ts";
 import { sleepWithAbort } from "../utils.ts";
+import {
+  assertCachePolicySupported,
+  type ModelInvocationOptions,
+  parsePromptCachePolicy,
+  type PromptCacheCapability,
+  PromptCacheCapabilitySchema,
+  type PromptCachePolicy,
+} from "../prompt-cache.ts";
 
 function normalizeRetryPolicy(policy: RetryPolicy): RetryPolicy {
   const maxAttempts =
@@ -68,7 +76,11 @@ export type DirectHttpAdapterOptions = {
   descriptor: ProviderDescriptor;
   apiKeyEnv: string;
   apiKeyProvider?: () => string | undefined;
-  buildRequest: (prompt: string, apiKey: string) => DirectHttpRequest;
+  buildRequest: (
+    prompt: string,
+    apiKey: string,
+    cachePolicy: PromptCachePolicy,
+  ) => DirectHttpRequest;
   parseResponse: DirectHttpResponseParser;
   fetchFn?: FetchLike;
   retryPolicy?: RetryPolicy;
@@ -76,6 +88,7 @@ export type DirectHttpAdapterOptions = {
   budgetManager?: BudgetManager;
   estimatedCostUsd?: number;
   defaultTimeoutMs?: number;
+  cacheCapability?: PromptCacheCapability;
 };
 
 export function trimApiKey(apiKey: string | undefined): string | undefined {
@@ -224,11 +237,13 @@ async function fetchDirectHttpJson(
 
 class DirectHttpModelAdapter implements ModelAdapter {
   readonly descriptor: ProviderDescriptor;
+  readonly cacheCapability?: PromptCacheCapability;
   private readonly apiKeyEnv: string;
   private readonly apiKeyProvider: () => string | undefined;
   private readonly buildRequest: (
     prompt: string,
     apiKey: string,
+    cachePolicy: PromptCachePolicy,
   ) => DirectHttpRequest;
   private readonly parseResponse: DirectHttpResponseParser;
   private readonly fetchFn: FetchLike;
@@ -262,9 +277,21 @@ class DirectHttpModelAdapter implements ModelAdapter {
     this.budgetManager = options.budgetManager;
     this.estimatedCostUsd = options.estimatedCostUsd ?? 0;
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? 60_000;
+    this.cacheCapability = options.cacheCapability
+      ? PromptCacheCapabilitySchema.parse(options.cacheCapability)
+      : undefined;
   }
 
-  async invoke(prompt: string, signal: AbortSignal): Promise<ModelOutput> {
+  async invoke(
+    prompt: string,
+    signal: AbortSignal,
+    options?: ModelInvocationOptions,
+  ): Promise<ModelOutput> {
+    const cachePolicy = parsePromptCachePolicy(options?.cache);
+    assertCachePolicySupported(
+      cachePolicy,
+      this.cacheCapability ?? { supported: false, providerManaged: false },
+    );
     const label = `${this.descriptor.provider}/${this.descriptor.model}`;
     this.circuitBreaker.assertAvailable(label);
 
@@ -293,7 +320,7 @@ class DirectHttpModelAdapter implements ModelAdapter {
         }
 
         const result = await fetchDirectHttpJson(
-          this.buildRequest(prompt, credential),
+          this.buildRequest(prompt, credential, cachePolicy),
           signal,
           label,
           this.defaultTimeoutMs,
@@ -364,6 +391,13 @@ function parseOpenAIChatContent(
   }
 
   const responseModel = getPath(result.json, ["model"]);
+  const inputTokens = getPath(result.json, ["usage", "prompt_tokens"]);
+  const outputTokens = getPath(result.json, ["usage", "completion_tokens"]);
+  const cachedTokens = getPath(result.json, [
+    "usage",
+    "prompt_tokens_details",
+    "cached_tokens",
+  ]);
   return ModelOutputSchema.parse({
     content: content.trim(),
     model: typeof responseModel === "string" && responseModel.trim()
@@ -371,6 +405,19 @@ function parseOpenAIChatContent(
       : descriptor.model,
     provider: descriptor.provider,
     latencyMs: result.durationMs,
+    usage: {
+      ...(typeof inputTokens === "number" ? { inputTokens } : {}),
+      ...(typeof outputTokens === "number" ? { outputTokens } : {}),
+      ...(typeof cachedTokens === "number"
+        ? {
+          cacheReadInputTokens: cachedTokens,
+          cacheHit: cachedTokens > 0,
+          ...(typeof inputTokens === "number"
+            ? { uncachedInputTokens: Math.max(0, inputTokens - cachedTokens) }
+            : {}),
+        }
+        : {}),
+    },
   });
 }
 
@@ -402,6 +449,13 @@ function parseAnthropicMessageContent(
   }
 
   const responseModel = getPath(result.json, ["model"]);
+  const inputTokens = getPath(result.json, ["usage", "input_tokens"]);
+  const outputTokens = getPath(result.json, ["usage", "output_tokens"]);
+  const cacheCreation = getPath(result.json, [
+    "usage",
+    "cache_creation_input_tokens",
+  ]);
+  const cacheRead = getPath(result.json, ["usage", "cache_read_input_tokens"]);
   return ModelOutputSchema.parse({
     content,
     model: typeof responseModel === "string" && responseModel.trim()
@@ -409,6 +463,19 @@ function parseAnthropicMessageContent(
       : descriptor.model,
     provider: descriptor.provider,
     latencyMs: result.durationMs,
+    usage: {
+      ...(typeof inputTokens === "number" ? { inputTokens } : {}),
+      ...(typeof outputTokens === "number" ? { outputTokens } : {}),
+      ...(typeof cacheCreation === "number"
+        ? { cacheCreationInputTokens: cacheCreation }
+        : {}),
+      ...(typeof cacheRead === "number"
+        ? { cacheReadInputTokens: cacheRead, cacheHit: cacheRead > 0 }
+        : {}),
+      ...(typeof inputTokens === "number"
+        ? { uncachedInputTokens: inputTokens }
+        : {}),
+    },
   });
 }
 
@@ -446,6 +513,7 @@ export function createOpenAIDirectAdapter(
     budgetManager: options.budgetManager,
     estimatedCostUsd: 0.02,
     defaultTimeoutMs: options.defaultTimeoutMs,
+    cacheCapability: { supported: true, providerManaged: true },
     parseResponse: parseOpenAIChatContent,
     buildRequest: (prompt, apiKey) => ({
       url: endpoint,
@@ -500,8 +568,13 @@ export function createAnthropicDirectAdapter(
     budgetManager: options.budgetManager,
     estimatedCostUsd: 0.03,
     defaultTimeoutMs: options.defaultTimeoutMs,
+    cacheCapability: {
+      supported: true,
+      providerManaged: true,
+      ttlSeconds: [300],
+    },
     parseResponse: parseAnthropicMessageContent,
-    buildRequest: (prompt, apiKey) => ({
+    buildRequest: (prompt, apiKey, cachePolicy) => ({
       url: endpoint,
       init: {
         method: "POST",
@@ -513,7 +586,20 @@ export function createAnthropicDirectAdapter(
         body: JSON.stringify({
           model,
           max_tokens: options.maxTokens ?? 1024,
-          messages: [{ role: "user", content: prompt }],
+          messages: [{
+            role: "user",
+            content: [{
+              type: "text",
+              text: prompt,
+              ...(cachePolicy.enabled
+                ? {
+                  cache_control: {
+                    type: "ephemeral",
+                  },
+                }
+                : {}),
+            }],
+          }],
         }),
       },
     }),

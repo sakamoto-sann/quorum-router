@@ -124,6 +124,8 @@ deno task smoke:v0.1
   [integrations/hermes/](integrations/hermes/)
 - examples: [examples/](examples/)
 - SafeLoop AgentRuntime setup: [docs/agent-runtime.md](docs/agent-runtime.md)
+- provider-native Prompt Caching:
+  [docs/prompt-caching.md](docs/prompt-caching.md)
 - security notes: [docs/security.md](docs/security.md)
 
 ## License and boundaries

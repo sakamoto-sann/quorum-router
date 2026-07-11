@@ -52,6 +52,7 @@ import {
   normalizeAgentChatLimits,
   parseRoutingMode,
   ProcessExecutionError,
+  PromptCachePolicySchema,
   ProviderCapabilityRegistry,
   QuorumRouter,
   readRouterEnv,
@@ -1935,6 +1936,18 @@ Deno.test("provider registry validates known providers", () => {
   assertEquals(openAiDirect.supportsSynthesis, true);
   assertEquals(openAiDirect.supportsStructuredJson, true);
   assertEquals(openAiDirect.enabled, true);
+  assertEquals(openAiDirect.promptCaching, {
+    supported: true,
+    providerManaged: true,
+  });
+  const anthropicDirect = registry.require({
+    provider: "Anthropic",
+    model: "claude-3-5-haiku-latest",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "AnthropicMessagesAPI",
+  });
+  assertEquals(anthropicDirect.promptCaching?.ttlSeconds, [300]);
 });
 
 Deno.test("provider registry protects lookup state and separates auth modes", () => {
@@ -6380,6 +6393,11 @@ Deno.test("OpenAI direct HTTP adapter sends bearer token and parses chat content
           JSON.stringify({
             model: "gpt-fixture",
             choices: [{ message: { content: "openai says hi" } }],
+            usage: {
+              prompt_tokens: 120,
+              completion_tokens: 20,
+              prompt_tokens_details: { cached_tokens: 80 },
+            },
           }),
           {
             status: 200,
@@ -6397,6 +6415,13 @@ Deno.test("OpenAI direct HTTP adapter sends bearer token and parses chat content
   assertEquals(output.provider, "OpenAI");
   assertEquals(output.model, "gpt-fixture");
   assertEquals(output.content, "openai says hi");
+  assertEquals(output.usage, {
+    inputTokens: 120,
+    outputTokens: 20,
+    cacheReadInputTokens: 80,
+    uncachedInputTokens: 40,
+    cacheHit: true,
+  });
 });
 
 Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", async () => {
@@ -6420,6 +6445,12 @@ Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", 
               { type: "text", text: "anthropic" },
               { type: "text", text: "says hi" },
             ],
+            usage: {
+              input_tokens: 30,
+              output_tokens: 12,
+              cache_creation_input_tokens: 100,
+              cache_read_input_tokens: 200,
+            },
           }),
           {
             status: 200,
@@ -6438,6 +6469,77 @@ Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", 
   assertEquals(output.provider, "Anthropic");
   assertEquals(output.model, "claude-fixture");
   assertEquals(output.content, "anthropic\nsays hi");
+  assertEquals(output.usage, {
+    inputTokens: 30,
+    outputTokens: 12,
+    cacheCreationInputTokens: 100,
+    cacheReadInputTokens: 200,
+    uncachedInputTokens: 30,
+    cacheHit: true,
+  });
+});
+
+Deno.test("Anthropic prompt caching is explicit and read-only", async () => {
+  let capturedBody: Record<string, unknown> | undefined;
+  const adapter = createAnthropicDirectAdapter({
+    endpoint: "https://fixture.test/anthropic-cache",
+    apiKeyProvider: () => "anthropic-cache-fixture",
+    fetchFn: (_input, init) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            model: "claude-fixture",
+            content: [{ type: "text", text: "cached response" }],
+            usage: { input_tokens: 5, output_tokens: 2 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    },
+  });
+
+  await adapter.invoke(
+    "stable read-only context",
+    new AbortController().signal,
+    {
+      cache: { enabled: true, payloadClass: "read_only", ttlSeconds: 300 },
+    },
+  );
+
+  const messages = capturedBody?.messages as Array<Record<string, unknown>>;
+  const content = messages[0].content as Array<Record<string, unknown>>;
+  assertEquals(content[0].cache_control, { type: "ephemeral" });
+
+  for (const payloadClass of ["mutation", "approval", "credential"] as const) {
+    await assertRejects(
+      () =>
+        adapter.invoke("sensitive", new AbortController().signal, {
+          cache: { enabled: true, payloadClass },
+        }),
+      Error,
+      `${payloadClass} payloads cannot enable prompt caching`,
+    );
+  }
+});
+
+Deno.test("prompt cache policy and TTL fail closed", async () => {
+  assertEquals(PromptCachePolicySchema.parse({}), {
+    enabled: false,
+    payloadClass: "read_only",
+  });
+  const adapter = createAnthropicDirectAdapter({
+    apiKeyProvider: () => "unused-fixture",
+    fetchFn: () => Promise.resolve(new Response("should not run")),
+  });
+  await assertRejects(
+    () =>
+      adapter.invoke("hello", new AbortController().signal, {
+        cache: { enabled: true, ttlSeconds: 3600 },
+      }),
+    Error,
+    "Unsupported prompt cache TTL 3600",
+  );
 });
 
 Deno.test("direct HTTP adapter fails closed before fetch when API key is missing", async () => {
