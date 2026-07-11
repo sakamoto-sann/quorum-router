@@ -54,12 +54,14 @@ done
 SHARE_DIR=${PREFIX}/share/quorum-router
 BIN_DIR=${PREFIX}/bin
 WRAPPER=${BIN_DIR}/quorum-router
+SHORT_WRAPPER=${BIN_DIR}/quorum
 
 echo "QuorumRouter install plan:"
 echo "  repo:   ${REPO_URL}"
 echo "  ref:    ${REF}"
 echo "  clone:  ${SHARE_DIR}"
 echo "  binary: ${WRAPPER}"
+echo "  alias:  ${SHORT_WRAPPER}"
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "dry-run: no filesystem changes made"
@@ -74,7 +76,15 @@ mkdir -p "$BIN_DIR" "$(dirname "$SHARE_DIR")"
 if [ -d "$SHARE_DIR/.git" ]; then
   echo "updating existing checkout at ${SHARE_DIR}"
   git -C "$SHARE_DIR" fetch --tags origin
-  git -C "$SHARE_DIR" checkout --detach "$REF"
+  case "$REF" in
+    main|master)
+      git -C "$SHARE_DIR" checkout "$REF"
+      git -C "$SHARE_DIR" merge --ff-only "origin/$REF"
+      ;;
+    *)
+      git -C "$SHARE_DIR" checkout --detach "$REF"
+      ;;
+  esac
 else
   echo "cloning ${REPO_URL} at ${REF}"
   git clone --depth 1 --branch "$REF" "$REPO_URL" "$SHARE_DIR"
@@ -84,6 +94,7 @@ cat > "$WRAPPER" <<EOF
 #!/bin/sh
 set -eu
 REPO_DIR='${SHARE_DIR}'
+TRACK_REF='${REF}'
 cmd=\${1:-doctor}
 case "\$cmd" in
   doctor)
@@ -95,17 +106,61 @@ case "\$cmd" in
   test)
     cd "\$REPO_DIR" && exec deno task test
     ;;
+  version)
+    git -C "\$REPO_DIR" describe --tags --always --dirty
+    ;;
+  update)
+    shift || true
+    check_only=0
+    if [ "\${1:-}" = "--check" ]; then check_only=1; shift; fi
+    [ "\$#" -eq 0 ] || { echo "usage: quorum-router update [--check]" >&2; exit 2; }
+    [ -z "\$(git -C "\$REPO_DIR" status --porcelain)" ] || {
+      echo "update refused: QuorumRouter worktree is dirty" >&2
+      exit 1
+    }
+    git -C "\$REPO_DIR" fetch --tags origin
+    case "\$TRACK_REF" in
+      main|master)
+        current=\$(git -C "\$REPO_DIR" rev-parse HEAD)
+        available=\$(git -C "\$REPO_DIR" rev-parse "origin/\$TRACK_REF")
+        if [ "\$check_only" -eq 1 ]; then
+          [ "\$current" = "\$available" ] && echo "QuorumRouter is up to date: \$current" || echo "QuorumRouter update available: \$current -> \$available"
+          exit 0
+        fi
+        branch=\$(git -C "\$REPO_DIR" branch --show-current)
+        [ "\$branch" = "\$TRACK_REF" ] || {
+          echo "update refused: expected branch \$TRACK_REF, found \${branch:-detached}" >&2
+          exit 1
+        }
+        git -C "\$REPO_DIR" merge --ff-only "origin/\$TRACK_REF"
+        ;;
+      *)
+        latest=\$(git -C "\$REPO_DIR" tag --list 'v*' --sort=-v:refname | sed -n '1p')
+        [ -n "\$latest" ] || { echo "update failed: no release tag found" >&2; exit 1; }
+        current=\$(git -C "\$REPO_DIR" describe --tags --exact-match 2>/dev/null || git -C "\$REPO_DIR" rev-parse --short HEAD)
+        if [ "\$check_only" -eq 1 ]; then
+          [ "\$current" = "\$latest" ] && echo "QuorumRouter is up to date: \$current" || echo "QuorumRouter update available: \$current -> \$latest"
+          exit 0
+        fi
+        git -C "\$REPO_DIR" checkout --detach "\$latest"
+        ;;
+    esac
+    echo "QuorumRouter updated to \$(git -C "\$REPO_DIR" describe --tags --always)"
+    ;;
   --help|-h|help)
-    echo "quorum-router helper commands: doctor, smoke, test"
+    echo "quorum-router helper commands: doctor, smoke, test, version, update [--check]"
     ;;
   *)
     echo "unknown command: \$cmd" >&2
-    echo "quorum-router helper commands: doctor, smoke, test" >&2
+    echo "quorum-router helper commands: doctor, smoke, test, version, update [--check]" >&2
     exit 2
     ;;
 esac
 EOF
 chmod 755 "$WRAPPER"
+ln -sf "$WRAPPER" "$SHORT_WRAPPER"
 
 echo "installed ${WRAPPER}"
+echo "installed ${SHORT_WRAPPER} -> ${WRAPPER}"
 echo "try: ${WRAPPER} doctor"
+echo "update later: ${SHORT_WRAPPER} update"

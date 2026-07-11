@@ -51,20 +51,21 @@ provider API or `raw.githubusercontent.com`.
 
 ## Install helper dry run
 
-For the tagged v0.1.4 install helper, inspect the install plan first:
+For the latest source-tracking helper, inspect the install plan first:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/main/install.sh | sh -s -- --dry-run --ref main
 ```
 
 ## Install helper actual install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/fusion-router/v0.1.4/install.sh | sh -s -- --prefix "$HOME/.local"
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/main/install.sh | sh -s -- --prefix "$HOME/.local" --ref main
 ```
 
-The helper clones the tagged repository into `${PREFIX}/share/quorum-router` and
-writes `${PREFIX}/bin/quorum-router`.
+The helper clones the selected ref into `${PREFIX}/share/quorum-router`, writes
+`${PREFIX}/bin/quorum-router`, and creates `${PREFIX}/bin/quorum` as a shorter
+alias.
 
 Wrapper commands:
 
@@ -72,7 +73,23 @@ Wrapper commands:
 quorum-router doctor
 quorum-router smoke
 quorum-router test
+quorum-router version
+quorum-router update --check
+quorum-router update
 ```
+
+The installer also creates the shorter `quorum` alias, so terminal updates can
+be run as:
+
+```bash
+quorum update --check
+quorum update
+```
+
+An install made with `--ref main` tracks `origin/main` and updates only by a
+clean-worktree fast-forward. A release-tag install checks out the latest fetched
+`v*` release tag. Updates refuse dirty worktrees, unexpected branches, and
+non-fast-forward history.
 
 The helper fails clearly if the requested ref is unavailable. For local
 source-tree evaluation only, pass an explicit ref:
@@ -81,13 +98,15 @@ source-tree evaluation only, pass an explicit ref:
 sh install.sh --dry-run --ref main
 ```
 
-Stable usage should use the tagged `v0.1.4` URL, not raw `main`.
+Use a version tag instead of `--ref main` when you want release-channel rather
+than source-channel updates.
 
 ## Uninstall
 
 ```bash
 rm -rf "$HOME/.local/share/quorum-router"
 rm -f "$HOME/.local/bin/quorum-router"
+rm -f "$HOME/.local/bin/quorum"
 ```
 
 Adjust the paths if you installed with a different `--prefix`.
