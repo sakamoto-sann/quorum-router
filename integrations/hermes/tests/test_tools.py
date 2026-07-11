@@ -161,6 +161,39 @@ class QuorumRouterToolsTest(unittest.TestCase):
             event = json.loads(raw)
             self.assertEqual(event["latency_ms"], 42)
             self.assertEqual(event["provider"], "OpenAI")
+    def test_update_check_reports_remote_revision_without_mutation(self):
+        responses = {
+            ("branch", "--show-current"): mock.Mock(returncode=0, stdout="main\n"),
+            ("rev-parse", "HEAD"): mock.Mock(returncode=0, stdout="aaa\n"),
+            ("ls-remote", "origin", "refs/heads/main"): mock.Mock(returncode=0, stdout="bbb\trefs/heads/main\n"),
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".git").mkdir()
+            with mock.patch.object(TOOLS, "_repo_root", return_value=root), \
+                 mock.patch.object(TOOLS, "_git", side_effect=lambda _repo, *args, **_kw: responses[args]):
+                result = json.loads(TOOLS.update({"apply": False}))
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["update_available"])
+        self.assertEqual(result["operation"], "update_check")
+
+    def test_update_apply_refuses_dirty_worktree(self):
+        def fake_git(_repo, *args, **_kwargs):
+            values = {
+                ("branch", "--show-current"): "main\n",
+                ("rev-parse", "HEAD"): "aaa\n",
+                ("ls-remote", "origin", "refs/heads/main"): "bbb\trefs/heads/main\n",
+                ("status", "--porcelain"): " M local.txt\n",
+            }
+            return mock.Mock(returncode=0, stdout=values[args])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / ".git").mkdir()
+            with mock.patch.object(TOOLS, "_repo_root", return_value=root), \
+                 mock.patch.object(TOOLS, "_git", side_effect=fake_git):
+                result = json.loads(TOOLS.update({"apply": True}))
+        self.assertFalse(result["ok"])
+        self.assertIn("dirty", result["error"])
 
 
 if __name__ == "__main__":

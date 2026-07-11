@@ -13,6 +13,9 @@ caching while allowing selective real-provider dogfood.
 - `quorum_router_agent_chat` — bounded live dialogue between at least two
   distinct working provider/model identities. Returns every round with explicit
   reply lineage; `max_turns` is constrained to 2–12.
+- `quorum_router_update` — checks `origin/main`; with `apply=true`, updates only
+  through a clean-worktree, main-branch, fast-forward merge and refreshes the
+  installed plugin files. A Hermes restart is required after applying.
 
 The bridge sends JSON over stdin so prompt text does not appear in the child
 process command line. Provider credentials are not copied into plugin config;
@@ -33,6 +36,10 @@ Restart the Hermes gateway or start a fresh CLI session after enabling the
 plugin. Keep `route_once` as the normal trial mode; `best_route` may call
 several providers and should be used only when comparison value justifies the
 cost.
+
+`best_route` now runs independent candidates, a schema-validated Structured
+Judge, and the Core `SynthesisAdapter` editor. It returns the integrated answer,
+agreements, disagreements, rejected claims, uncertainties, and source labels.
 
 Example request from Hermes:
 

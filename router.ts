@@ -12,6 +12,7 @@ export * from "./src/env.ts";
 export * from "./src/config.ts";
 export * from "./src/contracts.ts";
 export * from "./src/prompt-cache.ts";
+export * from "./src/fusion.ts";
 export * from "./src/budget/budget.ts";
 export * from "./src/adapters/process.ts";
 export * from "./src/adapters/direct-http.ts";

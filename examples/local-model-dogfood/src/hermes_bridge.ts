@@ -3,7 +3,8 @@ import {
   invokableEntries,
 } from "./auth_discovery.ts";
 import { runAgentChat } from "./agent_chat_runner.ts";
-import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
+import { invokeSelected } from "./best_route_runner.ts";
+import { runHermesStructuredFusion } from "./fusion_runner.ts";
 import { parseAuthMode, type ProviderResult } from "./schema.ts";
 import { score } from "./trace.ts";
 import { readRouterEnv } from "./env.ts";
@@ -120,9 +121,31 @@ async function main(): Promise<void> {
     });
     return;
   }
-  const routed = request.operation === "route_once"
-    ? await invokeSelected(prompt)
-    : await runBestRoute(prompt);
+  if (request.operation === "best_route") {
+    const fusion = await runHermesStructuredFusion(prompt);
+    const bounded = boundedContent(fusion.final.synthesis);
+    emit({
+      ok: true,
+      operation: "best_route",
+      fusion: true,
+      provider: fusion.final.consensusModel,
+      model: fusion.final.consensusModel,
+      content: bounded.content,
+      truncated: bounded.truncated,
+      candidates_called: fusion.candidates.length,
+      candidates: fusion.candidates.map(({ provider, model }) => ({
+        provider,
+        model,
+      })),
+      judge: fusion.judge,
+      reasoning: fusion.final.reasoning,
+      sources: fusion.final.sources,
+      trace_path: fusion.candidateTracePath,
+      schema_valid: true,
+    });
+    return;
+  }
+  const routed = await invokeSelected(prompt);
   const selected = selectedResult(routed.results);
   const bounded = boundedContent(selected.raw_content);
   emit({

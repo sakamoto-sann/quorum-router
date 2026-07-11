@@ -91,6 +91,24 @@ HEALTH_SCHEMA = {
     "parameters": {"type": "object", "properties": {}},
 }
 
+UPDATE_SCHEMA = {
+    "name": "quorum_router_update",
+    "description": (
+        "Check for or apply a fail-safe QuorumRouter update from origin/main. "
+        "Apply refuses dirty worktrees, non-main branches, and non-fast-forward updates."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "apply": {
+                "type": "boolean",
+                "default": False,
+                "description": "False checks only; true fast-forwards main and refreshes this plugin.",
+            }
+        },
+    },
+}
+
 
 def _load_config() -> dict[str, Any]:
     try:
@@ -403,6 +421,74 @@ def agent_chat(args: dict[str, Any], **_: Any) -> str:
         "prompt": prompt,
         "max_turns": raw_max_turns,
     })
+
+
+def _git(repo: Path, *args: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def update(args: dict[str, Any], **_: Any) -> str:
+    apply = args.get("apply", False)
+    if not isinstance(apply, bool):
+        return _error("apply must be a boolean")
+    repo = _repo_root()
+    if not (repo / ".git").exists():
+        return _error("configured QuorumRouter repository is not a Git worktree")
+    branch = _git(repo, "branch", "--show-current")
+    local = _git(repo, "rev-parse", "HEAD")
+    remote = _git(repo, "ls-remote", "origin", "refs/heads/main")
+    if branch.returncode or local.returncode or remote.returncode:
+        return _error("could not inspect QuorumRouter update state")
+    branch_name = branch.stdout.strip()
+    local_sha = local.stdout.strip()
+    remote_sha = remote.stdout.strip().split()[0] if remote.stdout.strip() else ""
+    if not remote_sha:
+        return _error("origin/main was not found")
+    if not apply:
+        return json.dumps({
+            "ok": True,
+            "operation": "update_check",
+            "branch": branch_name,
+            "current_revision": local_sha,
+            "available_revision": remote_sha,
+            "update_available": local_sha != remote_sha,
+        }, ensure_ascii=False)
+    dirty = _git(repo, "status", "--porcelain")
+    if dirty.returncode or dirty.stdout.strip():
+        return _error("update refused: QuorumRouter worktree is dirty")
+    if branch_name != "main":
+        return _error("update refused: QuorumRouter must be on main", branch=branch_name)
+    fetch = _git(repo, "fetch", "--quiet", "origin", "main")
+    if fetch.returncode:
+        return _error("update failed while fetching origin/main")
+    merge = _git(repo, "merge", "--ff-only", "origin/main")
+    if merge.returncode:
+        return _error("update refused: origin/main is not a fast-forward")
+    source_dir = repo / "integrations/hermes"
+    for name in ("plugin.yaml", "__init__.py", "tools.py"):
+        source = source_dir / name
+        if not source.is_file():
+            return _error("update incomplete: Hermes plugin source is missing", file=name)
+        temporary = PLUGIN_DIR / f".{name}.update"
+        shutil.copyfile(source, temporary)
+        os.chmod(temporary, 0o600)
+        temporary.replace(PLUGIN_DIR / name)
+    after = _git(repo, "rev-parse", "HEAD")
+    return json.dumps({
+        "ok": True,
+        "operation": "update_apply",
+        "previous_revision": local_sha,
+        "current_revision": after.stdout.strip(),
+        "updated": local_sha != after.stdout.strip(),
+        "plugin_refreshed": True,
+        "restart_required": True,
+    }, ensure_ascii=False)
 
 
 def health(args: dict[str, Any] | None = None, **_: Any) -> str:
