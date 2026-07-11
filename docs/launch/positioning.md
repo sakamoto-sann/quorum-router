@@ -65,8 +65,8 @@ QuorumRouter current release is ready for external evaluation through the public
 NPX scaffold:
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
 deno task smoke
 ```
 

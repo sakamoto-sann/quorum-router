@@ -1,4 +1,4 @@
-# QuorumRouter v0.1 public preview FAQ
+# QuorumRouter FAQ
 
 ## Is QuorumRouter open source?
 
@@ -19,7 +19,7 @@ requires prior written permission.
 ## What is production-ready?
 
 The `direct` path is the production-ready best-answer routing path in the v0.1
-public preview positioning.
+current release positioning.
 
 It routes through model adapters, validates structured outputs, and synthesizes
 a final answer through fail-closed behavior.
@@ -49,12 +49,11 @@ It is not the default path and is not claimed as production-ready.
 
 ## Does this run autonomous agents in production?
 
-No. QuorumRouter v0.1 public preview does not claim a production autonomous
-runtime.
+No. QuorumRouter does not claim a production autonomous runtime.
 
 ## Does it write to Supabase live runtime?
 
-No. The public preview does not claim live Supabase Agent Bus runtime writes.
+No. The current release does not claim live Supabase Agent Bus runtime writes.
 
 Supabase Agent Bus docs describe contracts and future/live-runtime boundaries,
 but the launch positioning does not claim live runtime writes.
@@ -65,14 +64,10 @@ No. The launch path and generated demo do not require service-role credentials.
 
 The runtime boundary explicitly excludes service-role runtime.
 
-## Why npm version 0.1.4 but label v0.1 public preview?
+## Is `create-quorum-router` published on npm?
 
-The external launch label is **QuorumRouter v0.1 public preview**.
-
-The npm package is `create-quorum-router@0.1.4` with `latest -> 0.1.4`. Version
-`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 public preview line with GitHub URL context dogfood and release
-packaging hardening, not a separate product milestone.
+No. Public registry readback currently returns `E404`. The working source-backed
+installer uses GitHub `main` and does not claim npm publication.
 
 ## Why NPX?
 
@@ -80,20 +75,20 @@ NPX gives evaluators a short, copy-pasteable way to create a local demo without
 cloning the full repository first:
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
 deno task smoke
 ```
 
 The generated demo is intentionally small and inspectable.
 
-## How do I pin a version?
+## How do I pin the source installer?
 
-Use the fixed package version:
+Use a reviewed Git tag or commit instead of `#main`:
 
 ```bash
-npx --yes create-quorum-router@0.1.4 my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#<reviewed-commit> my-quorum-router
+cd my-quorum-router
 deno task smoke
 ```
 
@@ -116,13 +111,13 @@ If you used a different directory name, remove that directory instead.
 Common issues:
 
 - Deno is not installed.
-- npm or npx cache resolves an unexpected package version.
+- npm or npx cache resolves an unexpected GitHub source checkout.
 - network access to `raw.githubusercontent.com` is blocked during
   `deno task smoke`.
 - Deno import-map resolution fails if you run outside the generated demo
   directory or delete `deno.json`.
-- future npm/package versions may change generated-demo behavior; pin
-  `create-quorum-router@0.1.4` to reproduce this public preview scaffold.
+- future `main` changes may alter generated behavior; pin a reviewed tag or
+  commit for reproducibility.
 
 ## How do I report issues?
 
@@ -137,5 +132,5 @@ When reporting an issue, include:
 - Node/npm version if the issue involves NPX
 - command run
 - full error output
-- whether `create-quorum-router@latest` or a fixed version was used
+- whether `#main`, a Git tag, or a commit was used
 - whether network access to `raw.githubusercontent.com` is available

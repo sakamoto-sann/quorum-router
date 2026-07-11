@@ -1,4 +1,4 @@
-# Example repo plan — QuorumRouter v0.1 public preview
+# Example repo plan — QuorumRouter
 
 > Proposal only. Do not create a repository unless explicitly approved.
 
@@ -22,16 +22,16 @@ point back to:
 
 - GitHub release:
   https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
-- npm package: https://www.npmjs.com/package/create-quorum-router
+- npm package: `create-quorum-router` is not yet published on npm
 - main repository: https://github.com/sakamoto-sann/quorum-router
 
 ## README structure
 
-1. Title: `QuorumRouter v0.1 public preview demo`
+1. Title: `QuorumRouter demo`
 2. License warning: Source-Available Non-Commercial, not open source.
 3. Runtime boundaries:
    - `direct` production-ready best-answer path.
-   - `agent_chat` experimental explicit opt-in only.
+   - `agent_chat` explicit opt-in conversation mode only.
    - SafeLoop-backed AgentRuntime production claims are limited to the verified
      local repository execution slice with signed policy and distinct approval.
    - no live Supabase Agent Bus runtime writes.
@@ -65,8 +65,8 @@ docs/recording-notes.md
 Recommended README quickstart:
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
 deno task check
 deno task smoke
 ```

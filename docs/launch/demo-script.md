@@ -1,4 +1,4 @@
-# Terminal demo script — QuorumRouter v0.1 public preview
+# Terminal demo script — QuorumRouter
 
 > Script for recorded or live terminal demos. Do not claim open source
 > licensing. Do not claim production autonomous runtime. Do not claim live
@@ -25,7 +25,7 @@ deno task demo
 
 Narration:
 
-- “This is QuorumRouter v0.1 public preview.”
+- “This is QuorumRouter.”
 - “Mode is `best_route`.”
 - “The fixture agents are Grok and GLM; no external model/API call is made.”
 - “The demo shows a simple shogi opening excerpt.”
@@ -61,8 +61,8 @@ The NPX quickstart remains useful as an install/scaffold clip, but it should not
 replace the two mode-specific GIFs.
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
 deno task smoke
 ```
 
@@ -76,7 +76,7 @@ positioning.
   excerpt.”
 - “The two demos are intentionally separate.”
 - “Best Route is the production-ready best-answer routing path.”
-- “`agent_chat` is experimental explicit opt-in only.”
+- “`agent_chat` is an explicit opt-in conversation mode.”
 - “Grok and GLM are deterministic fixture labels in the recording, not live API
   calls.”
 - “QuorumRouter is Source-Available Non-Commercial, not open source.”

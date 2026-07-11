@@ -1,174 +1,86 @@
-# Launch readiness report — QuorumRouter v0.1 public preview
+# Launch readiness report — QuorumRouter
 
-Prepared for external launch asset closeout.
+Verified against GitHub `main` and the public npm registry on 2026-07-11.
 
-## Release identity
+## Current identity
 
-- External label: **QuorumRouter v0.1 public preview**
-- GitHub release: `v0.1.3`
-- GitHub release URL:
-  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.3
-- npm package: `create-quorum-router`
-- npm package URL: https://www.npmjs.com/package/create-quorum-router
-- npm latest target: `0.1.3`
+- Repository: https://github.com/sakamoto-sann/quorum-router
+- `main`: `3f2349b5924d8dc805f404922a9593f3b59a17c2`
+- License: Source-Available Non-Commercial; not OSI open source
+- Latest GitHub tag: `v0.1.4`
+- Registry package `create-quorum-router`: **not published** (`npm view` returns
+  `E404`)
 
-`0.1.3` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 public preview line, not a separate product milestone.
-
-## GitHub release readback
-
-Expected release readback:
-
-```json
-{
-  "tagName": "v0.1.3",
-  "targetCommitish": "34398e6bfa0796d76cfb84c564dd00f7dd84afe7",
-  "isDraft": false,
-  "isPrerelease": false,
-  "url": "https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.3"
-}
-```
-
-Expected tag dereference:
-
-```text
-v0.1.3^{} = 34398e6bfa0796d76cfb84c564dd00f7dd84afe7
-```
-
-This launch-assets PR must not move, delete, or recreate `v0.1.0`, `v0.1.1`,
-`v0.1.2`, or `v0.1.3`.
-
-## npm readback
-
-Expected package readback:
-
-```json
-{
-  "name": "create-quorum-router",
-  "version": "0.1.3",
-  "license": "SEE LICENSE IN LICENSE",
-  "bin": {
-    "create-quorum-router": "bin/create-quorum-router.js"
-  },
-  "dist.tarball": "https://registry.npmjs.org/create-quorum-router/-/create-quorum-router-0.1.3.tgz"
-}
-```
-
-Expected dist-tag readback:
-
-```text
-latest: 0.1.3
-```
-
-This launch-assets PR must not publish npm, bump the package version, create
-`0.1.4`, or mutate npm dist-tags.
-
-## NPX smoke status
-
-Public quickstart:
+The working public quickstart therefore uses the GitHub source installer, not an
+npm registry claim:
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
+deno task check
 deno task smoke
 ```
 
-Expected generated files:
+Fresh source-backed scaffold verification: **PASS**.
 
-```text
-./README.md
-./deno.json
-./main.ts
-```
+## Launch media
 
-Expected verification:
+The primary media consists of two separate videos because the interaction
+contracts are different.
 
-- scaffold passes.
-- generated demo `deno task check` passes.
-- generated demo `deno task smoke` passes.
-- smoke output contains `"ok": true`.
+| Video      | Contract                                                                            | MP4                                               |
+| ---------- | ----------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Best Route | Independent Grok/Claude/Qwen candidates → comparison → selection → synthesis        | `docs/assets/launch/quorum-router-best-route.mp4` |
+| Agent Chat | Grok ↔ GLM shared-context replies → disagreement → revision → challenge → consensus | `docs/assets/launch/quorum-router-agent-chat.mp4` |
 
-## Docs status
+Verified public assets:
 
-Operational docs already exist:
+- Best Route MP4: 716,943 bytes
+- Agent Chat MP4: 1,421,277 bytes
+- README embeds separate optimized GIFs and links both MP4 files
 
-- `docs/public-preview-runbook.md`
-- `docs/trusted-publishing.md`
-- `docs/launch-checklist.md`
+The recordings are deterministic CLI visualizations and must not be described as
+live external model/API traffic.
 
-Launch assets in this set:
+## Runtime boundaries
 
-- `docs/launch/product-hunt-copy.md`
-- `docs/launch/x-launch-thread.md`
-- `docs/launch/demo-script.md`
-- `docs/launch/demo-gif-shotlist.md`
-- `docs/launch/example-repo-plan.md`
-- `docs/launch/faq.md`
-- `docs/launch/positioning.md`
-- `docs/launch/launch-readiness-report.md`
+- Best Route keeps candidate contexts isolated before router synthesis.
+- Conversation-only Agent Chat is explicit opt-in and preserves model identity
+  and reply lineage across bounded turns.
+- SafeLoop-backed local repository execution requires signed policy and distinct
+  exact-digest approval.
+- QuorumRouter cannot sign, self-approve, or bypass SafeLoop.
+- GitHub, database, external API, release, policy, and credential mutations
+  remain blocked from autonomous model execution.
+- No live Supabase Agent Bus runtime writes and no service-role runtime.
 
-## Workflow readiness
+## Current blocker
 
-Publish workflow status: hardened and ready, not run.
+The latest GitHub release exists at `v0.1.4`, but its title still says **“Fusion
+Router v0.1.4 — Real Provider Dogfood & URL Context.”** Older release titles
+also contain legacy `Fusion Router` / `Public RC` branding.
 
-Expected readiness properties:
+Changing published GitHub release metadata is an external write and requires
+explicit operator approval. Do not describe the public launch as fully clean
+until at least the latest `v0.1.4` release title and notes are reviewed and
+renamed to QuorumRouter.
 
-- no ordinary `push` to `main` publish trigger.
-- explicit release tag input or deliberate release-tag push condition.
-- `permissions.contents: read`.
-- GitHub Actions OIDC id-token permission is enabled for Trusted Publishing.
-- npm registry URL configured for Trusted Publishing.
-- no committed npm token, password, or OTP.
-- no publish workflow invocation during launch-assets preparation.
+npm publication is not required for the working GitHub-source quickstart. Do not
+claim that `create-quorum-router` exists on npm until registry readback
+succeeds.
 
-## Runtime and license boundaries
+## Final launch gates
 
-- `direct` is the production-ready best-answer routing path.
-- `agent_chat` is experimental explicit opt-in only.
-- SafeLoop-backed AgentRuntime production claims are limited to the verified
-  local repository execution slice with signed policy and distinct approval.
-- No live Supabase Agent Bus runtime writes.
-- No service-role runtime.
-- QuorumRouter is Source-Available Non-Commercial.
-- This is not an open source license.
-- Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-  integration, derivative commercialization, or competing product/service use
-  requires prior written permission.
-
-## Launch blockers
-
-Current expected blocker state: none, subject to the final PR verification and
-CI readback.
-
-Do not launch externally if any of these become true:
-
-- GitHub release/tag readback differs from the expected `v0.1.3` state.
-- npm latest no longer resolves to `0.1.3` unexpectedly.
-- NPX smoke fails.
-- docs stop saying the license is not open source.
-- docs stop preserving the no-production-autonomous-runtime boundary.
-- docs stop preserving the no-live-Supabase-runtime-writes boundary.
-- docs stop preserving the no-service-role-runtime boundary.
-- publish workflow was run unintentionally.
-- npm publish, version bump, tag/release mutation, or dist-tag mutation occurred
-  without explicit approval.
-
-## Final launch checklist
-
-- [ ] GitHub release `v0.1.3` read back.
-- [ ] `v0.1.3^{}` target read back.
-- [ ] npm package `create-quorum-router@0.1.3` read back.
-- [ ] npm `latest -> 0.1.3` read back.
-- [ ] NPX latest smoke passes.
-- [ ] generated demo `deno task check` passes.
-- [ ] generated demo `deno task smoke` passes.
-- [ ] launch assets reviewed.
-- [ ] Product Hunt listing not created automatically.
-- [ ] X posts not posted automatically.
-- [ ] demo GIF/video not created automatically.
-- [ ] example repo not created automatically.
-- [ ] no npm publish.
-- [ ] no package version bump.
-- [ ] no npm dist-tag mutation.
-- [ ] no tag/release mutation.
-- [ ] license/runtime boundaries preserved.
+- [x] GitHub repository name is QuorumRouter.
+- [x] Source-backed quickstart creates a fresh scaffold.
+- [x] Generated `deno task check` passes.
+- [x] Generated `deno task smoke` passes.
+- [x] Best Route and Agent Chat videos are separate.
+- [x] Agent Chat visibly shows cross-model reply lineage.
+- [x] Launch media links resolve from `main`.
+- [x] License and SafeLoop authority boundaries are stated.
+- [ ] Rename/review the latest GitHub release metadata with explicit approval.
+- [ ] Preview the final Product Hunt listing with both videos attached.
+- [ ] Obtain explicit approval immediately before Product Hunt publication.
+- [ ] Preview the final X thread and attachment order.
+- [ ] Obtain explicit approval immediately before X posting.

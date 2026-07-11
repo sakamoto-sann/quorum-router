@@ -16,12 +16,13 @@ Japanese:
 
 ## Short description
 
-QuorumRouter is a source-available Deno framework that fans prompts out across
-LLM adapters, validates every response with Zod, requires quorum before
-synthesis, and can run a bounded multi-role Agent Chat workflow. Repository and
-shell mutations are never executed directly by a model: they require an external
-SafeLoop authority, a signed policy, an approval bound to the exact action
-digest, watched execution, and verified artifacts.
+QuorumRouter is a source-available Deno framework with two distinct multi-model
+paths. Best Route fans prompts out to independent model adapters, validates
+every response with Zod, requires quorum, and synthesizes the strongest answer.
+Agent Chat gives different models shared conversation context so they can
+challenge, revise, and converge across visible turns. Any repository mutation
+still requires external SafeLoop authority, exact-digest approval, watched
+execution, and verified artifacts.
 
 ## Full description
 
@@ -36,7 +37,13 @@ For best-answer routing it:
 - synthesizes only after quorum succeeds;
 - otherwise fails closed with structured error `4401` and co-failure telemetry.
 
-For autonomous repository work, Agent Chat runs a bounded role loop:
+Agent Chat is not another score table. Different models read and respond to one
+another over bounded rounds. A model can disagree with an earlier proposal,
+challenge its assumptions, cause the proposing model to revise its strategy, and
+then converge or terminate without consensus.
+
+When a conversation produces a repository action proposal, the bounded execution
+loop is:
 
 ```text
 Commander
@@ -94,8 +101,8 @@ plane with explicit quorum, runtime, and execution-authority boundaries.
 ## Quickstart
 
 ```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
 deno task smoke
 ```
 
@@ -123,18 +130,17 @@ a live GitHub/Supabase write.
 
 ## Maker comment
 
-Hey Product Hunt 👋 I built QuorumRouter because I wanted two things that are
-usually separated: fail-closed multi-model routing and a multi-agent workflow
-that cannot quietly bypass its execution guardrails.
+Hey Product Hunt 👋 I built QuorumRouter because I wanted three things that are
+usually separated: fail-closed best-answer routing, actual cross-model dialogue,
+and agent execution that cannot quietly bypass its guardrails.
 
-Best Route validates every model response, requires quorum, and refuses to
-synthesize when the threshold is not met. Agent Chat adds a bounded Commander →
-Coder → Reviewer → Red Team → Closeout loop. When the coder proposes a
-repository mutation, the model still has no execution authority. The exact
-request goes to SafeLoop, where a signed policy and distinct approval are
-checked before execution. SafeLoop then watches the command, records rollback
-evidence, verifies artifacts, and returns a receipt that QuorumRouter checks
-before continuing.
+Best Route keeps model candidates independent, validates every response,
+requires quorum, and refuses to synthesize when the threshold is not met. Agent
+Chat does the opposite on purpose: selected models share context, reply to each
+other, disagree, revise their positions, and converge across bounded rounds. If
+that dialogue produces a repository mutation, the model still has no execution
+authority. The exact request goes to SafeLoop, where signed policy and distinct
+approval are checked before watched execution and artifact verification.
 
 The end-to-end test includes the part I most wanted to demonstrate: the reviewer
 objects, the coder proposes a fix, a second exact approval is issued, the fix is
@@ -151,11 +157,24 @@ something.”
 - Best Route/direct is production-ready best-answer routing.
 - SafeLoop-backed Agent Chat supports the verified local repository execution
   slice described above.
-- Conversation-only Agent Chat remains explicit opt-in.
+- Conversation-only Agent Chat is explicit opt-in and visibly preserves model
+  identity and reply lineage across bounded turns.
 - QuorumRouter cannot self-approve, sign policy, or bypass SafeLoop.
 - GitHub, DB, external API, release, policy, and credential mutations are
   blocked.
 - No live Supabase Agent Bus runtime writes.
 - No service-role runtime.
-- Product Hunt publication remains blocked until release review and explicit
-  human approval are complete.
+- Product Hunt publication requires explicit human approval after final listing
+  preview and link verification.
+
+## Launch media
+
+Use two separate videos; do not combine the interaction contracts:
+
+1. **Best Route (15s):** independent Grok, Claude, and Local Qwen candidates →
+   comparison → selection → synthesis.
+2. **Agent Chat (26s):** Grok ↔ GLM shared-context dialogue with disagreement,
+   counterargument, strategy revision, challenge, and consensus.
+
+- Best Route MP4: `docs/assets/launch/quorum-router-best-route.mp4`
+- Agent Chat MP4: `docs/assets/launch/quorum-router-agent-chat.mp4`

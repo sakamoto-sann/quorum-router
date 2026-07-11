@@ -1,171 +1,99 @@
-# X launch drafts — QuorumRouter v0.1 public preview
+# X launch drafts — QuorumRouter
 
-> Draft asset only. Do not post automatically from this file without explicit
-> approval.
+> Draft only. Publish only after explicit approval of the final post preview.
 
-Links:
+Repository: https://github.com/sakamoto-sann/quorum-router
 
-- GitHub release:
-  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
-- npm package: https://www.npmjs.com/package/create-quorum-router
+## Short launch post
 
-## Short launch tweet
+QuorumRouter gives multi-model systems two deliberately different paths:
 
-QuorumRouter v0.1 public preview is live.
+1. Best Route: independent candidates → validation → quorum → selection →
+   synthesis.
+2. Agent Chat: different models share context, challenge each other, revise, and
+   converge across visible turns.
 
-A source-available routing/runtime framework for production-ready Best Route /
-`direct` best-answer routing and explicit opt-in experimental `agent_chat`.
+If a conversation proposes a repository mutation, SafeLoop—not the model—owns
+authorization, watched execution, and verification.
 
-GIF 1 shows Best Route mode choosing a shogi next move. GIF 2 shows experimental
-Agent Chat mode with a short Grok vs GLM shogi excerpt.
+Source-Available Non-Commercial.
 
-Source-Available Non-Commercial; not open source.
-
-## Technical launch tweet
-
-QuorumRouter v0.1 public preview:
-
-- Best Route / `direct` = production-ready best-answer path
-- Zod-validated adapter + synthesis outputs
-- fail-closed runtime boundaries
-- `agent_chat` = experimental explicit opt-in only
-- Best Route does not imply `agent_chat`
-- SafeLoop-backed AgentRuntime production claims are limited to the verified
-  local repository execution slice with signed policy and distinct approval.
-- no live Supabase runtime writes
-- no service-role runtime
-
-Try:
-
-```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
-deno task smoke
-```
-
-Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-quorum-router
-
-## Two-GIF thread: 7 tweets
-
-### 1/7
-
-QuorumRouter v0.1 public preview is live.
-
-It is a source-available routing/runtime framework for builders who want routing
-safety before agent autonomy.
-
-Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-quorum-router
-
-### 2/7
-
-GIF 1 shows Best Route mode choosing the best answer path.
-
-The demo compares deterministic Grok vs GLM shogi lines, scores clarity/safety,
-selects `balanced_development`, and fades out before the full match.
-
-### 3/7
-
-GIF 2 shows experimental Agent Chat mode with a short Grok vs GLM shogi excerpt.
-
-Grok and GLM alternate a few opening moves, then the clip fades out before the
-full match. The names are fixture labels, not live external model calls.
-
-### 4/7
-
-These GIFs are intentionally separate.
-
-Best Route / `direct` is the production-ready best-answer routing path.
-`agent_chat` is experimental explicit opt-in only.
-
-Best Route does not imply `agent_chat`.
-
-### 5/7
-
-Quickstart:
-
-```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
-deno task smoke
-```
-
-The generated Deno demo should print a JSON result containing `"ok": true`.
-
-### 6/7
-
-Runtime boundaries:
-
-- SafeLoop-backed AgentRuntime production claims are limited to the verified
-  local repository execution slice with signed policy and distinct approval.
-- no live Supabase Agent Bus runtime writes
-- no service-role runtime
-- no hidden runtime expansion from the scaffold
-
-### 7/7
-
-The npm package is `create-quorum-router@0.1.4`; `latest -> 0.1.4`.
-
-`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
-the v0.1 public preview line, not a separate product milestone.
-
-Source-Available Non-Commercial; not open source.
-
-## Builder-focused thread: 6 tweets
+## Two-video thread
 
 ### 1/6
 
-If you are building with multiple model adapters, the hard part is not only
-“call more models.”
+Most “multi-model” demos blur two different ideas:
 
-It is deciding which path is allowed to run, validating every output, and
-failing closed when the system cannot prove safety.
+- asking several models independently and choosing the best answer;
+- letting different models actually talk to one another.
 
-That is the focus of QuorumRouter v0.1 public preview.
+QuorumRouter supports both, but keeps the contracts separate.
 
-### 2/6
+https://github.com/sakamoto-sann/quorum-router
 
-The stable path is Best Route / `direct`.
+### 2/6 — Best Route video
 
-It compares answer routes, validates outputs, and synthesizes a final answer
-without pretending the system is autonomous.
+Best Route keeps candidates isolated.
 
-GIF 1 shows this path choosing the best answer.
+Grok, Claude, and Local Qwen answer independently. QuorumRouter validates the
+responses, compares capability/evidence/safety/diversity, and synthesizes the
+strongest final answer.
 
-### 3/6
+No model-to-model conversation in this mode.
 
-`agent_chat` is included as an experimental explicit opt-in surface.
+Attach: `docs/assets/launch/quorum-router-best-route.mp4`
 
-GIF 2 shows it as a role conversation demo, not as the default route and not a
-claim of production-ready autonomy.
+### 3/6 — Agent Chat video
+
+Agent Chat is actual cross-model dialogue.
+
+Grok proposes a move. GLM reads it and disagrees. Grok changes strategy. GLM
+challenges the revision. Grok answers. GLM converges.
+
+The CLI keeps model identity and `replying to` lineage visible across six
+rounds.
+
+Attach: `docs/assets/launch/quorum-router-agent-chat.mp4`
 
 ### 4/6
 
-The mode boundary matters:
+The distinction:
 
-- Best Route does not imply `agent_chat`
-- SafeLoop-backed AgentRuntime production claims are limited to the verified
-  local repository execution slice with signed policy and distinct approval.
-- no live Supabase runtime writes
-- no service-role runtime
+```text
+Best Route
+independent answers → router synthesis
+
+Agent Chat
+Grok ↔ GLM → disagreement → revision → consensus
+```
+
+Agent Chat is not another score table, and execution status is not a substitute
+for model-to-model conversation.
 
 ### 5/6
 
-Try the generated demo:
+When dialogue produces a mutation proposal, QuorumRouter still cannot execute or
+self-approve it.
 
-```bash
-npx --yes create-quorum-router@latest my-quorum-router-demo
-cd my-quorum-router-demo
-deno task smoke
-```
-
-Then inspect `main.ts` and `deno.json`.
+SafeLoop checks signed policy and distinct approval bound to the exact request
+digest, watches execution, verifies artifacts, and returns a receipt. Failure
+halts the workflow.
 
 ### 6/6
 
-Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
-https://www.npmjs.com/package/create-quorum-router
+Try the source-backed scaffold directly from `main`:
 
-License: Source-Available Non-Commercial, not open source. Check permissions
-before commercial or production use.
+```bash
+npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+cd my-quorum-router
+deno task smoke
+```
+
+Source-Available Non-Commercial; not OSI open source. Commercial or production
+use requires prior written permission.
+
+## Media truth boundary
+
+The two launch recordings are deterministic CLI visualizations. Do not describe
+them as recordings of live Grok, Claude, GLM, or Qwen API traffic. The mode
+semantics and visible turn lineage mirror the implemented product contracts.

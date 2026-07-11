@@ -1,4 +1,4 @@
-# Demo GIF shot list — QuorumRouter v0.1 public preview
+# Demo GIF shot list — QuorumRouter
 
 > Screen recording plan only. Do not post media without explicit launch
 > approval.
@@ -35,7 +35,7 @@ deno task demo
 ### Final frame text
 
 ```text
-QuorumRouter v0.1 public preview — Best Route chooses a Grok vs GLM shogi line
+QuorumRouter — Best Route chooses a Grok vs GLM shogi line
 ```
 
 ### Must not appear
@@ -57,7 +57,7 @@ deno task demo
 ### Pacing
 
 1. Pause on `Mode: agent_chat`.
-2. Pause on `Status: experimental explicit opt-in`.
+2. Pause on `Status: explicit opt-in conversation mode`.
 3. Pause on `Fixture agents: Grok vs GLM` and the mini shogi board.
 4. Let Grok and GLM alternate the short opening excerpt.
 5. Pause on `3... GLM` starting the counterattack.
@@ -67,7 +67,7 @@ deno task demo
 ### Final frame text
 
 ```text
-QuorumRouter v0.1 public preview — experimental Agent Chat shogi excerpt, explicit opt-in
+QuorumRouter — experimental Agent Chat shogi excerpt, explicit opt-in
 ```
 
 ### Must not appear
@@ -95,13 +95,13 @@ QuorumRouter v0.1 public preview — experimental Agent Chat shogi excerpt, expl
   preview, and displayed trace path
   `../../out/examples/best-route-game-trace.json`.
 - **Agent Chat shogi:** Terminal demo showing `Mode: agent_chat`, status
-  `experimental explicit opt-in`, fixture agents `Grok vs GLM`, a partial shogi
-  match, a fadeout line, and displayed trace path
+  `explicit opt-in conversation mode`, fixture agents `Grok vs GLM`, a partial
+  shogi match, a fadeout line, and displayed trace path
   `../../out/examples/agent-chat-game-trace.json`.
 
 ## Social preview text
 
-QuorumRouter v0.1 public preview has two intentionally separate demos:
+QuorumRouter has two intentionally separate demos:
 
 ```text
 GIF 1: Best Route mode chooses a shogi next move.
@@ -109,5 +109,5 @@ GIF 2: experimental Agent Chat mode shows a Grok vs GLM shogi excerpt.
 ```
 
 Best Route is the production-ready best-answer routing path. `agent_chat` is
-experimental explicit opt-in only. Source-Available Non-Commercial; not open
-source.
+explicit opt-in conversation mode only. Source-Available Non-Commercial; not
+open source.
