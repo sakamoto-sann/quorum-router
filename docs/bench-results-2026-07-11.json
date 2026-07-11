@@ -1,0 +1,159 @@
+{
+  "run_date": "2026-07-11",
+  "models": {
+    "mini": "gpt-5.4-mini",
+    "sol": "gpt-5.6-sol",
+    "editor": "gpt-5.4"
+  },
+  "tasks": 3,
+  "results": [
+    {
+      "id": "deploy",
+      "scores": {
+        "single-model": 4,
+        "best-route": 4,
+        "agent-chat": 4
+      },
+      "max_score": 6,
+      "usage": {
+        "single-model": {
+          "input_tokens": 17289,
+          "cached_input_tokens": 3456,
+          "output_tokens": 429,
+          "reasoning_output_tokens": 170
+        },
+        "best-route": {
+          "input_tokens": 71687,
+          "cached_input_tokens": 31104,
+          "output_tokens": 1782,
+          "reasoning_output_tokens": 230
+        },
+        "agent-chat": {
+          "input_tokens": 74372,
+          "cached_input_tokens": 38144,
+          "output_tokens": 1393,
+          "reasoning_output_tokens": 344
+        }
+      },
+      "calls": {
+        "single-model": 1,
+        "best-route": 4,
+        "agent-chat": 4
+      },
+      "answers": {
+        "single-model": "1. **Add the column nullable, with a default only if it is cheap on your DB**. Do not make it `NOT NULL` yet. Deploy this as an online migration with no table rewrite if possible.\n\n2. **Ship application code that writes the new column for all new rows**. Use dual-write or derive the value in the write path so every new insert/update is populated.\n\n3. **Backfill existing 500M rows in chunks**. Run an idempotent worker that updates small batches by primary key/range, throttled to keep replica lag, lock time, and write amplification within limits. Pause/resume support is required.\n\n4. **Validate continuously**. Track percentage filled, error rate, replica lag, deadlocks, and query latency. Compare sampled rows between old and new logic.\n\n5. **Enforce the constraint in two steps**. First add a check/validation that no NULLs remain. Then convert to `NOT NULL` in an online/low-lock migration.\n\n6. **Remove fallback code** after the constraint is enforced and the backfill is complete.\n\n7. **Rollback plan**: keep old code path and nullable column until validation passes; rollback only code, not schema, if issues appear.",
+        "best-route": "Use expand\u2013migrate\u2013contract.\n\n1. Add the column as nullable, with no default:\n```sql\nALTER TABLE events ADD COLUMN required_col text;\n```\n\n2. Deploy app code immediately so every write path populates `required_col`, while reads remain compatible with `NULL`. Inventory all writers: app servers, jobs, bulk loaders, CDC consumers, admin scripts.\n\n3. Backfill existing rows by primary-key ranges in small retryable batches with short transactions:\n```sql\nUPDATE events\nSET required_col = derive_value(...)\nWHERE id > :lo AND id <= :hi\n  AND required_col IS NULL;\n```\nThrottle workers on SLO guardrails: replica lag, p95 latency, lock waits, deadlocks, WAL growth, disk headroom. Track progress in a control table.\n\n4. Run a race-repair sweep for rows missed during concurrent writes up to a moving high-watermark. Validate derivation is deterministic and idempotent.\n\n5. In PostgreSQL, enforce safely:\n```sql\nALTER TABLE events ADD CONSTRAINT events_required_col_nn\nCHECK (required_col IS NOT NULL) NOT VALID;\nALTER TABLE events VALIDATE CONSTRAINT events_required_col_nn;\nALTER TABLE events ALTER COLUMN required_col SET NOT NULL;\n```\n\n6. Only then remove compatibility code. Roll back by pausing backfill and reverting writers; keep the column nullable until stable.",
+        "agent-chat": "Assume PostgreSQL 12+:\n\n1. Preflight: define deterministic value derivation, invalid-row handling, SLO pause thresholds, WAL/replica/disk headroom, CDC impact, owner, and rollback runbook.\n2. Add `new_col` nullable with no default. Add required indexes using `CREATE INDEX CONCURRENTLY`.\n3. Deploy application code before backfill: dual-write every insert/update; reads prefer `new_col` with temporary fallback. Rollback must retain dual-writing.\n4. Backfill with resumable workers over indexed PK ranges:\n\n```sql\nUPDATE t\nSET new_col = derive(...)\nWHERE id >= $1 AND id < $2\n  AND new_col IS NULL;\n```\n\nCommit each bounded batch; use short lock/statement timeouts, retries with jitter, persisted checkpoints, and continuous throttling. Never overwrite non-null values.\n5. Monitor write latency, locks, WAL, replica lag, replication slots, disk, autovacuum/bloat, errors, and CDC. Automatically pause on breached thresholds. Route underivable rows for repair.\n6. Prove completion authoritatively. Add and validate a low-lock constraint:\n\n```sql\nALTER TABLE t ADD CONSTRAINT t_new_col_nn\nCHECK (new_col IS NOT NULL) NOT VALID;\nALTER TABLE t VALIDATE CONSTRAINT t_new_col_nn;\nALTER TABLE t ALTER COLUMN new_col SET NOT NULL;\n```\n\n7. After a stable soak, remove fallback code and optionally add the default. Drop obsolete artifacts only in a later release."
+      }
+    },
+    {
+      "id": "typescript",
+      "scores": {
+        "single-model": 5,
+        "best-route": 6,
+        "agent-chat": 6
+      },
+      "max_score": 6,
+      "usage": {
+        "single-model": {
+          "input_tokens": 16363,
+          "cached_input_tokens": 15744,
+          "output_tokens": 250,
+          "reasoning_output_tokens": 47
+        },
+        "best-route": {
+          "input_tokens": 71250,
+          "cached_input_tokens": 43904,
+          "output_tokens": 1195,
+          "reasoning_output_tokens": 120
+        },
+        "agent-chat": {
+          "input_tokens": 74524,
+          "cached_input_tokens": 30464,
+          "output_tokens": 1257,
+          "reasoning_output_tokens": 338
+        }
+      },
+      "calls": {
+        "single-model": 1,
+        "best-route": 4,
+        "agent-chat": 4
+      },
+      "answers": {
+        "single-model": "Root cause: `if (!value)` treats `0` as missing, so the function rejects a valid zero. It also fails the requirement to reject negatives explicitly, since `-5` passes the check and gets clamped to `-5` instead of being rejected.\n\nMinimal safe patch:\n```ts\nfunction parseLimit(value: number | null | undefined) {\n  if (value == null) throw new Error('missing');\n  if (value < 0) throw new Error('invalid');\n  return Math.min(value, 100);\n}\n```\n\nRegression tests:\n- `parseLimit(0)` returns `0`\n- `parseLimit(null)` throws `missing`\n- `parseLimit(undefined)` throws `missing`\n- `parseLimit(-1)` throws `invalid`\n- `parseLimit(101)` returns `100`\n- `parseLimit(42)` returns `42`\n\nIf you want, I can turn this into a small Jest/Vitest test file.",
+        "best-route": "Root cause: `if (!value)` is a truthiness check, so it misclassifies valid `0` as \u201cmissing\u201d and lets negative numbers through.\n\nMinimal safe patch:\n```ts\nfunction parseLimit(value: number | null | undefined) {\n  if (value == null) throw new Error('missing');\n  if (value < 0) throw new Error('invalid');\n  return Math.min(value, 100);\n}\n```\n\n`value == null` is intentional here: it matches only `null` and `undefined`, not `0`.\n\nRegression tests:\n```ts\ndescribe('parseLimit', () => {\n  it('accepts zero', () => expect(parseLimit(0)).toBe(0));\n  it('accepts positive values', () => expect(parseLimit(25)).toBe(25));\n  it('caps large values at 100', () => expect(parseLimit(150)).toBe(100));\n\n  it.each([null, undefined])('throws missing for %s', value => {\n    expect(() => parseLimit(value)).toThrow('missing');\n  });\n\n  it('throws invalid for negatives', () => {\n    expect(() => parseLimit(-1)).toThrow('invalid');\n  });\n});\n```\n\nIf numeric edge cases matter, add a separate `NaN` test and reject it explicitly.",
+        "agent-chat": "Root cause: `if (!value)` treats valid `0` as missing because zero is falsy. Negative numbers are not validated, so they pass through unchanged.\n\nMinimal safe patch:\n\n```ts\nfunction parseLimit(value: number | null | undefined) {\n  if (value == null) throw new Error('missing');\n  if (value < 0) throw new Error('invalid');\n  return Math.min(value, 100);\n}\n```\n\nRegression tests:\n\n```ts\nexpect(parseLimit(0)).toBe(0);\nexpect(() => parseLimit(null)).toThrow('missing');\nexpect(() => parseLimit(undefined)).toThrow('missing');\nexpect(() => parseLimit(-1)).toThrow('invalid');\nexpect(parseLimit(100)).toBe(100);\nexpect(parseLimit(101)).toBe(100);\nexpect(parseLimit(42)).toBe(42);\n```\n\n`value == null` intentionally matches only `null` and `undefined`. No finite-number or integer validation should be added without an additional requirement."
+      }
+    },
+    {
+      "id": "webhook",
+      "scores": {
+        "single-model": 4,
+        "best-route": 4,
+        "agent-chat": 5
+      },
+      "max_score": 6,
+      "usage": {
+        "single-model": {
+          "input_tokens": 16324,
+          "cached_input_tokens": 15744,
+          "output_tokens": 264,
+          "reasoning_output_tokens": 62
+        },
+        "best-route": {
+          "input_tokens": 71448,
+          "cached_input_tokens": 22400,
+          "output_tokens": 1499,
+          "reasoning_output_tokens": 138
+        },
+        "agent-chat": {
+          "input_tokens": 74299,
+          "cached_input_tokens": 26880,
+          "output_tokens": 1312,
+          "reasoning_output_tokens": 371
+        }
+      },
+      "calls": {
+        "single-model": 1,
+        "best-route": 4,
+        "agent-chat": 4
+      },
+      "answers": {
+        "single-model": "- Verify the webhook signature with a provider-specific secret or public key before parsing business fields.\n- Enforce timestamp bounds on the signed payload; reject requests outside a short window to limit replay.\n- Use the exact raw request body for verification, not a reserialized JSON object.\n- Bind verification to the expected endpoint, event type, and account/tenant where applicable.\n- Check the event ID against an idempotency store before any side effects; treat repeats as no-ops.\n- Persist a processed-event record atomically with the state change, or use a unique constraint on event ID.\n- Make downstream handlers idempotent as well, because duplicate delivery can still happen after verification.\n- Reject missing, malformed, or downgraded auth headers immediately.\n- Log verification failures and duplicate detections with enough detail to audit, but never log secrets or full sensitive payloads.\n- Return a fast 2xx only after the event is safely recorded or ignored as a known duplicate.",
+        "best-route": "Implementation checklist before any payment-webhook state mutation:\n\n- Read the exact raw request body; do not parse or normalize it first.\n- Verify the provider signature over the provider-defined canonical signed payload, using the correct secret/key, expected algorithm/version, and constant-time comparison.\n- Reject missing, malformed, invalid, deprecated-algorithm, wrong-environment, future-dated, or stale requests.\n- Enforce tight timestamp freshness; keep server clocks synchronized.\n- Validate basic semantics before mutation: expected event type, merchant/account, referenced internal object, and critical fields such as amount and currency.\n- Atomically reserve the provider event ID in durable storage with a unique constraint before applying side effects.\n- Treat duplicate delivery as normal: if the event ID already exists, return success without reapplying side effects.\n- Apply domain state changes and mark the event processed in one database transaction; make downstream effects idempotent, preferably via an outbox.\n- On transient failure, roll back or keep an explicit retryable status; never acknowledge success before durable handling.\n- Log event ID, verification result, and processing outcome only; never log secrets or full sensitive payloads.",
+        "agent-chat": "Implementation checklist:\n\n- Capture the exact raw body before parsing; enforce request-size limits.\n- Verify the provider\u2019s signature over the raw bytes and signed timestamp using only approved algorithms and known current/rotation keys; use constant-time comparison where applicable.\n- Reject malformed signatures, unknown key IDs, unsigned timestamps, and events outside a tight clock-skew window.\n- Bind verification to the expected provider, endpoint, tenant/account, and production environment.\n- Before any write, validate schema, event type, object ownership, amount/currency, and permitted state transition. For high-risk events, confirm payment status through the provider API.\n- After verification, use a durable transactional inbox: insert a provider-scoped event ID with a unique constraint and apply business changes atomically.\n- Store a digest of the signed content. Treat the same authenticated ID and digest as a successful no-op; reject and alert if an ID reappears with different content.\n- Retain deduplication records beyond the provider\u2019s retry horizon.\n- Return `2xx` for processed duplicates and permanent non-actionable events; return `5xx` only for transient failures requiring retry.\n- Maintain redacted audit logs, metrics, key rotation, and clock-skew alerts."
+      }
+    }
+  ],
+  "summary": {
+    "single-model": {
+      "win_rate_pct": 11.1,
+      "mean_rubric_pct": 72.2,
+      "mean_calls": 1.0,
+      "mean_input_tokens": 16659,
+      "mean_cached_input_tokens": 11648,
+      "mean_output_tokens": 314
+    },
+    "best-route": {
+      "win_rate_pct": 27.8,
+      "mean_rubric_pct": 77.8,
+      "mean_calls": 4.0,
+      "mean_input_tokens": 71462,
+      "mean_cached_input_tokens": 32469,
+      "mean_output_tokens": 1492
+    },
+    "agent-chat": {
+      "win_rate_pct": 61.1,
+      "mean_rubric_pct": 83.3,
+      "mean_calls": 4.0,
+      "mean_input_tokens": 74398,
+      "mean_cached_input_tokens": 31829,
+      "mean_output_tokens": 1321
+    }
+  },
+  "notes": [
+    "Real Codex CLI OAuth-backed calls; no API-key fallback.",
+    "Win ties split equally.",
+    "Token counts are provider-reported; dollar cost unavailable for ChatGPT OAuth."
+  ]
+}

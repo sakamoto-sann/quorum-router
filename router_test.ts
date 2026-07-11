@@ -5876,7 +5876,14 @@ function isolatedDoctorEnv(
 }
 
 function doctorArgs(path = "doctor.ts"): string[] {
-  return ["run", "--allow-env", "--allow-run", "--allow-read", path];
+  return [
+    "run",
+    "--allow-env",
+    "--allow-run",
+    "--allow-read",
+    path,
+    "--json",
+  ];
 }
 
 Deno.test("public compatibility barrel preserves core exports", async () => {
@@ -6130,6 +6137,28 @@ Deno.test("doctor treats unconfigured Supabase audit as informational", async ()
   );
   assertEquals(check.detail, "not configured");
   assertEquals(check.severity, "info");
+});
+
+Deno.test("doctor default output aggregates provider inventory and core checks", async () => {
+  const output = await new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--allow-env",
+      "--allow-run",
+      "--allow-read",
+      `${Deno.cwd()}/doctor.ts`,
+    ],
+    clearEnv: true,
+    env: isolatedDoctorEnv(),
+  }).output();
+  assertEquals(output.code, 0);
+  const text = new TextDecoder().decode(output.stdout);
+  assertStringIncludes(text, "| provider | model | wrapper | auth |");
+  assertStringIncludes(text, "Core checks");
+  assertStringIncludes(
+    text,
+    "Live authentication is confirmed only by an explicit opt-in invocation",
+  );
 });
 
 Deno.test("doctor reports absent config and default direct readiness", async () => {

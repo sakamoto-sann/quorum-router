@@ -1,6 +1,6 @@
 # QuorumRouter
 
-Source-available Deno control plane for fail-closed best-answer routing and
+MIT-licensed Deno control plane for fail-closed best-answer routing and
 SafeLoop-authorized multi-role agent execution.
 
 ## Quickstart
@@ -21,10 +21,8 @@ launch proof.
 Repo-local dogfood workspace:
 
 ```bash
+deno task doctor
 cd examples/local-model-dogfood
-deno task inventory
-deno task auth:status
-deno task health
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once --prompt "Review this README for risky claims."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route --prompt "Choose the safest launch copy."
 RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_EXPERIMENTAL_AGENT_CHAT=1 deno task agent-chat --prompt "Review this launch plan."
@@ -41,7 +39,7 @@ approve or sign policy and accepts only a strictly verified SafeLoop v1 receipt.
 Dry-run the installer without changing the machine:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/v0.1.4/install.sh | sh -s -- --dry-run
+curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/main/install.sh | sh -s -- --dry-run --ref main
 ```
 
 ## Demo 1 — Best Route
@@ -126,6 +124,8 @@ deno task smoke:v0.1
 - SafeLoop AgentRuntime setup: [docs/agent-runtime.md](docs/agent-runtime.md)
 - provider-native Prompt Caching:
   [docs/prompt-caching.md](docs/prompt-caching.md)
+- benchmark methodology and current pilot results:
+  [docs/bench.md](docs/bench.md)
 - security notes: [docs/security.md](docs/security.md)
 
 ## License and boundaries
@@ -134,6 +134,20 @@ QuorumRouter is MIT-licensed open source.
 
 Commercial and production use are permitted under the MIT License. See
 [LICENSE](LICENSE).
+
+SafeLoop v1 receipts are strictly verified by `SafeLoopCliClient` before they
+reach the router. The caller can retain the same digest-bound guard at the use
+site:
+
+```typescript
+const receipt = await client.executePrepared(prepared);
+if (
+  receipt.status !== "verified" ||
+  receipt.binding.actionDigest !== prepared.request.action_digest
+) {
+  throw new Error("unverified SafeLoop receipt");
+}
+```
 
 QuorumRouter does not contain an autonomous executor, policy engine, audit WAL,
 artifact verifier, or rollback engine. Execution receipts and artifact evidence
