@@ -6,7 +6,7 @@
 Links:
 
 - GitHub release:
-  https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
+  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
 - npm package: https://www.npmjs.com/package/create-quorum-router
 
 ## Short launch tweet
@@ -43,7 +43,7 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
+Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-quorum-router
 
 ## Two-GIF thread: 7 tweets
@@ -55,7 +55,7 @@ QuorumRouter v0.1 public preview is live.
 It is a source-available routing/runtime framework for builders who want routing
 safety before agent autonomy.
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
+Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-quorum-router
 
 ### 2/7
@@ -164,7 +164,7 @@ Then inspect `main.ts` and `deno.json`.
 
 ### 6/6
 
-Release: https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4 npm:
+Release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4 npm:
 https://www.npmjs.com/package/create-quorum-router
 
 License: Source-Available Non-Commercial, not open source. Check permissions

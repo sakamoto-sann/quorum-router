@@ -23,7 +23,7 @@ product/service use requires prior written permission.
 ## Git clone quickstart
 
 ```bash
-git clone https://github.com/sakamoto-sann/fusion-router.git
+git clone https://github.com/sakamoto-sann/quorum-router.git
 cd quorum-router
 deno task smoke:v0.1
 ```

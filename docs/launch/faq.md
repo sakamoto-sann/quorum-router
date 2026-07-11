@@ -99,7 +99,7 @@ deno task smoke
 
 For release reproducibility, also verify the GitHub release/tag metadata:
 
-https://github.com/sakamoto-sann/fusion-router/releases/tag/v0.1.4
+https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
 
 ## How do I uninstall generated demo files?
 
@@ -128,7 +128,7 @@ Common issues:
 
 Use the GitHub repository issue tracker:
 
-https://github.com/sakamoto-sann/fusion-router/issues
+https://github.com/sakamoto-sann/quorum-router/issues
 
 When reporting an issue, include:
 

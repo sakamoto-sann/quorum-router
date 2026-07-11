@@ -1,7 +1,7 @@
 {
   "name": "create-quorum-router",
   "version": "0.1.4",
-  "description": "Create a local QuorumRouter evaluation demo.",
+  "description": "Create a local QuorumRouter project.",
   "license": "SEE LICENSE IN LICENSE",
   "bin": {
     "create-quorum-router": "bin/create-quorum-router.js"
@@ -14,6 +14,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sakamoto-sann/fusion-router.git"
+    "url": "git+https://github.com/sakamoto-sann/quorum-router.git"
   }
 }
