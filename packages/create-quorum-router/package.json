@@ -2,7 +2,7 @@
   "name": "create-quorum-router",
   "version": "0.1.4",
   "description": "Create a local QuorumRouter project.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "bin": {
     "create-quorum-router": "bin/create-quorum-router.js"
   },

@@ -79,7 +79,7 @@ positioning.
 - “`agent_chat` is an explicit opt-in conversation mode.”
 - “Grok and GLM are deterministic fixture labels in the recording, not live API
   calls.”
-- “QuorumRouter is Source-Available Non-Commercial, not open source.”
+- “QuorumRouter is MIT, open source.”
 
 ## What not to claim
 

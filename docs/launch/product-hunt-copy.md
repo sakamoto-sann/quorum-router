@@ -16,7 +16,7 @@ Japanese:
 
 ## Short description
 
-QuorumRouter is a source-available Deno framework with two distinct multi-model
+QuorumRouter is an open-source Deno framework with two distinct multi-model
 paths. Best Route fans prompts out to independent model adapters, validates
 every response with Zod, requires quorum, and synthesizes the strongest answer.
 Agent Chat gives different models shared conversation context so they can
@@ -82,10 +82,8 @@ GitHub writes, database writes, external API writes, releases, policy changes,
 and credential changes remain blocked in this release. There are no live
 Supabase Agent Bus runtime writes and no service-role runtime.
 
-QuorumRouter is **Source-Available Non-Commercial**, not OSI open source.
-Commercial, production, hosted/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+QuorumRouter is **MIT**, OSI-approved open source. Commercial and production use
+are permitted under the MIT License.
 
 ## Why it is different
 
@@ -100,8 +98,8 @@ requires prior written permission.
 | External signed policy and distinct approval | SafeLoop-required | No                  | Varies                     |
 | Verified artifacts and rollback checkpoint   | Yes               | No                  | Varies                     |
 
-QuorumRouter is not OpenRouter Fusion. It is a source-available Deno control
-plane with explicit quorum, runtime, and execution-authority boundaries.
+QuorumRouter is not OpenRouter Fusion. It is an open-source Deno control plane
+with explicit quorum, runtime, and execution-authority boundaries.
 
 ## Quickstart
 
@@ -161,10 +159,9 @@ objects, the coder proposes a fix, a second exact approval is issued, the fix is
 executed through SafeLoop, and only then do re-review, red-team, and closeout
 pass.
 
-It is Source-Available Non-Commercial. Commercial and production use requires
-prior written permission. I would especially value feedback from people who care
-more about auditable failure and explicit authority than “always return
-something.”
+It is MIT-licensed open source. Commercial and production use are permitted. I
+would especially value feedback from people who care more about auditable
+failure and explicit authority than “always return something.”
 
 ## Runtime boundaries
 

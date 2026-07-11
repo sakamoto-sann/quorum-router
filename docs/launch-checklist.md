@@ -20,7 +20,7 @@ Use this checklist before external announcements or operational usage of the
 - [ ] `npm dist-tag ls create-quorum-router`
 - [ ] Confirm package name: `create-quorum-router`.
 - [ ] Confirm package version: `0.1.4`.
-- [ ] Confirm license: `SEE LICENSE IN LICENSE`.
+- [ ] Confirm package metadata license: `MIT`.
 - [ ] Confirm bin: `create-quorum-router -> bin/create-quorum-router.js`.
 - [ ] Confirm `latest -> 0.1.4`.
 
@@ -72,21 +72,19 @@ deno task smoke
 
 - [ ] Product Hunt copy uses the external label **QuorumRouter v0.1 public
       preview**.
-- [ ] Copy says Source-Available Non-Commercial.
-- [ ] Copy says not open source.
+- [ ] Copy says MIT.
+- [ ] Copy says open source.
 - [ ] Copy does not imply production autonomous runtime.
 - [ ] Copy does not imply commercial/production/SaaS/API use is allowed without
       permission.
 
 ## 6. License check
 
-- [ ] README license section says Source-Available Non-Commercial.
-- [ ] README says this is not open source.
-- [ ] Package README says Source-Available Non-Commercial.
-- [ ] Generated template README says Source-Available Non-Commercial.
-- [ ] Commercial, production, hosted-service/SaaS/API, redistribution,
-      sublicensing, integration, derivative commercialization, or competing
-      product/service use requires prior written permission.
+- [ ] README license section says MIT.
+- [ ] README says this is open source.
+- [ ] Package README says MIT.
+- [ ] Generated template README says MIT.
+- [ ] Commercial and production use are permitted under the MIT License.
 
 ## 7. Security boundary check
 

@@ -30,8 +30,7 @@ routing path; `agent_chat` becomes an **explicit opt-in experimental runtime**.
   metadata and experimental runtime planning.
 - Bounded telemetry and audit primitives with explicit, distinct semantics.
 - v0.1/v0.1.1 offline examples and smoke test, including AgentRuntime success.
-- Source-Available Non-Commercial project license, replacing MIT before the
-  first AgentRuntime release.
+- MIT open-source project license.
 - GitHub Actions CI jobs for Deno lock/check/lint/test/doctor/smoke and optional
   secret scanning.
 
@@ -177,13 +176,11 @@ keys are forbidden and make doctor fail.
 
 ## CI and license
 
-MIT license was replaced before the first AgentRuntime release. Current license:
-Source-Available Non-Commercial. This is not an open source license.
+The license for the first AgentRuntime release is: MIT. This is an OSI-approved
+open source license.
 
-Personal, academic, non-commercial evaluation and non-production testing are
-allowed. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, or derivative commercialization requires prior
-written permission.
+Use, modification, distribution, commercial use, and production use are
+permitted under MIT.
 
 The GitHub Actions `ci` workflow runs on pull requests and pushes to `main` with
 two jobs:

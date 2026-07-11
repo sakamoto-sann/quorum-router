@@ -2,9 +2,8 @@
 
 ## Crisp positioning
 
-QuorumRouter is a source-available routing/runtime framework for
-production-ready `direct` best-answer routing and read-only explicit agent
-routing.
+QuorumRouter is an open-source routing/runtime framework for production-ready
+`direct` best-answer routing and read-only explicit agent routing.
 
 The current release message is:
 
@@ -16,15 +15,15 @@ SafeLoop as the sole authority.
 
 ## Anti-positioning
 
-QuorumRouter current release is not:
+QuorumRouter current release is MIT-licensed open source.
 
-- not an open source project;
-- not a production autonomous agent runtime;
-- not a full multi-agent production system;
-- not a live Supabase Agent Bus runtime writer;
-- not a service-role runtime;
+It is not:
+
+- a production autonomous agent runtime;
+- a full multi-agent production system;
+- a live Supabase Agent Bus runtime writer;
+- a service-role runtime;
 - a hosted SaaS/API product;
-- a permissively licensed commercial integration surface;
 - a generic “agent framework” that treats autonomy as the default.
 
 ## Comparison framing against generic agent frameworks
@@ -109,13 +108,11 @@ The current release safety boundary is:
 
 ## License boundary
 
-QuorumRouter is Source-Available Non-Commercial.
+QuorumRouter is MIT.
 
-This is not an open source license.
+This is an OSI-approved open source license.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Commercial and production use are permitted under the MIT License.
 
-Personal evaluation, academic or non-commercial research, and non-production
-testing are the intended evaluation allowances under the license terms.
+Use, modification, distribution, commercial use, and production use are
+permitted under MIT.

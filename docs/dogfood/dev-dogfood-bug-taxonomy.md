@@ -21,7 +21,7 @@ Launch decision: block public posting.
   benchmarks, or production readiness.
 - Unusable output for a core development task.
 - External API failure with unclear error or unsafe fallback.
-- Fails to preserve Source-Available Non-Commercial / not open source wording.
+- Fails to preserve MIT / open source wording.
 - Implies Agent Chat is production-ready.
 
 Launch decision: block until fixed or explicitly reclassified.

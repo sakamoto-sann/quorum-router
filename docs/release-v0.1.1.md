@@ -37,8 +37,7 @@ AgentRuntime path.
   - budget exceeded
   - unsafe closeout with objections
 - CI checks added.
-- License changed from MIT to Source-Available Non-Commercial before this
-  AgentRuntime release.
+- The project is licensed under MIT for this AgentRuntime release.
 
 ## Routing modes
 
@@ -82,27 +81,16 @@ Not included:
 
 ## License
 
-QuorumRouter is Source-Available Non-Commercial.
+QuorumRouter is MIT.
 
-This is not an open source license.
+This is an OSI-approved open source license.
 
-Allowed:
+Permitted under MIT:
 
-- source review
-- personal evaluation
-- academic / non-commercial research
-- non-production testing
-
-Restricted without prior written permission:
-
-- commercial use
-- production use
-- hosted-service/SaaS/API use
-- redistribution
-- sublicensing
-- integration
-- derivative commercialization
-- competing product/service use
+- use, modification, and distribution
+- commercial and production use
+- hosted-service/SaaS/API integration
+- sublicensing and derivative works, subject to the MIT notice requirement
 
 ## Verification target
 
@@ -134,5 +122,5 @@ Do not publish unless:
 - main HEAD matches intended release target
 - CI is green
 - local full verification is green
-- license readback confirms Source-Available Non-Commercial
+- license readback confirms MIT
 - existing v0.1.0 is left unchanged

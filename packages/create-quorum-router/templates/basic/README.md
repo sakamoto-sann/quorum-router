@@ -1,16 +1,14 @@
 # QuorumRouter generated workspace
 
-This generated workspace is for local, non-commercial evaluation of Fusion
-Router current release. npm latest targets v0.1.4.
+This generated workspace contains the MIT-licensed QuorumRouter current release.
+npm latest targets v0.1.4.
 
-QuorumRouter is **Source-Available Non-Commercial**. It is **not open source**.
-Production, commercial, hosted-service/SaaS/API, redistribution, sublicensing,
-derivative commercialization, or competing product/service use requires prior
-written permission.
+QuorumRouter is **MIT**. It is **open source**. Commercial and production use
+are permitted under the MIT License.
 
 ## Security and runtime boundaries
 
-- Non-commercial evaluation only.
+- MIT-licensed open source; commercial and production use are permitted.
 - `deno task smoke` is fixture-only and credential-free.
 - `deno task intake` is the first real setup command.
 - Real provider use is OAuth/session/wrapper-first.

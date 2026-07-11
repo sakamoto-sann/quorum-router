@@ -23,15 +23,15 @@ dist-tags, create a new version, create a new repository, or post externally.
 
 Allowed wording:
 
-- QuorumRouter is **Source-Available Non-Commercial**.
-- QuorumRouter is **not open source**.
+- QuorumRouter is **MIT**.
+- QuorumRouter is **open source**.
 - Best Route / direct mode is the production-ready best-answer routing path.
 - `agent_chat` is experimental, explicit opt-in only.
 - npm / NPX quickstart works for the published package.
 
 Disallowed wording:
 
-- open source, unless the sentence explicitly says it is not open source;
+- open source, unless the sentence explicitly says it is open source;
 - production autonomous runtime;
 - live Supabase Agent Bus runtime writes;
 - service-role runtime;

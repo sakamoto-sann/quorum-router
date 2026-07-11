@@ -3597,8 +3597,8 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
   assertStringIncludes(readme, "docs/security.md");
   for (
     const phrase of [
-      "source-available and non-commercial",
-      "not an open source license",
+      "MIT-licensed open source",
+      "Commercial and production use are permitted under the MIT License",
       "direct` is the production-ready best-answer routing path",
       "Conversation-only `agent_chat` / AgentRuntime is explicit opt-in",
       "production-capable, bounded local repository execution slice",
@@ -3608,7 +3608,6 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
       "Process adapters execute explicit configured CLI adapters",
       "Do not expose untrusted public traffic without external rate limiting",
       "Budget and circuit breaker state is currently in-memory",
-      "requires prior written permission",
     ]
   ) {
     assertStringIncludes(normalizedSecurity, phrase);
@@ -6749,7 +6748,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   );
   assertEquals(packageJson.name, "create-quorum-router");
   assertEquals(packageJson.version, "0.1.4");
-  assertEquals(packageJson.license, "SEE LICENSE IN LICENSE");
+  assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
   const files = stringArray(packageJson.files);
@@ -7199,18 +7198,18 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   const normalizedPackageReadme = packageReadme.replace(/\s+/g, " ");
   assertStringIncludes(
     normalizedPackageReadme,
-    "Source-Available Non-Commercial",
+    "MIT",
   );
-  assertStringIncludes(normalizedPackageReadme, "not open source");
+  assertStringIncludes(normalizedPackageReadme, "open source");
   assertStringIncludes(
     normalizedPackageReadme,
-    "requires prior written permission",
+    "Commercial and production use are permitted",
   );
 
   const templateReadme = await Deno.readTextFile(
     "packages/create-quorum-router/templates/basic/README.md",
   );
-  assertStringIncludes(templateReadme, "Non-commercial evaluation only");
+  assertStringIncludes(templateReadme, "MIT-licensed open source");
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
   assertStringIncludes(templateReadme, "v0.1.4");
@@ -8184,8 +8183,8 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
   const productHunt = await Deno.readTextFile("docs/product-hunt.md");
   for (const doc of [installDocs, productHunt]) {
     const normalized = doc.replace(/\s+/g, " ");
-    assertStringIncludes(normalized, "Source-Available Non-Commercial");
-    assertStringIncludes(normalized, "not open source");
+    assertStringIncludes(normalized, "MIT");
+    assertStringIncludes(normalized, "open source");
     assertStringIncludes(normalized, "No service-role runtime");
     assertStringIncludes(normalized, "No live Supabase");
     assert(!/is open source/i.test(normalized));
@@ -8217,8 +8216,8 @@ Deno.test("README and v0.1.2 docs expose working install paths without hardcoded
     "npx --yes github:sakamoto-sann/quorum-router#main",
   );
   assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
-  assertStringIncludes(readme, "Source-Available Non-Commercial");
-  assertStringIncludes(normalizedMainReadme, "not an open source license");
+  assertStringIncludes(readme, "MIT");
+  assertStringIncludes(normalizedMainReadme, "MIT-licensed open source");
 
   const release = await Deno.readTextFile("docs/release-v0.1.2.md");
   const checklist = await Deno.readTextFile("docs/release-checklist-v0.1.2.md");

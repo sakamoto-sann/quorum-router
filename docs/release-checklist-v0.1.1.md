@@ -8,10 +8,10 @@
 
 ## License
 
-- [ ] LICENSE title is `QuorumRouter Source-Available Non-Commercial License`
-- [ ] README says this is not an open source license
-- [ ] MIT wording remains only as historical replacement note
-- [ ] No project-level “open source” description remains
+- [ ] LICENSE title is `MIT License`
+- [ ] README says this is MIT-licensed open source
+- [ ] Package metadata declares `MIT`
+- [ ] Project-level “open source” descriptions are consistent
 
 ## Runtime
 

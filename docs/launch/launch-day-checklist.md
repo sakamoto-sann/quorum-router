@@ -36,8 +36,7 @@
   explicit approval.
 - Do not expose provider credentials, npm tokens, passwords, OTP, signing keys,
   or approval databases.
-- Do not call QuorumRouter OSI open source; it is Source-Available
-  Non-Commercial.
+- Do not call QuorumRouter OSI open source; it is MIT.
 - Do not let a model sign policy, self-approve, or bypass SafeLoop.
 
 ## Optional real-provider dogfood

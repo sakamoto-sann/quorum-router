@@ -1,9 +1,7 @@
 # QuorumRouter security status
 
-QuorumRouter is **source-available and non-commercial**. It is **not an open
-source license**. Commercial, production, hosted-service, SaaS, API,
-redistribution, sublicensing, or derivative-commercialization use requires prior
-written permission.
+QuorumRouter is **MIT-licensed open source**. Commercial and production use are
+permitted under the MIT License.
 
 ## Runtime posture
 

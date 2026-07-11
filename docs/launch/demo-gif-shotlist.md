@@ -109,5 +109,4 @@ GIF 2: experimental Agent Chat mode shows a Grok vs GLM shogi excerpt.
 ```
 
 Best Route is the production-ready best-answer routing path. `agent_chat` is
-explicit opt-in conversation mode only. Source-Available Non-Commercial; not
-open source.
+explicit opt-in conversation mode only. MIT; not open source.

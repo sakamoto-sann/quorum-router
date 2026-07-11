@@ -28,13 +28,13 @@ This is a dogfood workflow, not a release workflow.
 
 Allowed:
 
-- Source-Available Non-Commercial; not open source.
+- MIT; open source.
 - Best Route / direct is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.
 
 Reject if a session output claims or implies:
 
-- open source without explicitly saying not open source;
+- open source without explicitly saying open source;
 - production autonomous runtime;
 - live Supabase Agent Bus runtime writes;
 - service-role runtime;

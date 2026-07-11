@@ -120,8 +120,8 @@ an explicit negation or non-goal context:
 
 Allowed claims:
 
-- Source-Available Non-Commercial;
-- not open source;
+- MIT;
+- open source;
 - Best Route/direct is production-ready best-answer routing;
 - `agent_chat` is experimental explicit opt-in only;
 - npm/NPX quickstart works.

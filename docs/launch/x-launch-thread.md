@@ -16,7 +16,7 @@ QuorumRouter gives multi-model systems two deliberately different paths:
 If a conversation proposes a repository mutation, SafeLoop—not the model—owns
 authorization, watched execution, and verification.
 
-Source-Available Non-Commercial.
+MIT.
 
 ## Two-video thread
 
@@ -90,8 +90,8 @@ cd my-quorum-router
 deno task smoke
 ```
 
-Source-Available Non-Commercial; not OSI open source. Commercial or production
-use requires prior written permission.
+MIT-licensed, OSI-approved open source. Commercial and production use are
+permitted.
 
 ## Media truth boundary
 

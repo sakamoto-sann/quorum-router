@@ -128,12 +128,10 @@ deno task smoke:v0.1
 
 ## License and boundaries
 
-QuorumRouter is Source-Available Non-Commercial. It is not an open source
-license.
+QuorumRouter is MIT-licensed open source.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission. See [LICENSE](LICENSE).
+Commercial and production use are permitted under the MIT License. See
+[LICENSE](LICENSE).
 
 QuorumRouter does not contain an autonomous executor, policy engine, audit WAL,
 artifact verifier, or rollback engine. Execution receipts and artifact evidence

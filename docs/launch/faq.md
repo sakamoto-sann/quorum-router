@@ -2,19 +2,11 @@
 
 ## Is QuorumRouter open source?
 
-No. QuorumRouter is Source-Available Non-Commercial. This is not an open source
-license.
-
-The source is available for source review, personal evaluation, academic or
-non-commercial research, and non-production testing under the license terms.
+Yes. QuorumRouter is open source under the OSI-approved MIT License.
 
 ## Can I use this commercially?
 
-Not without prior written permission.
-
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Yes. Commercial and production use are permitted under the MIT License.
 
 ## What is production-ready?
 

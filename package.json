@@ -3,7 +3,7 @@
   "version": "0.1.4",
   "private": true,
   "description": "Source installer entrypoint for QuorumRouter.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sakamoto-sann/quorum-router.git"

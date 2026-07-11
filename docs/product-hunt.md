@@ -23,10 +23,8 @@ executed, the reviewer objects, a second exact approval authorizes the coder
 fix, re-review and red-team pass, and closeout becomes ready only after both
 SafeLoop receipts verify.
 
-QuorumRouter is **Source-Available Non-Commercial** and **not open source**.
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+QuorumRouter is **MIT** and **open source**. Commercial and production use are
+permitted under the MIT License.
 
 ## Runtime boundaries
 
@@ -77,5 +75,5 @@ digest before execution, then watches the command and verifies artifacts and the
 local anchor. Missing approval, timeout, nonzero exit, malformed receipt, or
 verification failure halts the workflow.
 
-QuorumRouter is Source-Available Non-Commercial, not open source. Commercial or
-production use requires prior written permission.
+QuorumRouter is MIT-licensed open source. Commercial and production use are
+permitted.

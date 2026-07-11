@@ -6,7 +6,7 @@ Verified against GitHub `main` and the public npm registry on 2026-07-11.
 
 - Repository: https://github.com/sakamoto-sann/quorum-router
 - `main`: `3f2349b5924d8dc805f404922a9593f3b59a17c2`
-- License: Source-Available Non-Commercial; not OSI open source
+- License: MIT; OSI-approved open source
 - Latest GitHub tag: `v0.1.4`
 - Registry package `create-quorum-router`: **not published** (`npm view` returns
   `E404`)

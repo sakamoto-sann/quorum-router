@@ -28,7 +28,7 @@ point back to:
 ## README structure
 
 1. Title: `QuorumRouter demo`
-2. License warning: Source-Available Non-Commercial, not open source.
+2. License warning: MIT, open source.
 3. Runtime boundaries:
    - `direct` production-ready best-answer path.
    - `agent_chat` explicit opt-in conversation mode only.
@@ -95,11 +95,9 @@ deterministic fixture adapter/synthesis metadata.
 
 The example repo must repeat the same boundary:
 
-QuorumRouter is Source-Available Non-Commercial. This is not open source.
+QuorumRouter is MIT. This is open source.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Commercial and production use are permitted under the MIT License.
 
 Do not add an MIT, Apache, GPL, or other open source license to the example repo
 unless the upstream license decision changes explicitly.

@@ -2,10 +2,8 @@
 
 External launch label: **QuorumRouter v0.1 public preview**.
 
-QuorumRouter is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+QuorumRouter is **MIT-licensed open source**. Commercial and production use are
+permitted under the MIT License.
 
 ## Security boundaries
 

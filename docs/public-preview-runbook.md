@@ -131,14 +131,11 @@ No routing behavior changes are implied by this public preview runbook.
 
 ## License boundary
 
-QuorumRouter is **Source-Available Non-Commercial**.
+QuorumRouter is **MIT**.
 
-This is **not open source**.
+This is **open source**.
 
-Commercial, production, hosted-service/SaaS/API, redistribution, sublicensing,
-integration, derivative commercialization, or competing product/service use
-requires prior written permission.
+Commercial and production use are permitted under the MIT License.
 
-Personal evaluation, academic or non-commercial research, and non-production
-testing are the intended evaluation allowances. See [`../LICENSE`](../LICENSE)
-for the authoritative terms.
+Use, modification, distribution, commercial use, and production use are
+permitted under MIT. See [`../LICENSE`](../LICENSE) for the authoritative terms.

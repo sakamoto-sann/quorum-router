@@ -43,10 +43,8 @@ deno task smoke
 
 ## License and runtime boundaries
 
-QuorumRouter is **Source-Available Non-Commercial**. This is **not open
-source**. Commercial, production, hosted-service/SaaS/API, redistribution,
-sublicensing, integration, derivative commercialization, or competing
-product/service use requires prior written permission.
+QuorumRouter is **MIT-licensed open source**. Commercial and production use are
+permitted under the MIT License.
 
 - `direct` is the production-ready best-answer routing path.
 - `agent_chat` is experimental explicit opt-in only.
