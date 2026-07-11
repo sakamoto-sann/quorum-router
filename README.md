@@ -46,26 +46,19 @@ Dry-run the installer without changing the machine:
 curl -fsSL https://raw.githubusercontent.com/sakamoto-sann/quorum-router/v0.1.4/install.sh | sh -s -- --dry-run
 ```
 
-## Demos
+## Demo — Best Route + SafeLoop Agent Chat
 
-### GIF 1 — Best Route mode
+One prompt first takes the Best Route path, then escalates into the bounded
+Agent Chat workflow: strategist → coder → operator-approved SafeLoop execution →
+reviewer objection → repair → second approval → red team → closeout.
 
-Best Route mode chooses the best answer path. It does not run the Agent Chat
-conversation loop.
+![QuorumRouter Best Route and SafeLoop Agent Chat demo](docs/assets/launch/quorum-router-best-route-agent-chat.gif)
 
-![QuorumRouter Best Route mode demo](docs/assets/launch/fusion-router-best-route-game.gif)
+[Watch the 22-second HD MP4](docs/assets/launch/quorum-router-best-route-agent-chat.mp4)
 
-MP4 fallback:
-[Best Route demo](docs/assets/launch/fusion-router-best-route-game.mp4)
-
-### GIF 2 — Agent Chat mode
-
-Agent Chat execution is explicit and separate from Best Route mode.
-
-![QuorumRouter Agent Chat mode demo](docs/assets/launch/fusion-router-agent-chat-game.gif)
-
-MP4 fallback:
-[Agent Chat demo](docs/assets/launch/fusion-router-agent-chat-game.mp4)
+The animation is a deterministic launch visualization; it does not claim live
+external model/API calls. The execution sequence mirrors the verified SafeLoop
+E2E contract.
 
 ## Modes
 
