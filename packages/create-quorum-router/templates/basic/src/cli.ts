@@ -121,9 +121,35 @@ try {
     console.log(`models_called: ${results.length}`);
     console.log(`trace: ${tracePath}`);
   } else if (command === "agent-chat") {
-    const { tracePath } = await runAgentChat(promptFromArgs());
-    console.log("QuorumRouter agent-chat");
-    console.log("mode: experimental explicit opt-in");
+    console.log("QuorumRouter live multi-model Agent Chat");
+    const { tracePath, turns } = await runAgentChat(
+      promptFromArgs(),
+      (progress) => {
+        if (progress.type === "start") {
+          console.log(
+            `agents: ${
+              progress.agents.map((agent) => `${agent.provider}/${agent.model}`)
+                .join(" ↔ ")
+            }`,
+          );
+          console.log("");
+        } else if (progress.type === "turn") {
+          const turn = progress.turn;
+          console.log(`Round ${turn.round}`);
+          console.log(
+            `${turn.provider}/${turn.model}${
+              turn.reply_to
+                ? ` → replying to ${turn.reply_to.provider}/${turn.reply_to.model} (round ${turn.reply_to.round})`
+                : " → opening proposal"
+            }`,
+          );
+          console.log(turn.content);
+          console.log("");
+        }
+      },
+    );
+    console.log(`dialogue_complete: true`);
+    console.log(`turns: ${turns.length}`);
     console.log(`trace: ${tracePath}`);
   }
 } catch (error) {

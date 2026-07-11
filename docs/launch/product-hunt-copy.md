@@ -42,6 +42,11 @@ another over bounded rounds. A model can disagree with an earlier proposal,
 challenge its assumptions, cause the proposing model to revise its strategy, and
 then converge or terminate without consensus.
 
+The source-backed CLI runs this path against two distinct working local
+provider/model wrappers, prints every identity, reply target, and response as it
+arrives, and records bounded turn lineage in `out/agent-chat-trace.json`. It
+fails closed when fewer than two working identities can be established.
+
 When a conversation produces a repository action proposal, the bounded execution
 loop is:
 
@@ -104,6 +109,15 @@ plane with explicit quorum, runtime, and execution-authority boundaries.
 npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
 cd my-quorum-router
 deno task smoke
+```
+
+Live multi-model Agent Chat is a separate explicit opt-in command:
+
+```bash
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+RUN_EXPERIMENTAL_AGENT_CHAT=1 \
+QUORUM_ROUTER_AGENT_CHAT_MAX_TURNS=6 \
+  deno task agent-chat --prompt "Debate the safest migration plan"
 ```
 
 The generated scaffold keeps autonomous execution disabled until a real SafeLoop

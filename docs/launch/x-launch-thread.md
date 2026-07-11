@@ -51,7 +51,8 @@ Grok proposes a move. GLM reads it and disagrees. Grok changes strategy. GLM
 challenges the revision. Grok answers. GLM converges.
 
 The CLI keeps model identity and `replying to` lineage visible across six
-rounds.
+rounds. The source-backed command invokes two distinct working provider/model
+wrappers; fewer than two working identities fails closed.
 
 Attach: `docs/assets/launch/quorum-router-agent-chat.mp4`
 
@@ -94,6 +95,6 @@ use requires prior written permission.
 
 ## Media truth boundary
 
-The two launch recordings are deterministic CLI visualizations. Do not describe
-them as recordings of live Grok, Claude, GLM, or Qwen API traffic. The mode
-semantics and visible turn lineage mirror the implemented product contracts.
+The two launch recordings are deterministic CLI visualizations, not recordings
+of live Grok, Claude, GLM, or Qwen traffic. Separately, the shipped `agent-chat`
+CLI performs real wrapper-backed multi-model turns and prints the dialogue.

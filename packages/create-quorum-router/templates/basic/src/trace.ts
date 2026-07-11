@@ -1,4 +1,5 @@
 import type {
+  AgentChatTurn,
   AuthMode,
   DogfoodTrace,
   PromptContextTrace,
@@ -15,8 +16,8 @@ export function boundaries(agentChat = false): string[] {
     "deno task smoke is fixture-only and not real provider dogfood",
     "Best Route/direct remains production-ready best-answer routing",
     agentChat
-      ? "agent_chat experimental explicit opt-in only"
-      : "agent_chat remains experimental explicit opt-in only",
+      ? "live multi-model agent_chat is explicit opt-in and requires two working identities"
+      : "agent_chat remains explicit opt-in",
     "SafeLoop-backed production repository execution requires explicit external configuration and distinct approval",
     "no live Supabase Agent Bus runtime writes",
     "no service-role runtime",
@@ -73,6 +74,7 @@ export async function buildTrace(args: {
   requestedModel?: string;
   providerSelectionHonored?: boolean;
   fallbackUsed?: boolean;
+  agentChatTurns?: AgentChatTurn[];
 }): Promise<DogfoodTrace> {
   const responseSummary = args.results?.map((r) =>
     `[${r.provider}/${r.model}] ${r.response_summary}`
@@ -111,6 +113,7 @@ export async function buildTrace(args: {
       }
       : undefined,
     score_table: args.scores,
+    agent_chat_turns: args.agentChatTurns,
     errors: args.errors ?? [],
     boundaries: boundaries(args.agentChat),
   };

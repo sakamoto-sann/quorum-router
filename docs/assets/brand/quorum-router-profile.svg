@@ -1,0 +1,191 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+>
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#18223b" />
+      <stop offset="0.52" stop-color="#0a1020" />
+      <stop offset="1" stop-color="#040711" />
+    </radialGradient>
+    <linearGradient
+      id="route"
+      x1="260"
+      y1="230"
+      x2="760"
+      y2="790"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset="0" stop-color="#63e6ff" />
+      <stop offset="0.48" stop-color="#7c8cff" />
+      <stop offset="1" stop-color="#c05cff" />
+    </linearGradient>
+    <linearGradient
+      id="check"
+      x1="585"
+      y1="670"
+      x2="795"
+      y2="825"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset="0" stop-color="#a86cff" />
+      <stop offset="1" stop-color="#ffb84d" />
+    </linearGradient>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="18" result="blur" />
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0.25 0 0 0 0.25  0 0.45 0 0 0.55  0 0 1 0 1  0 0 0 .55 0"
+      />
+    </filter>
+    <filter id="nodeGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="10" />
+    </filter>
+  </defs>
+
+  <!-- Circular-safe dark field -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)" />
+  <circle
+    cx="512"
+    cy="500"
+    r="330"
+    fill="none"
+    stroke="#273252"
+    stroke-width="2"
+    opacity=".45"
+  />
+  <circle
+    cx="512"
+    cy="500"
+    r="273"
+    fill="none"
+    stroke="#202b48"
+    stroke-width="2"
+    opacity=".5"
+  />
+
+  <!-- Soft symbol glow -->
+  <circle
+    cx="512"
+    cy="490"
+    r="238"
+    fill="none"
+    stroke="url(#route)"
+    stroke-width="76"
+    opacity=".26"
+    filter="url(#glow)"
+  />
+
+  <!-- Three model inputs converge into the Q -->
+  <path
+    d="M265 300 C326 300 358 330 390 370"
+    fill="none"
+    stroke="url(#route)"
+    stroke-width="24"
+    stroke-linecap="round"
+    opacity=".92"
+  />
+  <path
+    d="M512 222 L512 316"
+    fill="none"
+    stroke="url(#route)"
+    stroke-width="24"
+    stroke-linecap="round"
+    opacity=".92"
+  />
+  <path
+    d="M759 300 C698 300 666 330 634 370"
+    fill="none"
+    stroke="url(#route)"
+    stroke-width="24"
+    stroke-linecap="round"
+    opacity=".92"
+  />
+
+  <!-- Node glows -->
+  <g fill="#6ee7ff" opacity=".45" filter="url(#nodeGlow)">
+    <circle cx="249" cy="300" r="31" />
+    <circle cx="512" cy="207" r="31" />
+    <circle cx="775" cy="300" r="31" />
+  </g>
+
+  <!-- Input nodes -->
+  <g stroke="#b8f4ff" stroke-width="8">
+    <circle cx="249" cy="300" r="27" fill="#34cfff" />
+    <circle cx="512" cy="207" r="27" fill="#738cff" />
+    <circle cx="775" cy="300" r="27" fill="#a66cff" />
+  </g>
+
+  <!-- Main Q: routed quorum ring -->
+  <circle
+    cx="512"
+    cy="505"
+    r="220"
+    fill="none"
+    stroke="#171f35"
+    stroke-width="112"
+  />
+  <circle
+    cx="512"
+    cy="505"
+    r="220"
+    fill="none"
+    stroke="url(#route)"
+    stroke-width="92"
+    stroke-linecap="round"
+    stroke-dasharray="1180 203"
+    transform="rotate(-43 512 505)"
+  />
+  <circle cx="512" cy="505" r="143" fill="#09101f" />
+  <circle
+    cx="512"
+    cy="505"
+    r="118"
+    fill="#0d172a"
+    stroke="#354267"
+    stroke-width="3"
+  />
+
+  <!-- Quorum center -->
+  <circle
+    cx="512"
+    cy="505"
+    r="42"
+    fill="#111d34"
+    stroke="#8ceeff"
+    stroke-width="8"
+  />
+  <circle cx="512" cy="505" r="14" fill="#d8fbff" />
+
+  <!-- Q tail becomes an approval check -->
+  <path
+    d="M596 648 L676 728 L793 598"
+    fill="none"
+    stroke="#121a2d"
+    stroke-width="86"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M596 648 L676 728 L793 598"
+    fill="none"
+    stroke="url(#check)"
+    stroke-width="58"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="793" cy="598" r="12" fill="#ffe2aa" />
+
+  <!-- Restrained highlight -->
+  <path
+    d="M348 398 A220 220 0 0 1 548 289"
+    fill="none"
+    stroke="#d8fbff"
+    stroke-width="8"
+    stroke-linecap="round"
+    opacity=".55"
+  />
+</svg>

@@ -60,6 +60,14 @@ export type ScoreRow = {
   final_score: number;
 };
 
+export type AgentChatTurn = {
+  round: number;
+  provider: string;
+  model: string;
+  reply_to?: { provider: string; model: string; round: number };
+  content: string;
+};
+
 export type PromptContextTrace = {
   prompt_has_context: boolean;
   original_prompt_chars: number;
@@ -98,6 +106,7 @@ export type DogfoodTrace = {
   sensitive_value_present: boolean;
   selected_route?: { provider: string; model: string; final_score?: number };
   score_table?: ScoreRow[];
+  agent_chat_turns?: AgentChatTurn[];
   errors: string[];
   boundaries: string[];
 };
@@ -123,7 +132,7 @@ export function assertOptIn(): void {
 export function assertAgentChatOptIn(): void {
   if (Deno.env.get("RUN_EXPERIMENTAL_AGENT_CHAT") !== "1") {
     throw new Error(
-      "agent_chat blocked: set RUN_EXPERIMENTAL_AGENT_CHAT=1; agent_chat is experimental explicit opt-in only",
+      "agent_chat blocked: set RUN_EXPERIMENTAL_AGENT_CHAT=1; live multi-model dialogue is explicit opt-in",
     );
   }
 }

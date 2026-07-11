@@ -69,6 +69,11 @@ Behavior:
 - `best-route` requires `RUN_EXTERNAL_MODEL_DOGFOOD=1`.
 - `agent-chat` requires both `RUN_EXTERNAL_MODEL_DOGFOOD=1` and
   `RUN_EXPERIMENTAL_AGENT_CHAT=1`.
+- Live Agent Chat requires at least two distinct working provider/model
+  identities. It passes the bounded transcript to alternating models, prints
+  each response and `replying to` lineage as it arrives, and stores turns in
+  `out/agent-chat-trace.json`.
+- Set `QUORUM_ROUTER_AGENT_CHAT_MAX_TURNS` from 2–12 (default 6) to bound calls.
 - Default auth mode is OAuth/session/wrapper-first.
 - In auto mode, `route:once` prefers list-verified wrapper models and safely
   tries the next wrapper when an invocation fails; the trace records the failed

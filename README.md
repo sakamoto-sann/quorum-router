@@ -13,12 +13,10 @@ deno task smoke
 
 The source-backed NPX command above works directly from `main`; no npm registry
 publication is required. `deno task smoke` is deterministic fixture-only and
-does **not** call a real external provider API. Public Product Hunt/X launch
-requires local real-model dogfood first: the user must personally confirm that
-QuorumRouter can discover and invoke the models actually available from this
-machine's existing OAuth, wrapper, CLI session, or explicitly selected env
-fallback setup. Generic API-key env fallback is private/manual only and is not
-the primary launch proof.
+does **not** call a real external provider API. Real provider commands require
+explicit opt-in and use this machine's existing OAuth, wrapper, or CLI sessions.
+Generic API-key env fallback is private/manual only and is not the primary
+launch proof.
 
 Repo-local dogfood workspace:
 
@@ -57,29 +55,44 @@ synthesizes the strongest final answer.
 [Watch the 15-second Best Route MP4](docs/assets/launch/quorum-router-best-route.mp4)
 
 ```bash
-quorum run "Find the race condition and propose the safest fix" \
-  --mode best_route --models grok,claude,qwen
+RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route \
+  --prompt "Find the race condition and propose the safest fix"
 ```
 
 ## Demo 2 — Agent Chat
 
-Agent Chat is intentionally different: **Grok and GLM share conversation context
-and respond to each other over multiple rounds**. The CLI log shows
-disagreement, a counterargument, a changed strategy, a follow-up challenge, and
-convergence.
+Agent Chat is intentionally different: **two distinct working provider/model
+identities share bounded conversation context and respond to each other over
+multiple rounds**. The CLI prints every model identity, reply target, and
+response as it arrives. If a discovered wrapper fails, participant establishment
+safely tries the next candidate; fewer than two working identities fails closed.
 
 ![QuorumRouter Grok vs GLM Agent Chat CLI demo](docs/assets/launch/quorum-router-agent-chat.gif)
 
 [Watch the 26-second Agent Chat MP4](docs/assets/launch/quorum-router-agent-chat.mp4)
 
 ```bash
-quorum run "Debate the best move from this position" \
-  --mode agent_chat --models grok,glm --max-rounds 6
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+RUN_EXPERIMENTAL_AGENT_CHAT=1 \
+QUORUM_ROUTER_AGENT_CHAT_MAX_TURNS=6 \
+  deno task agent-chat --prompt "Debate the safest migration plan"
 ```
 
-Both recordings are deterministic CLI visualizations and do not claim live
-external model/API traffic. SafeLoop execution is a separate authorization
-boundary; it is not a substitute for the inter-model conversation shown here.
+Example live output:
+
+```text
+agents: OpenAI/codex-cli ↔ Cognition/devin-cli
+Round 1
+OpenAI/codex-cli → opening proposal
+...
+Round 2
+Cognition/devin-cli → replying to OpenAI/codex-cli (round 1)
+...
+```
+
+The recordings are deterministic CLI visualizations, while the command above is
+the real wrapper-backed multi-model path. SafeLoop execution is a separate
+authorization boundary; it is not a substitute for inter-model conversation.
 
 ## Modes
 
