@@ -54,16 +54,16 @@ live external model/API traffic.
   remain blocked from autonomous model execution.
 - No live Supabase Agent Bus runtime writes and no service-role runtime.
 
-## Current blocker
+## Release metadata readback
 
-The latest GitHub release exists at `v0.1.4`, but its title still says **“Fusion
-Router v0.1.4 — Real Provider Dogfood & URL Context.”** Older release titles
-also contain legacy `Fusion Router` / `Public RC` branding.
+With explicit operator approval, release titles and notes for `v0.1.0` through
+`v0.1.4` were updated to QuorumRouter. Readback confirms every release is
+published, non-draft, non-prerelease, and contains no `Public RC`,
+`public
+preview`, `proof-of-concept`, or `PoC` wording.
 
-Changing published GitHub release metadata is an external write and requires
-explicit operator approval. Do not describe the public launch as fully clean
-until at least the latest `v0.1.4` release title and notes are reviewed and
-renamed to QuorumRouter.
+The `v0.1.3` and `v0.1.4` notes distinguish the historical legacy package from
+the current GitHub source-backed installer.
 
 npm publication is not required for the working GitHub-source quickstart. Do not
 claim that `create-quorum-router` exists on npm until registry readback
@@ -79,7 +79,8 @@ succeeds.
 - [x] Agent Chat visibly shows cross-model reply lineage.
 - [x] Launch media links resolve from `main`.
 - [x] License and SafeLoop authority boundaries are stated.
-- [ ] Rename/review the latest GitHub release metadata with explicit approval.
+- [x] Rename/review GitHub release metadata `v0.1.0`–`v0.1.4` with explicit
+      approval.
 - [ ] Preview the final Product Hunt listing with both videos attached.
 - [ ] Obtain explicit approval immediately before Product Hunt publication.
 - [ ] Preview the final X thread and attachment order.

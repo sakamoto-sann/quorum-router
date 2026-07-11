@@ -15,8 +15,8 @@
 
 ## Required before public posting
 
-- [ ] Review and rename the latest GitHub release metadata from legacy
-      `Fusion Router` branding to `QuorumRouter` with explicit approval.
+- [x] Review and rename GitHub release metadata `v0.1.0`–`v0.1.4` from legacy
+      branding to `QuorumRouter` with explicit approval.
 - [ ] Confirm Product Hunt title, tagline, description, repository URL, license,
       and maker comment in the final listing preview.
 - [ ] Attach Best Route first and Agent Chat second; do not use the removed
