@@ -3,7 +3,7 @@
 ## Verified green
 
 - [x] GitHub repository is `sakamoto-sann/quorum-router`.
-- [ ] Registry-backed `npx create-quorum-router@latest` scaffold works.
+- [x] Registry-backed `npx create-quorum-router@latest` scaffold works.
 - [x] Fresh generated project passes `deno task check` and `deno task smoke`.
 - [x] Repository suite passes 275 tests.
 - [x] Secret scans are clean.

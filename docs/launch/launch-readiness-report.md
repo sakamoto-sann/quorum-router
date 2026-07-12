@@ -1,16 +1,16 @@
 # Launch readiness report — QuorumRouter
 
-Release-candidate checklist for GitHub `main` and the public npm registry.
+Verified against GitHub `main` and the public npm registry on 2026-07-12.
 
 ## Current identity
 
 - Repository: https://github.com/sakamoto-sann/quorum-router
 - Release source: protected `main` through reviewed PRs
 - License: MIT; OSI-approved open source
-- Release target: `v0.1.5`
-- Registry package target: `create-quorum-router@0.1.5`
+- Latest GitHub tag: `v0.1.5`
+- Registry package: `create-quorum-router@0.1.5` (`latest -> 0.1.5`)
 
-The public quickstart uses the provenance-backed npm package:
+The public quickstart uses the npm registry package:
 
 ```bash
 npx --yes create-quorum-router@latest my-quorum-router
@@ -19,7 +19,9 @@ deno task check
 deno task smoke
 ```
 
-Fresh registry-backed scaffold verification is a hard post-publish gate.
+Fresh registry-backed scaffold verification: **PASS**. The exact command
+`npx --yes create-quorum-router generated` created a project whose
+`deno task check` and `deno task smoke` both passed.
 
 ## Launch media
 
@@ -64,8 +66,7 @@ positioning.
 
 Historical release notes distinguish the legacy package from QuorumRouter.
 
-Do not claim npm availability until registry readback and clean-room NPX smoke
-succeed.
+Registry readback and clean-room NPX smoke succeeded for `0.1.5`.
 
 ## Final launch gates
 

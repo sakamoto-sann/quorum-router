@@ -6,8 +6,11 @@ The npm package already exists:
 - first live package version: `create-quorum-router@0.1.5`
 - current npm dist-tag: `latest -> 0.1.5`
 
-The first manual publish is complete. Do not publish another version unless
-explicitly instructed.
+The first manual publish is complete. The package is public at `0.1.5`. The
+GitHub OIDC workflow completed all verification but returned `ENEEDAUTH` at the
+publish step because the renamed package still needs its Trusted Publisher UI
+binding. Configure the exact identity below before the next release. Do not
+publish another version unless explicitly instructed.
 
 ## Policy
 
