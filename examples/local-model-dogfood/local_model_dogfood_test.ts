@@ -336,13 +336,27 @@ Deno.test("local model dogfood fails safely for unknown requested model", () => 
   }
 });
 
-Deno.test("local model dogfood wrapper client is non-shell and stdin-closed", async () => {
+Deno.test("local model dogfood wrapper client is non-shell, isolated, and retries empty SIGPIPE once", async () => {
   const source = await Deno.readTextFile(
     "examples/local-model-dogfood/src/wrapper_client.ts",
   );
   assertStringIncludes(source, "new Deno.Command(entry.command");
   assertStringIncludes(source, 'stdin: "null"');
+  assertStringIncludes(source, 'cwd: Deno.env.get("TMPDIR") || "/tmp"');
+  assertStringIncludes(source, "output.code === 141");
+  assertStringIncludes(source, "output.stdout.length === 0");
+  assertStringIncludes(source, "output.stderr.length === 0");
   assertStringIncludes(source, 'child.kill("SIGKILL")');
+});
+
+Deno.test("agent chat tells autonomous wrappers to remain text-only", async () => {
+  const source = await Deno.readTextFile(
+    "examples/local-model-dogfood/src/agent_chat_runner.ts",
+  );
+  assertStringIncludes(
+    source,
+    "Do not use tools, inspect files, run commands, or modify the workspace.",
+  );
 });
 
 Deno.test("local model dogfood trace schema stays sanitized", async () => {

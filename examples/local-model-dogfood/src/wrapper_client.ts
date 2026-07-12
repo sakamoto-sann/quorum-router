@@ -90,16 +90,29 @@ export async function callWrapper(
   await Deno.mkdir(outDir, { recursive: true });
   const outPath = `${outDir}/tmp-${crypto.randomUUID()}.txt`;
   try {
-    const child = new Deno.Command(entry.command, {
-      args: buildWrapperArgs(entry, prompt, outPath),
-      cwd: Deno.cwd(),
-      clearEnv: true,
-      env: safeWrapperEnv(),
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
-    const output = await outputWithTimeout(child, 120_000);
+    const runWrapper = () =>
+      new Deno.Command(entry.command!, {
+        args: buildWrapperArgs(entry, prompt, outPath),
+        // Hermes bridge prompts are self-contained. Run wrappers outside the source
+        // worktree so autonomous CLIs cannot inspect it or trip over repo-local tools.
+        cwd: Deno.env.get("TMPDIR") || "/tmp",
+        clearEnv: true,
+        env: safeWrapperEnv(),
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+      }).spawn();
+    let output = await outputWithTimeout(runWrapper(), 120_000);
+    // Some autonomous CLI builds occasionally lose an internal pipe after a
+    // preceding provider exits. Retry only an empty SIGPIPE once; every other
+    // failure remains fail-closed.
+    if (
+      output.code === 141 && output.stdout.length === 0 &&
+      output.stderr.length === 0
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      output = await outputWithTimeout(runWrapper(), 120_000);
+    }
     const stdout = new TextDecoder().decode(output.stdout);
     const stderr = new TextDecoder().decode(output.stderr);
     const fileOutput = await Deno.readTextFile(outPath).catch(() => "");
