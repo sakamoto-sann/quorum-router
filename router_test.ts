@@ -6952,7 +6952,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.5");
+  assertEquals(packageJson.version, "0.1.6");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -7461,7 +7461,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "MIT-licensed open source");
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
-  assertStringIncludes(templateReadme, "v0.1.5");
+  assertStringIncludes(templateReadme, "v0.1.6");
   assertStringIncludes(templateReadme, "deno --version");
   assert(!templateReadme.includes("v0.1.2"));
   assert(!templateReadme.includes("v0.1.3"));
@@ -7528,7 +7528,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.5");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.6");
 
   const tempDir = await Deno.makeTempDir();
   try {

@@ -69,8 +69,8 @@ cd my-quorum-router
 deno task smoke
 ```
 
-The npm package is `create-quorum-router@0.1.5` (`latest -> 0.1.5`). Version
-`0.1.5` is an engineering NPX scaffold / generated-demo compatibility patch in
+The npm package is `create-quorum-router@0.1.6` (`latest -> 0.1.6`). Version
+`0.1.6` is an engineering NPX scaffold / generated-demo compatibility patch in
 the current release line, not a separate product milestone.
 
 The release is deliberately narrow: prove the public path, explain the safety

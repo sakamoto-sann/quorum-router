@@ -15,7 +15,7 @@ deno task smoke
 deno task intake
 ```
 
-Current package version: `create-quorum-router@0.1.5`. Releases are published
+Current package version: `create-quorum-router@0.1.6`. Releases are published
 from an immutable Git tag through GitHub Actions OIDC Trusted Publishing.
 
 ## What the generated project supports

@@ -34,17 +34,17 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-npm package: `create-quorum-router@0.1.5`; npm dist-tag: `latest -> 0.1.5`. For
+npm package: `create-quorum-router@0.1.6`; npm dist-tag: `latest -> 0.1.6`. For
 a fixed package version:
 
 ```bash
-npx --yes create-quorum-router@0.1.5 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.6 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. `0.1.5` is an engineering patch for the NPX scaffold
+dependencies automatically. `0.1.6` is an engineering patch for the NPX scaffold
 and generated-demo compatibility, not a separate product milestone. The
 generated `deno task smoke` path is offline/fixture-only and does not call a
 provider API or `raw.githubusercontent.com`.
@@ -118,7 +118,7 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.5`: verify network access and the ref
+- Clone or checkout errors for `v0.1.6`: verify network access and the ref
   spelling.
 - `quorum-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Scaffold `deno task smoke` is offline/fixture-only. If it fails, check local

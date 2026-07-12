@@ -10,12 +10,12 @@ tags, release notes, npm scaffold packaging, and compatibility patches.
 
 ## Current public artifacts
 
-- `v0.1.5` is the current public preview release line target for GitHub release
+- `v0.1.6` is the current public preview release line target for GitHub release
   tags, install-helper docs, and generated scaffold packaging.
-- `create-quorum-router@0.1.5` is the current NPX package target.
-- `create-quorum-router@latest` should resolve to `0.1.5` after release
+- `create-quorum-router@0.1.6` is the current NPX package target.
+- `create-quorum-router@latest` should resolve to `0.1.6` after release
   approval.
-- `0.1.5` is an engineering patch for NPX scaffold / generated-demo
+- `0.1.6` is an engineering patch for NPX scaffold / generated-demo
   compatibility, GitHub URL context dogfood, and release packaging hardening.
 
 ## Public quickstart
@@ -29,7 +29,7 @@ deno task smoke
 Fixed package version:
 
 ```bash
-npx --yes create-quorum-router@0.1.5 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.6 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 ```
