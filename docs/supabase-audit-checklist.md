@@ -1,7 +1,7 @@
 # Supabase audit manual verification checklist
 
-Run this after applying both files under `supabase/migrations/` in filename order
-to a target Supabase project. The later limits migration is mandatory.
+Run this after applying both files under `supabase/migrations/` in filename
+order to a target Supabase project. The later limits migration is mandatory.
 
 Use an admin/operator SQL surface for schema inspection. Use a normal
 user/session JWT for RPC-path tests. Do not install service-role credentials
