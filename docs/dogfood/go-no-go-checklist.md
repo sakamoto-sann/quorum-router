@@ -15,7 +15,7 @@ manual session log.
 ## Must-pass before public posting
 
 - [ ] NPX latest works in a clean temp directory.
-- [ ] NPX pinned `@0.1.4` works after publish approval.
+- [ ] NPX pinned `@0.1.5` works after publish approval.
 - [ ] Generated demo `deno task check` passes.
 - [ ] Generated demo `deno task smoke` passes.
 - [ ] Generated demo `deno task smoke` is understood as fixture-only, not real
@@ -71,7 +71,7 @@ These can be documented and accepted if must-pass items are green:
 - [ ] Network required for remote module resolution.
 - [ ] `agent_chat` is a deterministic demo fixture / experimental.
 - [ ] MIT permits commercial use.
-- [ ] npm latest may remain 0.1.3 until explicit v0.1.4 publish approval.
+- [ ] npm latest may remain 0.1.3 until explicit v0.1.5 publish approval.
 
 ## Required readbacks before GO
 

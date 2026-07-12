@@ -104,7 +104,7 @@ with explicit quorum, runtime, and execution-authority boundaries.
 ## Quickstart
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```

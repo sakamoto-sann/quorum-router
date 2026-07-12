@@ -14,7 +14,7 @@ dist-tags, create a new version, create a new repository, or post externally.
 - Do not mutate npm dist-tags without explicit release approval.
 - Do not create tags/releases during dogfood verification.
 - Do not move, delete, recreate, or edit v0.1.0 / v0.1.1 / v0.1.2 / v0.1.3 /
-  v0.1.4 tags or releases.
+  v0.1.5 tags or releases.
 - Do not run the publish workflow.
 - Do not create a new repository.
 - Do not expose npm token, password, or OTP.
@@ -82,13 +82,13 @@ git branch --show-current
 git fetch --tags --prune
 git rev-parse HEAD
 git rev-parse origin/main
-git rev-parse v0.1.4^{}
+git rev-parse v0.1.5^{}
 ```
 
 ```bash
 export QUORUM_ROUTER_REPO="${QUORUM_ROUTER_REPO:-/Users/tetsu/work/quorum-router}"
 cd "$QUORUM_ROUTER_REPO/packages/create-quorum-router"
-npm view create-quorum-router@0.1.4 name version license bin dist.tarball --json
+npm view create-quorum-router@0.1.5 name version license bin dist.tarball --json
 npm dist-tag ls create-quorum-router
 ```
 
@@ -219,5 +219,5 @@ Public posting is blocked until:
 - at least one real external provider dogfood pass is reviewed;
 - npm latest points to an approved external-dogfood package version after
   publish approval;
-- v0.1.4 tag/release remains unchanged;
+- v0.1.5 tag/release remains unchanged;
 - no npm publish or dist-tag mutation was attempted during dogfood.

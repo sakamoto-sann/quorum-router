@@ -58,8 +58,8 @@ The runtime boundary explicitly excludes service-role runtime.
 
 ## Is `create-quorum-router` published on npm?
 
-No. Public registry readback currently returns `E404`. The working source-backed
-installer uses GitHub `main` and does not claim npm publication.
+Yes. Use `create-quorum-router@latest`; the launch checklist requires registry
+readback and a clean-room generated-project smoke test before public posting.
 
 ## Why NPX?
 
@@ -67,7 +67,7 @@ NPX gives evaluators a short, copy-pasteable way to create a local demo without
 cloning the full repository first:
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```
@@ -84,9 +84,10 @@ cd my-quorum-router
 deno task smoke
 ```
 
-For release reproducibility, also verify the GitHub release/tag metadata:
+For release reproducibility, pin the package version and verify the matching
+GitHub release/tag metadata:
 
-https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
+https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.5
 
 ## How do I uninstall generated demo files?
 

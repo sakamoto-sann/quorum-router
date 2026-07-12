@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Explicit release tag to publish, for example v0.1.4
+        description: Explicit release tag to publish, for example v0.1.5
         required: true
   push:
     tags:
@@ -70,7 +70,7 @@ jobs:
             if (pkg.version !== expectedVersion) {
               throw new Error(`expected version ${expectedVersion}, got ${pkg.version}`);
             }
-            if (pkg.license !== "SEE LICENSE IN LICENSE") {
+            if (pkg.license !== "MIT") {
               throw new Error(`unexpected license: ${pkg.license}`);
             }
             if (!pkg.bin || pkg.bin["create-quorum-router"] !== "bin/create-quorum-router.js") {
@@ -128,6 +128,7 @@ jobs:
             'templates/basic/src/best_route.ts',
             'templates/basic/src/cli.ts',
             'templates/basic/src/context.ts',
+            'templates/basic/src/env.ts',
             'templates/basic/src/fixture_smoke.ts',
             'templates/basic/src/intake.ts',
             'templates/basic/src/model_inventory.ts',

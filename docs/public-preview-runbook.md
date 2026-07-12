@@ -4,8 +4,8 @@ QuorumRouter v0.1 public preview is the public evaluation line for
 QuorumRouter's fail-closed best-answer routing work. The live external label is
 **QuorumRouter v0.1 public preview**.
 
-`create-quorum-router@0.1.4` is the first live NPX package version for this
-public preview line. Version `0.1.4` is an engineering NPX scaffold /
+`create-quorum-router@0.1.5` is the first live NPX package version for this
+public preview line. Version `0.1.5` is an engineering NPX scaffold /
 generated-demo compatibility patch, not a separate product milestone.
 
 ## Public quickstart
@@ -16,12 +16,12 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-Current npm readback: `create-quorum-router@latest -> 0.1.4`.
+Current npm readback: `create-quorum-router@latest -> 0.1.5`.
 
 ## Fixed version quickstart
 
 ```bash
-npx --yes create-quorum-router@0.1.4 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.5 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 ```
@@ -73,20 +73,20 @@ If `npx --yes create-quorum-router@latest ...` appears to use an older package,
 verify the registry state:
 
 ```bash
-npm view create-quorum-router@0.1.4 name version license bin dist.tarball --json
+npm view create-quorum-router@0.1.5 name version license bin dist.tarball --json
 npm dist-tag ls create-quorum-router
 ```
 
 Expected:
 
 ```text
-latest: 0.1.4
+latest: 0.1.5
 ```
 
 Then retry with the fixed version command:
 
 ```bash
-npx --yes create-quorum-router@0.1.4 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.5 my-quorum-router-demo
 ```
 
 ### Network issue to raw.githubusercontent.com

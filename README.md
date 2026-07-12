@@ -6,17 +6,17 @@ SafeLoop-authorized multi-role agent execution.
 ## Quickstart
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```
 
-The source-backed NPX command above works directly from `main`; no npm registry
-publication is required. `deno task smoke` is deterministic fixture-only and
-does **not** call a real external provider API. Real provider commands require
-explicit opt-in and use this machine's existing OAuth, wrapper, or CLI sessions.
-Generic API-key env fallback is private/manual only and is not the primary
-launch proof.
+The NPX command above installs the provenance-backed npm release.
+`deno task
+smoke` is deterministic fixture-only and does **not** call a real
+external provider API. Real provider commands require explicit opt-in and use
+this machine's existing OAuth, wrapper, or CLI sessions. Generic API-key env
+fallback is private/manual only and is not the primary launch proof.
 
 Repo-local dogfood workspace:
 
@@ -114,8 +114,8 @@ deno task smoke:v0.1
 
 ## Links
 
-- source installer: `npx --yes github:sakamoto-sann/quorum-router#main`
-- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
+- npm installer: `npx --yes create-quorum-router@latest`
+- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.5
 - launch assets: [docs/launch/](docs/launch/)
 - internal dogfood QA:
   [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)

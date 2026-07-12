@@ -84,6 +84,7 @@ function turnPrompt(args: {
     `You are ${args.speaker.provider}/${args.speaker.model}.`,
     `The other participant is ${args.peer.provider}/${args.peer.model}.`,
     `This is round ${args.round} of ${args.totalRounds}.`,
+    "This is a text-only discussion. Do not use tools, inspect files, run commands, or modify the workspace.",
     "Read the prior transcript. Respond directly to the other model's latest argument.",
     "Disagree when warranted, explain why, revise your position when persuaded, and move toward a concrete conclusion.",
     "Do not impersonate the other model. Do not add speaker labels. Keep the response under 900 characters.",

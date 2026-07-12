@@ -64,13 +64,13 @@ QuorumRouter current release is ready for external evaluation through the public
 NPX scaffold:
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```
 
-The npm package is `create-quorum-router@0.1.4` (`latest -> 0.1.4`). Version
-`0.1.4` is an engineering NPX scaffold / generated-demo compatibility patch in
+The npm package is `create-quorum-router@0.1.5` (`latest -> 0.1.5`). Version
+`0.1.5` is an engineering NPX scaffold / generated-demo compatibility patch in
 the current release line, not a separate product milestone.
 
 The release is deliberately narrow: prove the public path, explain the safety

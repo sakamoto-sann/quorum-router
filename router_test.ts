@@ -6952,7 +6952,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.4");
+  assertEquals(packageJson.version, "0.1.5");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -7017,6 +7017,9 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   const templateContext = await Deno.readTextFile(
     "packages/create-quorum-router/templates/basic/src/context.ts",
   );
+  const templateWrapper = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/src/wrapper_client.ts",
+  );
   assertStringIncludes(templateSchema, "RUN_EXTERNAL_MODEL_DOGFOOD");
   assertStringIncludes(templateSchema, "RUN_EXPERIMENTAL_AGENT_CHAT");
   assertStringIncludes(
@@ -7026,6 +7029,11 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   assertStringIncludes(templateCli, "QUORUM_ROUTER_AUTH_MODE");
   assertStringIncludes(templateBestRoute, "preparePromptWithContext");
   assertStringIncludes(templateAgentChat, "preparePromptWithContext");
+  assertStringIncludes(templateAgentChat, "This is a text-only discussion");
+  assertStringIncludes(templateWrapper, 'Deno.env.get("TMPDIR") || "/tmp"');
+  assertStringIncludes(templateWrapper, "output.code === 141");
+  assertStringIncludes(templateWrapper, "output.stdout.length === 0");
+  assertStringIncludes(templateWrapper, "output.stderr.length === 0");
   assertStringIncludes(templateContext, "prompt_truncated");
   assertStringIncludes(templateContext, "files_included");
   const rootDenoJson = await readJsonRecord("deno.json");
@@ -7417,7 +7425,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "MIT-licensed open source");
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "No live Supabase runtime writes");
-  assertStringIncludes(templateReadme, "v0.1.4");
+  assertStringIncludes(templateReadme, "v0.1.5");
   assertStringIncludes(templateReadme, "deno --version");
   assert(!templateReadme.includes("v0.1.2"));
   assert(!templateReadme.includes("v0.1.3"));
@@ -7484,7 +7492,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.4");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.5");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -8413,12 +8421,12 @@ Deno.test("install and Product Hunt docs preserve license and security boundarie
   );
 });
 
-Deno.test("README and v0.1.2 docs expose working install paths without hardcoded target SHA", async () => {
+Deno.test("README and install docs expose the npm quickstart without hardcoded target SHA", async () => {
   const readme = await Deno.readTextFile("README.md");
   const normalizedMainReadme = readme.replace(/\s+/g, " ");
   assertStringIncludes(
     readme,
-    "npx --yes github:sakamoto-sann/quorum-router#main",
+    "npx --yes create-quorum-router@latest",
   );
   assertStringIncludes(readme, "install.sh | sh -s -- --dry-run");
   assertStringIncludes(readme, "MIT");

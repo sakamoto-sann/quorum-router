@@ -171,16 +171,24 @@ export async function callWrapper(
   });
   const outPath = `out/tmp-${crypto.randomUUID()}.txt`;
   try {
-    const child = new Deno.Command(entry.command, {
-      args: buildWrapperArgs(entry, prompt, outPath),
-      cwd: Deno.cwd(),
-      clearEnv: true,
-      env: safeWrapperEnv(),
-      stdin: "null",
-      stdout: "piped",
-      stderr: "piped",
-    }).spawn();
-    const output = await outputWithTimeout(child, 120_000);
+    const runWrapper = () =>
+      new Deno.Command(entry.command!, {
+        args: buildWrapperArgs(entry, prompt, outPath),
+        cwd: Deno.env.get("TMPDIR") || "/tmp",
+        clearEnv: true,
+        env: safeWrapperEnv(),
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+      }).spawn();
+    let output = await outputWithTimeout(runWrapper(), 120_000);
+    if (
+      output.code === 141 && output.stdout.length === 0 &&
+      output.stderr.length === 0
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      output = await outputWithTimeout(runWrapper(), 120_000);
+    }
     const stdout = new TextDecoder().decode(output.stdout);
     const stderr = new TextDecoder().decode(output.stderr);
     const fileOutput = await Deno.readTextFile(outPath).catch(() => "");
