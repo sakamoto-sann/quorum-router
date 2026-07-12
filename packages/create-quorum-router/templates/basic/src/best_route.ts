@@ -21,6 +21,7 @@ import {
 import { buildTrace, score, writeTrace } from "./trace.ts";
 import { callWrapper } from "./wrapper_client.ts";
 import { preparePromptWithContext } from "./context.ts";
+import { selectCandidatesWithinBudget } from "./cost_aware.ts";
 
 function hasExplicitSelection(request: ProviderSelectionRequest): boolean {
   return Boolean(
@@ -261,7 +262,12 @@ export async function runBestRoute(
 > {
   assertOptIn();
   const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
-  const { request, candidates } = await discoverCandidates(authMode);
+  const { request, candidates: discoveredCandidates } =
+    await discoverCandidates(
+      authMode,
+    );
+  const costAwareDecision = selectCandidatesWithinBudget(discoveredCandidates);
+  const candidates = costAwareDecision.candidates;
   if (candidates.length === 0) {
     throw new Error(
       "OAuth/session-first provider unavailable. best-route has no usable OAuth/session/wrapper provider yet. Next: deno task auth:login",
@@ -316,6 +322,9 @@ export async function runBestRoute(
       selectionHonored(request, result)
     ),
     fallbackUsed: usedEnvFallback,
+    costAware: costAwareDecision.cost.enabled
+      ? costAwareDecision.cost
+      : undefined,
   });
   const tracePath = await writeTrace("best-route-trace", trace);
   return { results, tracePath, trace };

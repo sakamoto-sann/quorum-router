@@ -1,6 +1,7 @@
 import type {
   AgentChatTurn,
   AuthMode,
+  CostAwareTrace,
   DogfoodTrace,
   PromptContextTrace,
   ProviderResult,
@@ -74,6 +75,7 @@ export async function buildTrace(args: {
   requestedModel?: string;
   providerSelectionHonored?: boolean;
   fallbackUsed?: boolean;
+  costAware?: CostAwareTrace;
   agentChatTurns?: AgentChatTurn[];
 }): Promise<DogfoodTrace> {
   const responseSummary = args.results?.map((r) =>
@@ -93,6 +95,7 @@ export async function buildTrace(args: {
     selected_model: args.selected?.model ?? args.results?.[0]?.model,
     provider_selection_honored: args.providerSelectionHonored ?? true,
     fallback_used: args.fallbackUsed ?? false,
+    cost_aware: args.costAware,
     prompt_hash: args.prompt ? await promptHash(args.prompt) : undefined,
     prompt_summary: args.prompt ? summarize(args.prompt, 160) : undefined,
     prompt_context: args.promptContext,

@@ -155,6 +155,19 @@ export type PromptContextTrace = {
   context_fetch_error?: string;
 };
 
+export type CostAwareTrace = {
+  enabled: boolean;
+  pricing_source: "configured_estimate_not_live_billing";
+  max_budget_usd?: number;
+  estimated_total_usd?: number;
+  selected_model_ids: string[];
+  excluded: Array<{
+    model_id: string;
+    estimated_cost_usd?: number;
+    reason: "missing_estimate" | "budget_exceeded";
+  }>;
+};
+
 export type DogfoodTrace = {
   run_id: string;
   timestamp: string;
@@ -172,6 +185,7 @@ export type DogfoodTrace = {
   prompt_hash?: string;
   prompt_summary?: string;
   prompt_context?: PromptContextTrace;
+  cost_aware?: CostAwareTrace;
   response_summary?: string;
   schema_valid: boolean;
   redaction_ok: boolean;

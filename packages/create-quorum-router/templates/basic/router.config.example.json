@@ -12,6 +12,10 @@
       }
     }
   },
+  "cost_aware": {
+    "enabled_by": "QUORUM_ROUTER_MAX_BUDGET_USD + QUORUM_ROUTER_ESTIMATED_COSTS_JSON",
+    "pricing_source": "user-supplied estimates, not live billing"
+  },
   "runtime_boundaries": {
     "best_route_direct": "production-ready best-answer routing",
     "agent_chat": "experimental explicit opt-in only",

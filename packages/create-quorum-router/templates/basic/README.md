@@ -121,6 +121,25 @@ Behavior:
   Only use this with repositories you are allowed to send to the selected
   provider.
 
+### Cost-aware Best Route
+
+Cost-aware routing is disabled unless both budget variables are set. Estimates
+are user-supplied per invocation, not live provider billing data.
+
+```bash
+QUORUM_ROUTER_MAX_BUDGET_USD=0.05 \
+QUORUM_ROUTER_ESTIMATED_COSTS_JSON='{"openai/gpt-5":0.03,"xai/grok":0.02}' \
+RUN_EXTERNAL_MODEL_DOGFOOD=1 \
+  deno task best-route --prompt "Choose the safest launch copy."
+```
+
+Best Route preserves candidate quality/readiness order, admits candidates while
+their configured estimates fit the budget, and records selected and excluded
+model IDs plus reasons in `out/best-route-trace.json`. Models without an
+estimate are excluded when cost-aware routing is enabled. If no candidate fits,
+the command fails before invoking a provider. This is pre-invocation budget
+control; it does not claim exact or live API spend.
+
 ### Forced wrapper provider/model selection
 
 Use these only when you want a specific local wrapper/model. The scaffold fails
@@ -198,6 +217,7 @@ not paste them into chat/logs and do not commit `.env`.
 - `src/provider_registry.ts`, `src/model_inventory.ts`, `src/wrapper_client.ts`,
   `src/provider_client.ts` — provider discovery and safe invocation.
 - `src/best_route.ts`, `src/agent_chat.ts` — gated dogfood commands.
+- `src/cost_aware.ts` — estimated-cost budget selection for Best Route.
 - `src/trace.ts`, `src/redact.ts`, `src/schema.ts`, `src/fixture_smoke.ts` —
   trace/redaction/schema/fixture support.
 - `out/.gitkeep` — local output directory placeholder.

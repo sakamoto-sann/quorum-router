@@ -134,6 +134,7 @@ jobs:
             'templates/basic/src/best_route.ts',
             'templates/basic/src/cli.ts',
             'templates/basic/src/context.ts',
+            'templates/basic/src/cost_aware.ts',
             'templates/basic/src/env.ts',
             'templates/basic/src/fixture_smoke.ts',
             'templates/basic/src/intake.ts',

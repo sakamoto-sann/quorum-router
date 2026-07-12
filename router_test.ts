@@ -2568,6 +2568,176 @@ Deno.test("generated scaffold env fallback prefers canonical with isolated subpr
   );
 });
 
+Deno.test("generated cost-aware Best Route preserves defaults and bounds candidates", async () => {
+  const { selectCandidatesWithinBudget } = await import(
+    "./packages/create-quorum-router/templates/basic/src/cost_aware.ts"
+  );
+  const { buildTrace } = await import(
+    "./packages/create-quorum-router/templates/basic/src/trace.ts"
+  );
+  const candidate = (modelId: string) => ({
+    provider: modelId.split("/")[0],
+    auth_mode: "wrapper" as const,
+    model: modelId.split("/")[1],
+    model_id: modelId,
+    source: "wrapper" as const,
+    available: true,
+    can_list_models: true,
+    can_invoke: true,
+    notes: [],
+  });
+  const candidates = [
+    candidate("provider/quality"),
+    candidate("provider/cheap"),
+    candidate("provider/unknown"),
+  ];
+
+  const disabled = selectCandidatesWithinBudget(candidates, undefined);
+  assertEquals(disabled.candidates, candidates);
+  assertEquals(disabled.cost.enabled, false);
+  const disabledTrace = await buildTrace({
+    command: "best-route",
+    mode: "best_route",
+    authMode: "auto",
+  });
+  assertEquals(disabledTrace.cost_aware, undefined);
+
+  const bounded = selectCandidatesWithinBudget(candidates, {
+    maxBudgetUsd: 0.05,
+    estimates: new Map([
+      ["provider/quality", 0.04],
+      ["provider/cheap", 0.02],
+    ]),
+  });
+  assert(bounded.cost.enabled);
+  assertEquals(
+    bounded.candidates.map((entry) => entry.model_id),
+    ["provider/quality"],
+  );
+  assertEquals(bounded.cost, {
+    enabled: true,
+    pricing_source: "configured_estimate_not_live_billing",
+    max_budget_usd: 0.05,
+    estimated_total_usd: 0.04,
+    selected_model_ids: ["provider/quality"],
+    excluded: [
+      {
+        model_id: "provider/cheap",
+        estimated_cost_usd: 0.02,
+        reason: "budget_exceeded",
+      },
+      { model_id: "provider/unknown", reason: "missing_estimate" },
+    ],
+  });
+  const trace = await buildTrace({
+    command: "best-route",
+    mode: "best_route",
+    authMode: "auto",
+    costAware: bounded.cost,
+  });
+  assertEquals(trace.cost_aware, bounded.cost);
+  assertEquals(trace.redaction_ok, true);
+});
+
+Deno.test("generated cost-aware Best Route fails closed before invocation when no candidate fits", async () => {
+  const { selectCandidatesWithinBudget } = await import(
+    "./packages/create-quorum-router/templates/basic/src/cost_aware.ts"
+  );
+  const candidate = {
+    provider: "provider",
+    auth_mode: "wrapper" as const,
+    model: "model",
+    model_id: "provider/model",
+    source: "wrapper" as const,
+    available: true,
+    can_list_models: true,
+    can_invoke: true,
+    notes: [],
+  };
+  assertThrows(
+    () =>
+      selectCandidatesWithinBudget([candidate], {
+        maxBudgetUsd: 0.01,
+        estimates: new Map([["provider/model", 0.02]]),
+      }),
+    Error,
+    "selected no candidates",
+  );
+  assertThrows(
+    () =>
+      selectCandidatesWithinBudget([candidate], {
+        maxBudgetUsd: 0.01,
+        estimates: new Map(),
+      }),
+    Error,
+    "selected no candidates",
+  );
+  assertThrows(
+    () =>
+      selectCandidatesWithinBudget([candidate], {
+        maxBudgetUsd: Number.MIN_VALUE,
+        estimates: new Map([["provider/model", 1e-10]]),
+      }),
+    Error,
+    "selected no candidates",
+  );
+  const exactBoundary = selectCandidatesWithinBudget([candidate], {
+    maxBudgetUsd: 0.02,
+    estimates: new Map([["provider/model", 0.02]]),
+  });
+  assertEquals(exactBoundary.candidates.length, 1);
+  assertEquals(
+    exactBoundary.cost.enabled
+      ? exactBoundary.cost.estimated_total_usd
+      : undefined,
+    0.02,
+  );
+  const bestRouteSource = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/src/best_route.ts",
+  );
+  const budgetGate = bestRouteSource.indexOf(
+    "selectCandidatesWithinBudget(discoveredCandidates)",
+  );
+  const invocationLoop = bestRouteSource.indexOf(
+    "for (const candidate of candidates)",
+    budgetGate,
+  );
+  assert(budgetGate >= 0 && invocationLoop > budgetGate);
+});
+
+Deno.test("generated cost-aware env config is explicit and validates both inputs", async () => {
+  const { readCostAwareConfig } = await import(
+    "./packages/create-quorum-router/templates/basic/src/cost_aware.ts"
+  );
+  const budgetName = "QUORUM_ROUTER_MAX_BUDGET_USD";
+  const estimatesName = "QUORUM_ROUTER_ESTIMATED_COSTS_JSON";
+  const oldBudget = Deno.env.get(budgetName);
+  const oldEstimates = Deno.env.get(estimatesName);
+  try {
+    Deno.env.delete(budgetName);
+    Deno.env.delete(estimatesName);
+    assertEquals(readCostAwareConfig(), undefined);
+    Deno.env.set(budgetName, "0.05");
+    assertThrows(readCostAwareConfig, Error, "requires both");
+    Deno.env.set(
+      estimatesName,
+      JSON.stringify({ "Provider/Model": 0.02 }),
+    );
+    const config = readCostAwareConfig();
+    assertEquals(config?.maxBudgetUsd, 0.05);
+    assertEquals(config?.estimates.get("provider/model"), 0.02);
+    Deno.env.set(budgetName, "0");
+    assertThrows(readCostAwareConfig, Error, "finite number > 0");
+  } finally {
+    oldBudget === undefined
+      ? Deno.env.delete(budgetName)
+      : Deno.env.set(budgetName, oldBudget);
+    oldEstimates === undefined
+      ? Deno.env.delete(estimatesName)
+      : Deno.env.set(estimatesName, oldEstimates);
+  }
+});
+
 Deno.test("minimal-direct profile generates valid config", async () => {
   const config = generateQuorumRouterConfig({ profile: "minimal-direct" });
   assertEquals(config.profile, "minimal-direct");
@@ -7906,7 +8076,7 @@ Deno.test("generated prompt context rejects off-host blob URLs and oversized blo
 });
 
 type NpmPackResult = {
-  files: Array<{ path: string }>;
+  files: Array<{ path: string; mode?: number }>;
   filename?: string;
 };
 
@@ -7998,6 +8168,7 @@ Deno.test("create-quorum-router npm tarball contents are constrained", async () 
     "templates/basic/src/best_route.ts",
     "templates/basic/src/cli.ts",
     "templates/basic/src/context.ts",
+    "templates/basic/src/cost_aware.ts",
     "templates/basic/src/env.ts",
     "templates/basic/src/fixture_smoke.ts",
     "templates/basic/src/intake.ts",
@@ -8012,6 +8183,10 @@ Deno.test("create-quorum-router npm tarball contents are constrained", async () 
     "templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql",
     "templates/basic/supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
   ]);
+  const costAwareFile = packed.files.find((file) =>
+    file.path === "templates/basic/src/cost_aware.ts"
+  );
+  assertEquals(costAwareFile?.mode, 0o644);
 });
 
 Deno.test("Supabase audit hardening migration bounds batches and revokes default execute", async () => {
@@ -8156,6 +8331,9 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "deno task supabase:status");
   assertStringIncludes(templateReadme, "v0.1.6");
   assertStringIncludes(templateReadme, "deno --version");
+  assertStringIncludes(templateReadme, "QUORUM_ROUTER_MAX_BUDGET_USD");
+  assertStringIncludes(templateReadme, "not live provider billing data");
+  assertStringIncludes(templateReadme, "fails before invoking a provider");
   assert(!templateReadme.includes("v0.1.2"));
   assert(!templateReadme.includes("v0.1.3"));
   assertStringIncludes(templateReadme, "fixture-only");
@@ -8243,6 +8421,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
         "supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
         "src/cli.ts",
         "src/context.ts",
+        "src/cost_aware.ts",
         "src/intake.ts",
         "src/auth.ts",
         "src/auth_oauth.ts",
