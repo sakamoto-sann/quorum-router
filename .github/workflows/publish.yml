@@ -12,12 +12,16 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  publish-create-quorum-router:
-    name: publish-create-quorum-router
+  verify-release:
+    name: verify-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_sha: ${{ steps.release-sha.outputs.sha }}
+      version: ${{ steps.release-ref.outputs.version }}
     steps:
       - name: Resolve release ref
         id: release-ref
@@ -25,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            tag="${{ inputs.tag }}"
+            tag="${RELEASE_INPUT_TAG}"
           else
             tag="${GITHUB_REF_NAME}"
           fi
@@ -35,21 +39,23 @@ jobs:
           esac
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_INPUT_TAG: ${{ inputs.tag || '' }}
 
       - name: Checkout release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.release-ref.outputs.tag }}
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
           deno-version: v2.x
 
       - name: Setup Node for npm trusted publishing
         # Do not set registry-url: setup-node then exports a dummy NODE_AUTH_TOKEN,
         # which takes precedence over npm's OIDC Trusted Publishing exchange.
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
 
@@ -156,12 +162,61 @@ jobs:
           deno task doctor
           deno task smoke:v0.1
 
-      - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@11.16.0
+      - name: Record verified release SHA
+        id: release-sha
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  publish-create-quorum-router:
+    name: publish-create-quorum-router
+    needs: verify-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout exact verified release SHA
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.verify-release.outputs.release_sha }}
+
+      - name: Setup Node for npm trusted publishing
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Verify minimal publish environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
+          node -e '
+            const [major] = process.versions.node.split(".").map(Number);
+            if (major < 24) throw new Error(`Node 24+ required, got ${process.version}`);
+          '
+          npm --version
+          cd packages/create-quorum-router
+          node -e '
+            const pkg = require("./package.json");
+            if (pkg.name !== "create-quorum-router") throw new Error("unexpected package name");
+            if (pkg.version !== process.env.EXPECTED_VERSION) throw new Error("version mismatch");
+            if (pkg.license !== "MIT") throw new Error("license mismatch");
+          '
+          npm pack --json > /tmp/create-quorum-router-pack.json
+        env:
+          EXPECTED_SHA: ${{ needs.verify-release.outputs.release_sha }}
+          EXPECTED_VERSION: ${{ needs.verify-release.outputs.version }}
 
       - name: Publish create-quorum-router
         shell: bash
         run: |
           set -euo pipefail
           cd packages/create-quorum-router
-          npm publish "./${{ steps.package_tarball.outputs.filename }}" --access public --provenance
+          filename=$(node -e '
+            const fs = require("fs");
+            const raw = JSON.parse(fs.readFileSync("/tmp/create-quorum-router-pack.json", "utf8"));
+            const packed = Array.isArray(raw) ? raw[0] : raw?.["create-quorum-router"];
+            if (!packed?.filename) process.exit(1);
+            process.stdout.write(packed.filename);
+          ')
+          npm publish "./${filename}" --access public --provenance

@@ -88,6 +88,7 @@ export function discoverInventory(
       can_invoke: exists,
       command: spec.command,
       args_template: spec.args_template,
+      prompt_transport: spec.prompt_transport,
       notes: exists
         ? [
           ...spec.notes,

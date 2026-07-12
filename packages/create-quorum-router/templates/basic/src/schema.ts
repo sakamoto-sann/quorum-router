@@ -21,6 +21,7 @@ export type ModelInventoryEntry = {
   notes: string[];
   command?: string;
   args_template?: string[];
+  prompt_transport?: "stdin" | "file";
   invocation_model?: string;
 };
 

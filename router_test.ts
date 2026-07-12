@@ -7017,6 +7017,12 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   const templateContext = await Deno.readTextFile(
     "packages/create-quorum-router/templates/basic/src/context.ts",
   );
+  const templateProviderRegistry = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/src/provider_registry.ts",
+  );
+  const templateAuthSession = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/src/auth_session.ts",
+  );
   const templateWrapper = await Deno.readTextFile(
     "packages/create-quorum-router/templates/basic/src/wrapper_client.ts",
   );
@@ -7034,6 +7040,17 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   assertStringIncludes(templateWrapper, "output.code === 141");
   assertStringIncludes(templateWrapper, "output.stdout.length === 0");
   assertStringIncludes(templateWrapper, "output.stderr.length === 0");
+  assertStringIncludes(templateWrapper, 'prompt_transport === "stdin"');
+  assertStringIncludes(templateWrapper, "Deno.makeTempFile");
+  assert(!templateWrapper.includes('? prompt\n      : arg === "__CWD__"'));
+  assert(!templateWrapper.includes('stdin: "null"'));
+  assert(!templateProviderRegistry.includes("__PROMPT__"));
+  assertStringIncludes(templateProviderRegistry, 'prompt_transport: "stdin"');
+  assertStringIncludes(templateProviderRegistry, 'prompt_transport: "file"');
+  assertStringIncludes(
+    templateAuthSession,
+    "prompt_transport: spec.prompt_transport",
+  );
   assertStringIncludes(templateContext, "prompt_truncated");
   assertStringIncludes(templateContext, "files_included");
   const rootDenoJson = await readJsonRecord("deno.json");
@@ -7348,6 +7365,25 @@ Deno.test("npm pack JSON normalization accepts npm 10 and npm 11 shapes", () => 
     Error,
     "unexpected npm pack JSON",
   );
+});
+
+Deno.test("publish workflow isolates OIDC and pins external actions", async () => {
+  const workflow = await Deno.readTextFile(".github/workflows/publish.yml");
+  assertStringIncludes(workflow, "verify-release:");
+  assertStringIncludes(workflow, "needs: verify-release");
+  const oidcPermission = ["id", "token"].join("-");
+  assertStringIncludes(workflow, `${oidcPermission}: write`);
+  assertEquals(
+    workflow.match(new RegExp(`${oidcPermission}: write`, "g"))?.length,
+    1,
+  );
+  assert(!/uses:\s+[^\s#]+@(v\d+|main|master)\b/.test(workflow));
+  const verifySection = workflow.split("  publish-create-quorum-router:")[0];
+  assert(!verifySection.includes(`${oidcPermission}: write`));
+  const publishSection = workflow.split("  publish-create-quorum-router:")[1];
+  assert(publishSection);
+  assert(!publishSection.includes("npm install"));
+  assertStringIncludes(publishSection, "Checkout exact verified release SHA");
 });
 
 Deno.test("create-quorum-router npm tarball contents are constrained", async () => {
@@ -7753,6 +7789,40 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
       new TextDecoder().decode(refused.stderr),
       "refusing to overwrite non-empty directory",
     );
+
+    const outside = `${tempDir}/outside`;
+    await Deno.mkdir(outside);
+    await Deno.writeTextFile(`${outside}/cli.ts`, "do not overwrite");
+    await Deno.mkdir(`${tempDir}/symlink-child`);
+    await Deno.symlink(outside, `${tempDir}/symlink-child/src`);
+    const refusedChildSymlink = await new Deno.Command("node", {
+      args: [cli, "symlink-child", "--force"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(refusedChildSymlink.code !== 0);
+    assertStringIncludes(
+      new TextDecoder().decode(refusedChildSymlink.stderr),
+      "refusing to write through symlink",
+    );
+    assertEquals(
+      await Deno.readTextFile(`${outside}/cli.ts`),
+      "do not overwrite",
+    );
+
+    await Deno.symlink(outside, `${tempDir}/symlink-target`);
+    const refusedTargetSymlink = await new Deno.Command("node", {
+      args: [cli, "symlink-target", "--force"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assert(refusedTargetSymlink.code !== 0);
+    assertStringIncludes(
+      new TextDecoder().decode(refusedTargetSymlink.stderr),
+      "refusing to write through symlink",
+    );
   } finally {
     await Deno.remove(tempDir, { recursive: true });
   }
@@ -7832,11 +7902,13 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
         "  exit 0",
         "fi",
         'for arg do printf \'%s\\n\' "$arg" >> "$HOME/grok-args.txt"; done',
-        "if read stdin_line; then",
-        "  printf 'unexpected stdin: %s\\n' \"$stdin_line\" >&2",
-        "  exit 12",
-        "fi",
-        'case " $* " in',
+        "prompt=''",
+        "next_is_prompt=0",
+        "for arg do",
+        '  if [ "$next_is_prompt" = 1 ]; then prompt=$(cat "$arg"); next_is_prompt=0; continue; fi',
+        '  if [ "$arg" = "--prompt-file" ]; then next_is_prompt=1; fi',
+        "done",
+        'case " $prompt $* " in',
         '  *"stdout auth failure"*)',
         "    printf 'not logged in\\n'",
         "    ;;",
@@ -7872,7 +7944,8 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
       [
         "#!/bin/sh",
         "printf 'codex was invoked\\n' >> \"$HOME/codex-called.txt\"",
-        'case " $* " in',
+        "prompt=$(cat)",
+        'case " $prompt $* " in',
         '  *"live multi model dialogue"*)',
         "    printf 'Codex read the prior Grok turn and challenges its missing verification step.\\n'",
         "    exit 0",
@@ -7918,6 +7991,11 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
     assertEquals(autoRoute.code, 0, autoRouteOutput);
     assertStringIncludes(autoRouteOutput, "provider: xAI");
     assert(!autoRouteOutput.includes("provider: OpenAI"));
+    const autoRouteArgs = await Deno.readTextFile(`${tempDir}/grok-args.txt`);
+    assert(
+      !autoRouteArgs.includes("auto route should prefer list verified grok"),
+    );
+    assertStringIncludes(autoRouteArgs, "--prompt-file");
     await assertRejects(() => Deno.stat(`${tempDir}/codex-called.txt`));
 
     const fallbackRoute = await new Deno.Command("deno", {

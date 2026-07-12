@@ -9,6 +9,7 @@ export type ProviderSpec = {
   source: "wrapper" | "oauth_session" | "local_cli" | "env_fallback";
   command?: string;
   args_template?: string[];
+  prompt_transport?: "stdin" | "file";
   list_models_args?: string[];
   list_blocked_reason?: string;
   notes: string[];
@@ -145,8 +146,9 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
       "__CWD__",
       "--output-last-message",
       "__OUT__",
-      "__PROMPT__",
+      "-",
     ],
+    prompt_transport: "stdin",
     list_blocked_reason:
       "codex models is tty/stdin dependent in this environment; model catalog listing is unavailable from non-interactive Deno.",
     notes: [
@@ -160,7 +162,8 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     auth_mode: "oauth",
     source: "oauth_session",
     command: "claude",
-    args_template: ["-p", "__PROMPT__"],
+    args_template: ["-p"],
+    prompt_transport: "stdin",
     list_blocked_reason:
       "Claude Code model listing is blocked by organization policy / disabled subscription access in this environment.",
     notes: [
@@ -174,7 +177,8 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     auth_mode: "oauth",
     source: "oauth_session",
     command: "gemini",
-    args_template: ["-p", "__PROMPT__"],
+    args_template: ["-p", ""],
+    prompt_transport: "stdin",
     list_blocked_reason:
       "Gemini CLI list/invoke paths require a trusted directory in non-interactive runs unless the user opts into the trust setting.",
     notes: [
@@ -189,14 +193,15 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     source: "oauth_session",
     command: "grok",
     args_template: [
-      "-p",
-      "__PROMPT__",
+      "--prompt-file",
+      "__PROMPT_FILE__",
       "--output-format",
       "plain",
       "--permission-mode",
       "plan",
       "--disable-web-search",
     ],
+    prompt_transport: "file",
     list_models_args: ["models"],
     notes: [
       "Uses existing Grok CLI session; `grok models` is safe list-only discovery.",
@@ -209,7 +214,8 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     auth_mode: "session",
     source: "local_cli",
     command: "devin",
-    args_template: ["-p", "__PROMPT__"],
+    args_template: ["-p", "--prompt-file", "__PROMPT_FILE__"],
+    prompt_transport: "file",
     list_blocked_reason:
       "Devin CLI does not expose a models subcommand in this environment.",
     notes: ["Uses existing Devin CLI session."],
@@ -221,7 +227,8 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     auth_mode: "session",
     source: "local_cli",
     command: "qwen",
-    args_template: ["-p", "__PROMPT__"],
+    args_template: ["-p", ""],
+    prompt_transport: "stdin",
     list_blocked_reason:
       "Qwen CLI model listing path is stdin/API-key dependent in this environment.",
     notes: ["Uses existing local Qwen CLI session."],

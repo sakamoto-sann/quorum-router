@@ -56,13 +56,33 @@ function parseArgs(argv) {
   return options;
 }
 
-function copyRecursive(from, to) {
+function rejectSymlink(destination) {
+  try {
+    if (fs.lstatSync(destination).isSymbolicLink()) {
+      throw new Error(`refusing to write through symlink: ${destination}`);
+    }
+  } catch (error) {
+    if (error && error.code === "ENOENT") return;
+    throw error;
+  }
+}
+
+function copyRecursive(from, to, targetRoot) {
+  const relative = path.relative(targetRoot, to);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`refusing to write outside target directory: ${to}`);
+  }
+  rejectSymlink(to);
   const stat = fs.statSync(from);
   if (stat.isDirectory()) {
     fs.mkdirSync(to, { recursive: true });
     for (const entry of fs.readdirSync(from)) {
       const targetEntry = entry === "gitignore" ? ".gitignore" : entry;
-      copyRecursive(path.join(from, entry), path.join(to, targetEntry));
+      copyRecursive(
+        path.join(from, entry),
+        path.join(to, targetEntry),
+        targetRoot,
+      );
     }
     return;
   }
@@ -97,6 +117,7 @@ function main() {
   }
 
   const targetDir = path.resolve(process.cwd(), parsed.dir);
+  rejectSymlink(targetDir);
   if (isNonEmptyDirectory(targetDir) && !parsed.force) {
     throw new Error(
       `refusing to overwrite non-empty directory: ${targetDir}\n` +
@@ -106,7 +127,7 @@ function main() {
 
   const templateDir = path.join(__dirname, "..", "templates", parsed.template);
   fs.mkdirSync(targetDir, { recursive: true });
-  copyRecursive(templateDir, targetDir);
+  copyRecursive(templateDir, targetDir, targetDir);
   fs.mkdirSync(path.join(targetDir, "out"), { recursive: true });
   fs.writeFileSync(path.join(targetDir, "out", ".gitkeep"), "");
 

@@ -3,18 +3,21 @@ import { redact, summarize } from "./redact.ts";
 
 export function buildWrapperArgs(
   entry: ModelInventoryEntry,
-  prompt: string,
   outPath: string,
+  promptPath?: string,
 ): string[] {
   const args = (entry.args_template ?? []).map((arg) =>
-    arg === "__PROMPT__"
-      ? prompt
-      : arg === "__CWD__"
+    arg === "__CWD__"
       ? Deno.cwd()
       : arg === "__OUT__"
       ? outPath
+      : arg === "__PROMPT_FILE__"
+      ? promptPath ?? ""
       : arg
   );
+  if (args.includes("__PROMPT__") || args.includes("__PROMPT_FILE__")) {
+    throw new Error("QuorumRouter blocked: unresolved prompt placeholder");
+  }
   if (entry.command === "grok" && entry.invocation_model) {
     if (entry.invocation_model === "grok-build") {
       const withoutPlanMode: string[] = [];
@@ -166,28 +169,57 @@ export async function callWrapper(
       `QuorumRouter blocked: ${entry.provider} has no command`,
     );
   }
-  await Deno.mkdir("out", {
-    recursive: true,
+  await Deno.mkdir("out", { recursive: true, mode: 0o700 });
+  const outPath = await Deno.makeTempFile({
+    dir: "out",
+    prefix: "quorum-router-output-",
+    suffix: ".txt",
   });
-  const outPath = `out/tmp-${crypto.randomUUID()}.txt`;
+  await Deno.chmod(outPath, 0o600);
+  const absoluteOutPath = await Deno.realPath(outPath);
+  const promptPath = entry.prompt_transport === "file"
+    ? await Deno.makeTempFile({
+      dir: "out",
+      prefix: "quorum-router-prompt-",
+      suffix: ".txt",
+    })
+    : undefined;
+  if (promptPath) {
+    await Deno.chmod(promptPath, 0o600);
+    await Deno.writeTextFile(promptPath, prompt);
+  }
+  const absolutePromptPath = promptPath
+    ? await Deno.realPath(promptPath)
+    : undefined;
   try {
-    const runWrapper = () =>
-      new Deno.Command(entry.command!, {
-        args: buildWrapperArgs(entry, prompt, outPath),
+    const runWrapper = async () => {
+      const child = new Deno.Command(entry.command!, {
+        args: buildWrapperArgs(
+          entry,
+          absoluteOutPath,
+          absolutePromptPath,
+        ),
         cwd: Deno.env.get("TMPDIR") || "/tmp",
         clearEnv: true,
         env: safeWrapperEnv(),
-        stdin: "null",
+        stdin: entry.prompt_transport === "stdin" ? "piped" : "null",
         stdout: "piped",
         stderr: "piped",
       }).spawn();
-    let output = await outputWithTimeout(runWrapper(), 120_000);
+      if (entry.prompt_transport === "stdin") {
+        const writer = child.stdin.getWriter();
+        await writer.write(new TextEncoder().encode(prompt));
+        await writer.close();
+      }
+      return child;
+    };
+    let output = await outputWithTimeout(await runWrapper(), 120_000);
     if (
       output.code === 141 && output.stdout.length === 0 &&
       output.stderr.length === 0
     ) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      output = await outputWithTimeout(runWrapper(), 120_000);
+      output = await outputWithTimeout(await runWrapper(), 120_000);
     }
     const stdout = new TextDecoder().decode(output.stdout);
     const stderr = new TextDecoder().decode(output.stderr);
@@ -220,5 +252,6 @@ export async function callWrapper(
     };
   } finally {
     await Deno.remove(outPath).catch(() => undefined);
+    if (promptPath) await Deno.remove(promptPath).catch(() => undefined);
   }
 }
