@@ -1,27 +1,25 @@
 # Launch readiness report — QuorumRouter
 
-Verified against GitHub `main` and the public npm registry on 2026-07-11.
+Release-candidate checklist for GitHub `main` and the public npm registry.
 
 ## Current identity
 
 - Repository: https://github.com/sakamoto-sann/quorum-router
-- `main`: `3f2349b5924d8dc805f404922a9593f3b59a17c2`
+- Release source: protected `main` through reviewed PRs
 - License: MIT; OSI-approved open source
-- Latest GitHub tag: `v0.1.4`
-- Registry package `create-quorum-router`: **not published** (`npm view` returns
-  `E404`)
+- Release target: `v0.1.5`
+- Registry package target: `create-quorum-router@0.1.5`
 
-The working public quickstart therefore uses the GitHub source installer, not an
-npm registry claim:
+The public quickstart uses the provenance-backed npm package:
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task check
 deno task smoke
 ```
 
-Fresh source-backed scaffold verification: **PASS**.
+Fresh registry-backed scaffold verification is a hard post-publish gate.
 
 ## Launch media
 
@@ -61,16 +59,13 @@ redaction checks.
 
 With explicit operator approval, release titles and notes for `v0.1.0` through
 `v0.1.4` were updated to QuorumRouter. Readback confirms every release is
-published, non-draft, non-prerelease, and contains no `Public RC`,
-`public
-preview`, `proof-of-concept`, or `PoC` wording.
+published, non-draft, non-prerelease, and contains no stale pre-launch
+positioning.
 
-The `v0.1.3` and `v0.1.4` notes distinguish the historical legacy package from
-the current GitHub source-backed installer.
+Historical release notes distinguish the legacy package from QuorumRouter.
 
-npm publication is not required for the working GitHub-source quickstart. Do not
-claim that `create-quorum-router` exists on npm until registry readback
-succeeds.
+Do not claim npm availability until registry readback and clean-room NPX smoke
+succeed.
 
 ## Final launch gates
 

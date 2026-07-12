@@ -85,7 +85,7 @@ halts the workflow.
 Try the source-backed scaffold directly from `main`:
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```

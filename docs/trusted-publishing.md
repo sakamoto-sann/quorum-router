@@ -3,8 +3,8 @@
 The npm package already exists:
 
 - package: `create-quorum-router`
-- first live package version: `create-quorum-router@0.1.4`
-- current npm dist-tag: `latest -> 0.1.4`
+- first live package version: `create-quorum-router@0.1.5`
+- current npm dist-tag: `latest -> 0.1.5`
 
 The first manual publish is complete. Do not publish another version unless
 explicitly instructed.
@@ -81,6 +81,6 @@ Before invoking the workflow for a future version:
 
 ## Non-goals for this public preview closeout
 
-This runbook covers the `0.1.4` Trusted Publishing path after explicit release
+This runbook covers the `0.1.5` Trusted Publishing path after explicit release
 approval. Do not move tags, mutate dist-tags, or expand runtime behavior outside
 that approved release flow.

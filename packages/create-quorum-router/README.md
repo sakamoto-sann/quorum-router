@@ -15,9 +15,8 @@ deno task smoke
 deno task intake
 ```
 
-npm package target for this PR: `create-quorum-router@0.1.4`. Do not publish
-this version until the PR is merged, v0.1.4 release/tag handling is approved,
-and the user personally approves local pre-release workspace dogfood results.
+Current package version: `create-quorum-router@0.1.5`. Releases are published
+from an immutable Git tag through GitHub Actions OIDC Trusted Publishing.
 
 ## What the generated project supports
 
@@ -74,8 +73,8 @@ Do not paste tokens into chat/logs.
 - The generated scaffold does not enable mutation by default.
 - No service-role runtime.
 - No live Supabase Agent Bus runtime writes.
-- Public Product Hunt/X launch remains blocked until the user personally runs a
-  local pre-release workspace and approves release continuation.
+- Public launch requires the repository verification, package tarball, registry
+  readback, and clean-room NPX scaffold checks to pass.
 
 ## CLI
 

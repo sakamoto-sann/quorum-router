@@ -4,11 +4,11 @@
 
 ## Proposed repo name
 
-`quorum-router-public-rc-demo`
+`quorum-router-launch-demo`
 
 Alternative names:
 
-- `quorum-router-v0-1-public-rc-demo`
+- `quorum-router-v0-1-launch-demo`
 - `create-quorum-router-demo`
 - `quorum-router-direct-demo`
 
@@ -21,8 +21,8 @@ The repo should not become a second source of truth for release state. It should
 point back to:
 
 - GitHub release:
-  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.4
-- npm package: `create-quorum-router` is not yet published on npm
+  https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.5
+- npm package: `create-quorum-router@latest`
 - main repository: https://github.com/sakamoto-sann/quorum-router
 
 ## README structure
@@ -65,7 +65,7 @@ docs/recording-notes.md
 Recommended README quickstart:
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task check
 deno task smoke

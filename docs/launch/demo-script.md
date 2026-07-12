@@ -61,7 +61,7 @@ The NPX quickstart remains useful as an install/scaffold clip, but it should not
 replace the two mode-specific GIFs.
 
 ```bash
-npx --yes github:sakamoto-sann/quorum-router#main my-quorum-router
+npx --yes create-quorum-router@latest my-quorum-router
 cd my-quorum-router
 deno task smoke
 ```

@@ -3,10 +3,9 @@
 ## Verified green
 
 - [x] GitHub repository is `sakamoto-sann/quorum-router`.
-- [x] Source-backed `npx github:sakamoto-sann/quorum-router#main` scaffold
-      works.
+- [ ] Registry-backed `npx create-quorum-router@latest` scaffold works.
 - [x] Fresh generated project passes `deno task check` and `deno task smoke`.
-- [x] Repository suite passes 258 tests.
+- [x] Repository suite passes 275 tests.
 - [x] Secret scans are clean.
 - [x] Best Route and Agent Chat use separate videos.
 - [x] Best Route shows isolated candidates followed by router synthesis.
@@ -30,10 +29,9 @@
 ## Hard stops
 
 - Do not claim the deterministic videos are live model/API recordings.
-- Do not claim `create-quorum-router` is published on npm; registry readback is
-  currently `E404`.
-- Do not publish npm, mutate dist-tags, or run the publish workflow without
-  explicit approval.
+- Do not claim npm availability until registry readback and clean-room NPX smoke
+  both pass.
+- Do not mutate dist-tags outside the approved immutable-tag release workflow.
 - Do not expose provider credentials, npm tokens, passwords, OTP, signing keys,
   or approval databases.
 - Do not call QuorumRouter OSI open source; it is MIT.
