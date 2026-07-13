@@ -103,6 +103,38 @@ authorization boundary; it is not a substitute for inter-model conversation.
 
 Agent Chat and Commander contracts do not change default direct routing.
 
+## Advisory calibration by task type
+
+Use `aggregateTaskCalibration()` to summarize caller-attested evaluation results
+for each task type and provider/model source. The report includes accuracy, mean
+confidence, Brier score, signed mean calibration bias, and a configurable
+sample-count status.
+
+```ts
+import { aggregateTaskCalibration } from "./router.ts";
+
+const report = aggregateTaskCalibration([
+  {
+    observation_id: "review-001",
+    task_type: "code_review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+    evaluation_basis: "caller_attested_external_ground_truth",
+    correct: true,
+    confidence: 0.8,
+    evaluated_at: "2026-07-13T00:00:00Z",
+  },
+], { minimum_sample_count: 20 });
+
+console.log(report.groups[0]);
+```
+
+This is a pure, advisory API. QuorumRouter does not use its output to change
+routing weights, ranks, eligibility, quorum, or execution. The caller must
+establish evaluator trust, invocation binding, durable replay protection, and
+canonical task/model identities before aggregation. See
+[docs/calibration.md](docs/calibration.md) for the metric definitions and full
+truth boundary.
+
 ## Local checks
 
 ```bash
@@ -129,6 +161,8 @@ deno task smoke:v0.1
   [docs/bench.md](docs/bench.md)
 - decision outcomes and disagreement evidence:
   [docs/decision-reports.md](docs/decision-reports.md)
+- advisory calibration from externally evaluated task outcomes:
+  [docs/calibration.md](docs/calibration.md)
 - verified model catalog, explicit config, and probes:
   [docs/model-catalog.md](docs/model-catalog.md)
 - security notes: [docs/security.md](docs/security.md)

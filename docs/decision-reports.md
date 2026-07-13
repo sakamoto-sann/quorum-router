@@ -77,7 +77,14 @@ accepted.
 
 ## Reliability analysis boundary
 
-Decision reports describe one run. Longitudinal provider/model reliability,
-aggregation by task type, ground-truth feedback, and automatic down-ranking are
-intentionally outside this contract. A minority response must not be treated as
-wrong without external verification.
+Decision reports describe one run. They are not correctness labels and cannot be
+submitted to task calibration. Consensus, majority/minority position, recorded
+disagreement, synthesis choice, and routing outcome never establish ground
+truth. A response must not be treated as correct or incorrect without an
+external evaluation.
+
+The separate [calibration API](calibration.md) aggregates only explicit,
+externally evaluated observations. Its per-task, per-source metrics are advisory
+diagnostics: they do not change routing weights, ranks, eligibility, or
+execution behavior. The caller-attested-ground-truth marker is an unverified
+provenance assertion, not proof supplied by QuorumRouter.
