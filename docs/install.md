@@ -15,6 +15,8 @@ permitted under the MIT License.
 - No service-role runtime is configured.
 - No live Supabase Agent Bus runtime writes are configured.
 - No Supabase Realtime subscriber is installed.
+- Generated projects include an optional user-owned Supabase audit migration,
+  but audit remains disabled until the user explicitly configures it.
 - The install helper does not ask for credentials, write secrets, enable process
   adapters, or configure live runtime services.
 
@@ -125,3 +127,9 @@ Adjust the paths if you installed with a different `--prefix`.
   Deno install / permissions first; do not debug `raw.githubusercontent.com` for
   smoke. Network is only required for install-helper clone and optional external
   provider dogfood (`RUN_EXTERNAL_MODEL_DOGFOOD=1`).
+
+For optional BYO audit setup, follow
+[`supabase-audit-setup.md`](./supabase-audit-setup.md). The generated project
+uses only its project URL, publishable/anon key, and active Supabase Auth
+session JWT at runtime. Do not place service-role/admin credentials in the
+runtime.

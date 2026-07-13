@@ -11,6 +11,11 @@ import {
 } from "./model_inventory.ts";
 import { redact, summarize } from "./redact.ts";
 import { parseAuthMode } from "./schema.ts";
+import {
+  auditRouteOutcome,
+  preflightRequiredSupabaseAudit,
+  runSupabaseStatus,
+} from "./supabase.ts";
 import { buildTrace, writeTrace } from "./trace.ts";
 
 const DEFAULT_PROMPT = "Review this README for risky claims.";
@@ -22,6 +27,7 @@ type CommandName =
   | "auth:logout"
   | "models:list"
   | "health"
+  | "supabase:status"
   | "route:once"
   | "best-route"
   | "agent-chat";
@@ -32,11 +38,12 @@ function commandName(): CommandName {
     command === "intake" || command === "auth:status" ||
     command === "auth:login" || command === "auth:logout" ||
     command === "models:list" || command === "health" ||
+    command === "supabase:status" ||
     command === "route:once" || command === "best-route" ||
     command === "agent-chat"
   ) return command;
   throw new Error(
-    "usage: deno task intake|auth:status|auth:login|auth:logout|models:list|health|route:once|best-route|agent-chat",
+    "usage: deno task intake|auth:status|auth:login|auth:logout|models:list|health|supabase:status|route:once|best-route|agent-chat",
   );
 }
 
@@ -101,10 +108,13 @@ try {
   else if (command === "auth:logout") await runAuthLogout();
   else if (command === "models:list") await runModelsList();
   else if (command === "health") await runHealth();
+  else if (command === "supabase:status") await runSupabaseStatus();
   else if (command === "route:once") {
+    await preflightRequiredSupabaseAudit();
     const { results, tracePath, trace } = await invokeSelected(
       promptFromArgs(),
     );
+    await auditRouteOutcome(trace);
     console.log("QuorumRouter route:once");
     console.log(`provider: ${results[0].provider}`);
     console.log(`model: ${results[0].model}`);
@@ -116,7 +126,9 @@ try {
     console.log(`final: ${summarize(results[0].response_summary, 500)}`);
     console.log(`trace: ${tracePath}`);
   } else if (command === "best-route") {
-    const { results, tracePath } = await runBestRoute(promptFromArgs());
+    await preflightRequiredSupabaseAudit();
+    const { results, tracePath, trace } = await runBestRoute(promptFromArgs());
+    await auditRouteOutcome(trace);
     console.log("QuorumRouter best-route");
     console.log(`models_called: ${results.length}`);
     console.log(`trace: ${tracePath}`);

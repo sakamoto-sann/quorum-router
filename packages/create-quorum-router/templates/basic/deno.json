@@ -12,6 +12,7 @@
     "auth:logout": "deno run --allow-read --allow-write --allow-env src/cli.ts auth:logout",
     "models:list": "deno run --allow-read --allow-write --allow-env --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts models:list",
     "health": "deno run --allow-read --allow-write --allow-env --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts health",
+    "supabase:status": "deno run --allow-read --allow-env src/cli.ts supabase:status",
     "route:once": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts route:once",
     "best-route": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts best-route",
     "agent-chat": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run=grok,codex,claude,gemini,qwen,devin src/cli.ts agent-chat"

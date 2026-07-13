@@ -142,8 +142,11 @@ jobs:
             'templates/basic/src/provider_registry.ts',
             'templates/basic/src/redact.ts',
             'templates/basic/src/schema.ts',
+            'templates/basic/src/supabase.ts',
             'templates/basic/src/trace.ts',
             'templates/basic/src/wrapper_client.ts',
+            'templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql',
+            'templates/basic/supabase/migrations/20260712211500_workflow_access_audit_limits.sql',
           ];
           if (JSON.stringify(actual) !== JSON.stringify(expected)) {
             console.error('Unexpected tarball contents:', actual);

@@ -13,6 +13,7 @@ cd my-quorum-router-demo
 deno --version
 deno task smoke
 deno task intake
+deno task supabase:status
 ```
 
 Current package version: `create-quorum-router@0.1.6`. Releases are published
@@ -63,6 +64,19 @@ preferred public dogfood path.
 Do not commit `.env`, `router.config.local.json`, `.quorum-router/`, or `out/`.
 Do not paste tokens into chat/logs.
 
+## Optional user-owned Supabase audit
+
+The generated project works without Supabase. Audit defaults to `disabled`.
+Users who opt in apply the generated migration to a Supabase project they own,
+choose `optional` or `required` in the non-secret feature config, inject a
+project URL, publishable/anon key, and Supabase Auth session JWT at runtime, and
+run `deno task supabase:status` before routing.
+
+The runtime rejects service-role/admin credentials. Audit records exclude
+prompts, model responses, credentials, client-supplied actor/org identity, and
+client timestamps. Agent Bus, Realtime, state sync, and analytics dashboards are
+not part of this integration.
+
 ## Runtime boundaries
 
 - Best Route/direct is production-ready best-answer routing.
@@ -71,7 +85,7 @@ Do not paste tokens into chat/logs.
   slice only when separately configured with signed policy and distinct
   approval.
 - The generated scaffold does not enable mutation by default.
-- No service-role runtime.
+- No service-role/admin runtime credentials.
 - No live Supabase Agent Bus runtime writes.
 - Public launch requires the repository verification, package tarball, registry
   readback, and clean-room NPX scaffold checks to pass.

@@ -1,3 +1,75 @@
+import { z } from "zod";
+
+export const SupabaseAuditModeSchema = z.enum([
+  "disabled",
+  "optional",
+  "required",
+]);
+
+export type SupabaseAuditMode = z.infer<typeof SupabaseAuditModeSchema>;
+
+export const SupabaseFeatureConfigSchema = z.object({
+  audit: z.object({
+    mode: SupabaseAuditModeSchema,
+  }).strict(),
+}).strict();
+
+export type SupabaseFeatureConfig = z.infer<
+  typeof SupabaseFeatureConfigSchema
+>;
+
+export const SelectiveFeatureConfigSchema = z.object({
+  supabase: SupabaseFeatureConfigSchema.optional(),
+}).strict();
+
+const SECRET_CONFIG_KEY =
+  /^(?:quorum_router_)?supabase_(?:url|anon_key|publishable_key|session_jwt|access_token|service_role_key|admin_key)$/i;
+
+function normalizedConfigKey(key: string): string {
+  return key.replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/[^a-z0-9]+/gi, "_")
+    .toLowerCase();
+}
+
+function findSupabaseCredentialPath(
+  value: unknown,
+  path: Array<string | number> = [],
+): Array<string | number> | undefined {
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      const found = findSupabaseCredentialPath(value[index], [...path, index]);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (!value || typeof value !== "object") return undefined;
+  for (const [key, nested] of Object.entries(value)) {
+    const normalized = normalizedConfigKey(key);
+    if (
+      SECRET_CONFIG_KEY.test(normalized) ||
+      (/supabase/.test(normalized) &&
+        /(secret|token|key|credential|password|url)/.test(normalized))
+    ) {
+      return [...path, key];
+    }
+    const found = findSupabaseCredentialPath(nested, [...path, key]);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export const GeneratedRouterConfigSchema = z.object({
+  features: SelectiveFeatureConfigSchema.optional(),
+}).passthrough().superRefine((value, context) => {
+  const path = findSupabaseCredentialPath(value);
+  if (path) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message: "Supabase runtime credentials belong in the environment only",
+    });
+  }
+});
+
 export type AuthMode = "auto" | "wrapper" | "oauth" | "session" | "env";
 export type InventorySource =
   | "wrapper"

@@ -6901,6 +6901,572 @@ function assertNoExactTargetSha(text: string) {
   }
 }
 
+async function withTemporaryEnv<T>(
+  values: Record<string, string | undefined>,
+  fn: () => Promise<T> | T,
+): Promise<T> {
+  const previous = new Map<string, string | undefined>();
+  for (const [key, value] of Object.entries(values)) {
+    previous.set(key, Deno.env.get(key));
+    if (value === undefined) Deno.env.delete(key);
+    else Deno.env.set(key, value);
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) Deno.env.delete(key);
+      else Deno.env.set(key, value);
+    }
+  }
+}
+
+function generatedRouteAuditSource() {
+  return {
+    run_id: "run-fixture",
+    command: "route:once",
+    mode: "route_once",
+    auth_mode: "wrapper",
+    selected_provider: "fixture-provider",
+    selected_model: "fixture-model",
+    provider_selection_honored: true,
+    fallback_used: false,
+    schema_valid: true,
+  };
+}
+
+function generatedAuthenticatedJwt(): string {
+  const payload = btoa(JSON.stringify({
+    role: "authenticated",
+    sub: "00000000-0000-4000-8000-000000000001",
+  })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return ["header", payload, "signature"].join(".");
+}
+
+Deno.test("generated Supabase feature config is strict and defaults absent audit to disabled", async () => {
+  const {
+    GeneratedRouterConfigSchema,
+    SelectiveFeatureConfigSchema,
+    SupabaseFeatureConfigSchema,
+  } = await import(
+    "./packages/create-quorum-router/templates/basic/src/schema.ts"
+  );
+  const { loadSupabaseAuditMode } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+
+  assertEquals(
+    SupabaseFeatureConfigSchema.parse({ audit: { mode: "disabled" } }),
+    { audit: { mode: "disabled" } },
+  );
+  assertThrows(() => SupabaseFeatureConfigSchema.parse({}));
+  assertThrows(() =>
+    SupabaseFeatureConfigSchema.parse({ audit: { mode: "sometimes" } })
+  );
+  assertThrows(() =>
+    SupabaseFeatureConfigSchema.parse({
+      audit: { mode: "optional" },
+      url: "https://project.invalid",
+    })
+  );
+  assertThrows(() =>
+    SelectiveFeatureConfigSchema.parse({
+      supabase: { audit: { mode: "required" } },
+      agent_bus: { enabled: true },
+    })
+  );
+  assert(
+    GeneratedRouterConfigSchema.safeParse({
+      auth_mode: "auto",
+      features: { supabase: { audit: { mode: "required" } } },
+    }).success,
+  );
+  assert(
+    !GeneratedRouterConfigSchema.safeParse({
+      supabase_url: "https://project.invalid",
+    }).success,
+  );
+  assert(
+    !GeneratedRouterConfigSchema.safeParse({
+      local: [{ nested: { supabaseSessionJwt: "must-not-live-in-config" } }],
+    }).success,
+  );
+
+  const tempDir = await Deno.makeTempDir();
+  try {
+    assertEquals(
+      await loadSupabaseAuditMode(`${tempDir}/missing.json`),
+      "disabled",
+    );
+    await Deno.writeTextFile(
+      `${tempDir}/invalid.json`,
+      JSON.stringify({
+        features: {
+          supabase: {
+            audit: { mode: "optional" },
+            session_jwt: "must-not-live-in-config",
+          },
+        },
+      }),
+    );
+    await assertRejects(
+      () => loadSupabaseAuditMode(`${tempDir}/invalid.json`),
+      Error,
+      "features.supabase",
+    );
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("generated Supabase status is offline, value-safe, and returns selective exit codes", async () => {
+  const templateDir =
+    `${Deno.cwd()}/packages/create-quorum-router/templates/basic`;
+  const tempDir = await Deno.makeTempDir();
+  const cli = `${templateDir}/src/cli.ts`;
+  const baseEnv = {
+    HOME: Deno.env.get("HOME") ?? tempDir,
+    PATH: Deno.env.get("PATH") ?? "",
+    TMPDIR: tempDir,
+  };
+  const runStatus = (env: Record<string, string>) =>
+    new Deno.Command("deno", {
+      args: ["run", "--allow-read", "--allow-env", cli, "supabase:status"],
+      cwd: tempDir,
+      clearEnv: true,
+      env: { ...baseEnv, ...env },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+
+  try {
+    const disabled = await runStatus({});
+    const disabledText = new TextDecoder().decode(disabled.stdout) +
+      new TextDecoder().decode(disabled.stderr);
+    assertEquals(disabled.code, 0, disabledText);
+    assertStringIncludes(disabledText, "state: disabled");
+    assertStringIncludes(disabledText, "network_request_sent: false");
+
+    await Deno.writeTextFile(
+      `${tempDir}/router.config.json`,
+      JSON.stringify({
+        features: { supabase: { audit: { mode: "optional" } } },
+      }),
+    );
+    const partialValue = crypto.randomUUID();
+    const partial = await runStatus({
+      QUORUM_ROUTER_SUPABASE_URL: "https://project.example.test",
+      QUORUM_ROUTER_SUPABASE_ANON_KEY: partialValue,
+    });
+    const partialText = new TextDecoder().decode(partial.stdout) +
+      new TextDecoder().decode(partial.stderr);
+    assert(partial.code !== 0);
+    assertStringIncludes(partialText, "state: partial");
+    assert(!partialText.includes(partialValue));
+
+    const configured = await runStatus({
+      QUORUM_ROUTER_SUPABASE_URL: "https://project.example.test",
+      QUORUM_ROUTER_SUPABASE_ANON_KEY: "publishable-fixture",
+      QUORUM_ROUTER_SUPABASE_SESSION_JWT: generatedAuthenticatedJwt(),
+    });
+    const configuredText = new TextDecoder().decode(configured.stdout) +
+      new TextDecoder().decode(configured.stderr);
+    assertEquals(configured.code, 0, configuredText);
+    assertStringIncludes(configuredText, "state: configured");
+
+    const blockedValue = crypto.randomUUID();
+    const forbidden = await runStatus({
+      QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY: blockedValue,
+    });
+    const forbiddenText = new TextDecoder().decode(forbidden.stdout) +
+      new TextDecoder().decode(forbidden.stderr);
+    assert(forbidden.code !== 0);
+    assertStringIncludes(forbiddenText, "state: forbidden-credential");
+    assertStringIncludes(
+      forbiddenText,
+      "QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY",
+    );
+    assert(!forbiddenText.includes(blockedValue));
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("generated Supabase audit payload excludes prompts, responses, credentials, and client identity", async () => {
+  const { SupabaseAuditPayloadSchema, toSupabaseAuditRecord } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+  const omittedValue = crypto.randomUUID();
+  const record = toSupabaseAuditRecord({
+    ...generatedRouteAuditSource(),
+    prompt: omittedValue,
+    response_summary: omittedValue,
+    credential: omittedValue,
+    org_id: omittedValue,
+    actor_id: omittedValue,
+    created_at: omittedValue,
+  } as ReturnType<typeof generatedRouteAuditSource>);
+  const body = JSON.stringify({ records: [record] });
+  assert(SupabaseAuditPayloadSchema.safeParse(JSON.parse(body)).success);
+  for (
+    const forbidden of [
+      "prompt",
+      "response",
+      "credential",
+      "org_id",
+      "actor_id",
+      "created_at",
+      omittedValue,
+    ]
+  ) {
+    assert(!body.includes(forbidden), `payload must exclude ${forbidden}`);
+  }
+});
+
+Deno.test("generated Supabase audit transport authenticates RPC and classifies failures", async () => {
+  const { sendSupabaseAuditRecord, toSupabaseAuditRecord } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+  const record = toSupabaseAuditRecord(generatedRouteAuditSource());
+  const credentials = {
+    url: "https://project.example.test",
+    anonKey: "publishable-fixture",
+    sessionJwt: generatedAuthenticatedJwt(),
+  };
+  let request: Request | undefined;
+  await sendSupabaseAuditRecord(record, credentials, {
+    fetchFn: ((input, init) => {
+      request = new Request(input, init);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }) as typeof fetch,
+  });
+  assert(request);
+  assertEquals(
+    request.url,
+    "https://project.example.test/rest/v1/rpc/insert_workflow_access_audit_batch",
+  );
+  assertEquals(
+    request.headers.get("authorization"),
+    `Bearer ${generatedAuthenticatedJwt()}`,
+  );
+  assertEquals(request.headers.get("apikey"), "publishable-fixture");
+  assertEquals(request.redirect, "error");
+  const payload = await request.json() as Record<string, unknown>;
+  assertEquals((payload.records as unknown[]).length, 1);
+
+  for (
+    const [status, message] of [
+      [401, "auth failure"],
+      [429, "rate limited"],
+      [503, "server failure"],
+    ] as const
+  ) {
+    await assertRejects(
+      () =>
+        sendSupabaseAuditRecord(record, credentials, {
+          fetchFn: (() =>
+            Promise.resolve(new Response(null, { status }))) as typeof fetch,
+        }),
+      Error,
+      message,
+    );
+  }
+
+  await assertRejects(
+    () =>
+      sendSupabaseAuditRecord(record, {
+        ...credentials,
+        url: "http://project.example.test",
+      }),
+    Error,
+    "HTTPS required",
+  );
+  await assertRejects(
+    () => sendSupabaseAuditRecord(record, { ...credentials, url: "not a URL" }),
+    Error,
+    "invalid project URL",
+  );
+  await assertRejects(
+    () =>
+      sendSupabaseAuditRecord(record, credentials, {
+        timeoutMs: 5,
+        fetchFn: ((_input, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("aborted", "AbortError")),
+            );
+          })) as typeof fetch,
+      }),
+    Error,
+    "timed out",
+  );
+  const controller = new AbortController();
+  controller.abort();
+  await assertRejects(
+    () =>
+      sendSupabaseAuditRecord(record, credentials, {
+        signal: controller.signal,
+        fetchFn: (() =>
+          Promise.resolve(new Response(null, { status: 204 }))) as typeof fetch,
+      }),
+    Error,
+    "aborted",
+  );
+  await assertRejects(
+    () =>
+      sendSupabaseAuditRecord(record, {
+        ...credentials,
+        anonKey: "sb_secret_forbidden_fixture",
+      }),
+    Error,
+    "forbidden-credential",
+  );
+  const serviceRolePayload = btoa(JSON.stringify({ role: "service_role" }))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  await assertRejects(
+    () =>
+      sendSupabaseAuditRecord(record, {
+        ...credentials,
+        sessionJwt: `header.${serviceRolePayload}.signature`,
+      }),
+    Error,
+    "forbidden-credential",
+  );
+});
+
+Deno.test("generated Supabase selective hook performs zero disabled fetches and enforces optional/required", async () => {
+  const { auditRouteOutcome } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+  const tempDir = await Deno.makeTempDir();
+  const disabledConfig = `${tempDir}/disabled.json`;
+  const optionalConfig = `${tempDir}/optional.json`;
+  const requiredConfig = `${tempDir}/required.json`;
+  await Deno.writeTextFile(
+    disabledConfig,
+    JSON.stringify({ features: { supabase: { audit: { mode: "disabled" } } } }),
+  );
+  await Deno.writeTextFile(
+    optionalConfig,
+    JSON.stringify({ features: { supabase: { audit: { mode: "optional" } } } }),
+  );
+  await Deno.writeTextFile(
+    requiredConfig,
+    JSON.stringify({ features: { supabase: { audit: { mode: "required" } } } }),
+  );
+  const env = {
+    QUORUM_ROUTER_SUPABASE_URL: "https://project.example.test",
+    QUORUM_ROUTER_SUPABASE_ANON_KEY: "publishable-fixture",
+    QUORUM_ROUTER_SUPABASE_SESSION_JWT: generatedAuthenticatedJwt(),
+  };
+  try {
+    await withTemporaryEnv(env, async () => {
+      let fetches = 0;
+      const failingFetch = (() => {
+        fetches++;
+        return Promise.resolve(new Response(null, { status: 503 }));
+      }) as typeof fetch;
+      await auditRouteOutcome(generatedRouteAuditSource(), {
+        configPath: disabledConfig,
+        fetchFn: failingFetch,
+      });
+      assertEquals(fetches, 0);
+      await withTemporaryEnv({
+        QUORUM_ROUTER_SUPABASE_SERVICE_ROLE_KEY: "forbidden-fixture",
+      }, async () => {
+        await assertRejects(
+          () =>
+            auditRouteOutcome(generatedRouteAuditSource(), {
+              configPath: disabledConfig,
+              fetchFn: failingFetch,
+            }),
+          Error,
+          "forbidden-credential",
+        );
+      });
+      assertEquals(fetches, 0);
+      await auditRouteOutcome(generatedRouteAuditSource(), {
+        configPath: optionalConfig,
+        fetchFn: failingFetch,
+      });
+      assertEquals(fetches, 1);
+      await assertRejects(
+        () =>
+          auditRouteOutcome(generatedRouteAuditSource(), {
+            configPath: requiredConfig,
+            fetchFn: failingFetch,
+          }),
+        Error,
+        "Required Supabase audit server failure",
+      );
+      assertEquals(fetches, 2);
+    });
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("required Supabase preflight blocks provider work on unsafe credentials", async () => {
+  const { preflightRequiredSupabaseAudit } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+  const tempDir = await Deno.makeTempDir();
+  const requiredConfig = `${tempDir}/required.json`;
+  await Deno.writeTextFile(
+    requiredConfig,
+    JSON.stringify({ features: { supabase: { audit: { mode: "required" } } } }),
+  );
+  try {
+    await withTemporaryEnv({
+      QUORUM_ROUTER_SUPABASE_URL: "http://project.example.test",
+      QUORUM_ROUTER_SUPABASE_ANON_KEY: "publishable-fixture",
+      QUORUM_ROUTER_SUPABASE_SESSION_JWT: "not-a-session-jwt",
+    }, async () => {
+      await assertRejects(
+        () => preflightRequiredSupabaseAudit({ configPath: requiredConfig }),
+        Error,
+        "HTTPS required",
+      );
+    });
+    const cli = await Deno.readTextFile(
+      "packages/create-quorum-router/templates/basic/src/cli.ts",
+    );
+    assert(
+      cli.indexOf("await preflightRequiredSupabaseAudit();") <
+        cli.indexOf("await invokeSelected("),
+    );
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("generated Supabase selective hook works against a local fixture RPC server", async () => {
+  const { auditRouteOutcome, SupabaseAuditPayloadSchema } = await import(
+    "./packages/create-quorum-router/templates/basic/src/supabase.ts"
+  );
+  const tempDir = await Deno.makeTempDir();
+  const abort = new AbortController();
+  let responseStatus = 204;
+  const requests: Array<
+    { url: string; authorization: string | null; body: unknown }
+  > = [];
+  let server: Deno.HttpServer<Deno.NetAddr>;
+  try {
+    server = Deno.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      signal: abort.signal,
+      onListen: () => {},
+    }, async (request) => {
+      requests.push({
+        url: request.url,
+        authorization: request.headers.get("authorization"),
+        body: await request.json(),
+      });
+      return new Response(null, { status: responseStatus });
+    });
+  } catch (error) {
+    await Deno.remove(tempDir, { recursive: true });
+    if (error instanceof Deno.errors.PermissionDenied) {
+      console.warn("skipping local Supabase fixture server: listen denied");
+      return;
+    }
+    throw error;
+  }
+  const writeMode = async (mode: "disabled" | "optional" | "required") => {
+    const path = `${tempDir}/${mode}.json`;
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify({ features: { supabase: { audit: { mode } } } }),
+    );
+    return path;
+  };
+
+  try {
+    const port = (server.addr as Deno.NetAddr).port;
+    await withTemporaryEnv({
+      QUORUM_ROUTER_SUPABASE_URL: `http://127.0.0.1:${port}`,
+      QUORUM_ROUTER_SUPABASE_ANON_KEY: "publishable-fixture",
+      QUORUM_ROUTER_SUPABASE_SESSION_JWT: generatedAuthenticatedJwt(),
+    }, async () => {
+      await auditRouteOutcome(generatedRouteAuditSource(), {
+        configPath: await writeMode("disabled"),
+      });
+      assertEquals(requests.length, 0);
+
+      responseStatus = 503;
+      await auditRouteOutcome(generatedRouteAuditSource(), {
+        configPath: await writeMode("optional"),
+        allowInsecureLocalhostForTest: true,
+      });
+      assertEquals(requests.length, 1);
+      const requiredConfig = await writeMode("required");
+      await assertRejects(
+        () =>
+          auditRouteOutcome(generatedRouteAuditSource(), {
+            configPath: requiredConfig,
+            allowInsecureLocalhostForTest: true,
+          }),
+        Error,
+        "Required Supabase audit server failure",
+      );
+      assertEquals(requests.length, 2);
+
+      responseStatus = 204;
+      await auditRouteOutcome(generatedRouteAuditSource(), {
+        configPath: requiredConfig,
+        allowInsecureLocalhostForTest: true,
+      });
+      assertEquals(requests.length, 3);
+      const delivered = requests[2];
+      assertEquals(
+        new URL(delivered.url).pathname,
+        "/rest/v1/rpc/insert_workflow_access_audit_batch",
+      );
+      assertEquals(
+        delivered.authorization,
+        `Bearer ${generatedAuthenticatedJwt()}`,
+      );
+      assert(
+        SupabaseAuditPayloadSchema.safeParse(delivered.body).success,
+      );
+    });
+  } finally {
+    abort.abort();
+    await server.finished.catch(() => {});
+    await Deno.remove(tempDir, { recursive: true });
+  }
+});
+
+Deno.test("generated Supabase audit migration matches root RPC-only append-only schema", async () => {
+  const root = await Deno.readTextFile(
+    "supabase/migrations/20260701130000_workflow_access_audit.sql",
+  );
+  const generated = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql",
+  );
+  assertEquals(generated, root);
+  for (
+    const marker of [
+      "alter table public.workflow_access_audit enable row level security",
+      "workflow_access_audit is append-only",
+      "claim_actor_id := auth.uid()",
+      "claim_org_id := nullif(auth.jwt() ->> 'org_id', '')",
+      "grant execute on function public.insert_workflow_access_audit_batch(jsonb)\n  to authenticated",
+      "revoke all privileges on table public.workflow_access_audit from authenticated",
+    ]
+  ) {
+    assertStringIncludes(generated, marker);
+  }
+  assert(
+    !/grant\s+(?:select|insert|update|delete).*workflow_access_audit.*authenticated/i
+      .test(
+        generated,
+      ),
+  );
+});
+
 Deno.test("create-quorum-router package files and metadata are release-safe", async () => {
   const requiredFiles = [
     "packages/create-quorum-router/package.json",
@@ -6912,6 +7478,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/templates/basic/deno.json",
     "packages/create-quorum-router/templates/basic/main.ts",
     "packages/create-quorum-router/templates/basic/router.config.example.json",
+    "packages/create-quorum-router/templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql",
     "packages/create-quorum-router/templates/basic/src/cli.ts",
     "packages/create-quorum-router/templates/basic/src/env.ts",
     "packages/create-quorum-router/templates/basic/src/intake.ts",
@@ -6929,6 +7496,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/templates/basic/src/trace.ts",
     "packages/create-quorum-router/templates/basic/src/redact.ts",
     "packages/create-quorum-router/templates/basic/src/schema.ts",
+    "packages/create-quorum-router/templates/basic/src/supabase.ts",
     "packages/create-quorum-router/templates/basic/src/fixture_smoke.ts",
     "packages/create-quorum-router/templates/basic/out/.gitkeep",
   ];
@@ -7337,7 +7905,10 @@ Deno.test("generated prompt context rejects off-host blob URLs and oversized blo
   assertStringIncludes(prepared.prompt, JSON.stringify("ok.ts"));
 });
 
-type NpmPackResult = { files: Array<{ path: string }> };
+type NpmPackResult = {
+  files: Array<{ path: string }>;
+  filename?: string;
+};
 
 function normalizeNpmPackResult(raw: unknown): NpmPackResult {
   const packed = Array.isArray(raw)
@@ -7435,9 +8006,130 @@ Deno.test("create-quorum-router npm tarball contents are constrained", async () 
     "templates/basic/src/provider_registry.ts",
     "templates/basic/src/redact.ts",
     "templates/basic/src/schema.ts",
+    "templates/basic/src/supabase.ts",
     "templates/basic/src/trace.ts",
     "templates/basic/src/wrapper_client.ts",
+    "templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql",
+    "templates/basic/supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
   ]);
+});
+
+Deno.test("Supabase audit hardening migration bounds batches and revokes default execute", async () => {
+  const root = await Deno.readTextFile(
+    "supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
+  );
+  const generated = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
+  );
+  assertEquals(generated, root);
+  const normalized = root.toLowerCase().replace(/\s+/g, " ");
+  assertStringIncludes(normalized, "jsonb_array_length(records) > 100");
+  assertStringIncludes(normalized, "pg_column_size(records) > 262144");
+  assertStringIncludes(normalized, "pg_column_size(metadata) > 16384");
+  assertStringIncludes(normalized, "claim_actor_id::text");
+  assertStringIncludes(normalized, "'ai_assistant'");
+  assertStringIncludes(normalized, "'route.outcome'");
+  assertStringIncludes(normalized, "audit record contains unsupported fields");
+  assertStringIncludes(
+    normalized,
+    "audit metadata contains unsupported fields",
+  );
+  assert(!normalized.includes("auth.jwt() ->> 'org_id'"));
+  assertStringIncludes(normalized, "from public");
+  assertStringIncludes(normalized, "from anon");
+  assertStringIncludes(normalized, "to authenticated");
+});
+
+Deno.test("packed create-quorum-router scaffold preserves Supabase migration and disabled behavior", async () => {
+  for (const command of ["npm", "node", "tar", "deno"]) {
+    const probe = await new Deno.Command(command, {
+      args: ["--version"],
+      stdout: "null",
+      stderr: "null",
+    }).output();
+    if (probe.code !== 0) {
+      console.warn(`skipping packed scaffold test: ${command} not found`);
+      return;
+    }
+  }
+
+  const tempDir = await Deno.makeTempDir();
+  try {
+    const pack = await new Deno.Command("npm", {
+      args: ["pack", "--json", "--pack-destination", tempDir],
+      cwd: "packages/create-quorum-router",
+      env: { NPM_CONFIG_CACHE: `${tempDir}/npm-cache` },
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(pack.code, 0, new TextDecoder().decode(pack.stderr));
+    const packed = normalizeNpmPackResult(
+      JSON.parse(new TextDecoder().decode(pack.stdout)),
+    );
+    const filename = packed.filename;
+    assert(filename);
+    const extract = await new Deno.Command("tar", {
+      args: ["-xzf", `${tempDir}/${filename}`, "-C", tempDir],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(extract.code, 0, new TextDecoder().decode(extract.stderr));
+
+    const migrationPath =
+      `${tempDir}/package/templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql`;
+    const packedMigration = await Deno.readTextFile(migrationPath);
+    assertEquals(
+      packedMigration,
+      await Deno.readTextFile(
+        "supabase/migrations/20260701130000_workflow_access_audit.sql",
+      ),
+    );
+    assertStringIncludes(
+      packedMigration,
+      "grant execute on function public.insert_workflow_access_audit_batch(jsonb)",
+    );
+    assertStringIncludes(
+      packedMigration,
+      "workflow_access_audit is append-only",
+    );
+
+    const create = await new Deno.Command("node", {
+      args: [`${tempDir}/package/bin/create-quorum-router.js`, "demo"],
+      cwd: tempDir,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(create.code, 0, new TextDecoder().decode(create.stderr));
+    assertEquals(
+      await Deno.readTextFile(
+        `${tempDir}/demo/supabase/migrations/20260701130000_workflow_access_audit.sql`,
+      ),
+      packedMigration,
+    );
+
+    for (
+      const args of [["task", "check"], ["task", "smoke"], [
+        "task",
+        "supabase:status",
+      ]]
+    ) {
+      const result = await new Deno.Command("deno", {
+        args,
+        cwd: `${tempDir}/demo`,
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      const output = new TextDecoder().decode(result.stdout) +
+        new TextDecoder().decode(result.stderr);
+      assertEquals(result.code, 0, output);
+      if (args[1] === "supabase:status") {
+        assertStringIncludes(output, "state: disabled");
+        assertStringIncludes(output, "network_request_sent: false");
+      }
+    }
+  } finally {
+    await Deno.remove(tempDir, { recursive: true });
+  }
 });
 
 Deno.test("create-quorum-router docs state license and runtime boundaries", async () => {
@@ -7460,7 +8152,8 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   );
   assertStringIncludes(templateReadme, "MIT-licensed open source");
   assertStringIncludes(templateReadme, "No service-role runtime");
-  assertStringIncludes(templateReadme, "No live Supabase runtime writes");
+  assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
+  assertStringIncludes(templateReadme, "deno task supabase:status");
   assertStringIncludes(templateReadme, "v0.1.6");
   assertStringIncludes(templateReadme, "deno --version");
   assert(!templateReadme.includes("v0.1.2"));
@@ -7546,6 +8239,8 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
         "deno.json",
         "main.ts",
         "router.config.example.json",
+        "supabase/migrations/20260701130000_workflow_access_audit.sql",
+        "supabase/migrations/20260712211500_workflow_access_audit_limits.sql",
         "src/cli.ts",
         "src/context.ts",
         "src/intake.ts",
@@ -7562,6 +8257,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
         "src/trace.ts",
         "src/redact.ts",
         "src/schema.ts",
+        "src/supabase.ts",
         "src/fixture_smoke.ts",
         "out/.gitkeep",
       ]

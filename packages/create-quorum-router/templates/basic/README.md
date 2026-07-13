@@ -19,8 +19,10 @@ are permitted under the MIT License.
 - Conversation-only `agent_chat` is explicit opt-in.
 - SafeLoop-backed production repository execution is not enabled by this
   generated scaffold; it requires external signed policy and distinct approval.
-- No service-role runtime.
-- No live Supabase runtime writes.
+- No service-role runtime; service-role/admin credentials are rejected even when
+  audit is disabled.
+- BYO Supabase audit is disabled by default and writes only when explicitly set
+  to `optional` or `required`.
 - No live Supabase Agent Bus runtime writes.
 - Best Route/direct is the production-ready best-answer routing path.
 - `agent-chat` is read-only explicit opt-in only.
@@ -39,6 +41,7 @@ deno task intake
 deno task auth:status
 deno task models:list
 deno task health
+deno task supabase:status
 ```
 
 `smoke` proves the local scaffold runs with deterministic fixtures only. It does
@@ -50,6 +53,37 @@ under `out/`, and recommends the next command.
 
 In short: intake is the first real setup command before `route:once`,
 `best-route`, or read-only `agent-chat`.
+
+## Optional BYO Supabase audit
+
+Supabase is not required. With no Supabase config or env, every existing task
+keeps its prior behavior and `deno task supabase:status` exits successfully with
+`state: disabled` without making a network request.
+
+To persist route outcomes in a Supabase project you own:
+
+1. Create or choose your Supabase project.
+2. Apply **both** files under `supabase/migrations/` in filename order using an
+   admin context outside the router runtime. The later limits migration is
+   mandatory.
+3. Ensure the active Supabase Auth user session JWT has an authenticated `sub`.
+4. Copy `router.config.example.json` to `router.config.json` and set only
+   `features.supabase.audit.mode` to `optional` or `required`.
+5. Inject `QUORUM_ROUTER_SUPABASE_URL`, `QUORUM_ROUTER_SUPABASE_ANON_KEY`, and
+   `QUORUM_ROUTER_SUPABASE_SESSION_JWT` at runtime.
+6. Run `deno task supabase:status`, then run `route:once` or `best-route`.
+
+`optional` preserves a successful route and prints a warning when audit delivery
+fails. `required` withholds the route result and exits nonzero when audit
+delivery fails. The RPC receives only the route decision and bounded metadata.
+It never receives prompts, model responses, credentials, `org_id`, `actor_id`,
+or `created_at`; the database derives both the actor and this single-user BYO
+audit namespace from `auth.uid()` and owns the timestamp. There is no central or
+shared database and no client tenant claim.
+
+Runtime service-role/admin credentials are forbidden. Agent Bus, Realtime
+wakeup, state sync, and an analytics dashboard are future features and are not
+enabled by this audit integration.
 
 ## Real provider dogfood commands
 
@@ -152,7 +186,12 @@ not paste them into chat/logs and do not commit `.env`.
 - `.gitignore` — excludes `.env`, `out/`, `router.config.local.json`,
   `provider_config.json`, and `.quorum-router/`.
 - `router.config.example.json` — non-secret example boundaries.
+- `supabase/migrations/20260701130000_workflow_access_audit.sql` — optional BYO
+  Supabase audit migration
+- `supabase/migrations/20260712211500_workflow_access_audit_limits.sql` —
+  required RPC narrowing and payload-limit migration
 - `src/cli.ts` — command dispatcher.
+- `src/supabase.ts` — offline status and selective audit RPC hook.
 - `src/intake.ts` — first-run onboarding.
 - `src/auth.ts`, `src/auth_oauth.ts`, `src/auth_session.ts`,
   `src/auth_env_fallback.ts` — auth/session/fallback boundaries.

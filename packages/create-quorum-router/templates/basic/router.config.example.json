@@ -5,6 +5,13 @@
     "enabled_by": "QUORUM_ROUTER_AUTH_MODE=env",
     "usage": "private manual fallback only"
   },
+  "features": {
+    "supabase": {
+      "audit": {
+        "mode": "disabled"
+      }
+    }
+  },
   "runtime_boundaries": {
     "best_route_direct": "production-ready best-answer routing",
     "agent_chat": "experimental explicit opt-in only",

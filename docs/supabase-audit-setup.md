@@ -1,8 +1,9 @@
 # Supabase audit setup
 
-Phase 2.5 operator guide for the Phase 2 Supabase-backed workflow/access audit
-boundary. This page is setup and operations documentation only; it does not
-introduce a new runtime mode or installer.
+Operator guide for the optional user-owned Supabase workflow/access audit
+boundary. The root runtime remains fail-closed. Generated `create-quorum-router`
+projects add selective `disabled`, `optional`, and `required` modes for
+tomorrow's audit-only MVP.
 
 ## What this audit log is for
 
@@ -27,13 +28,17 @@ from the authenticated request.
 
 ## Files in this repo
 
-| File                                                           | Purpose                                                                             |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `supabase/migrations/20260701130000_workflow_access_audit.sql` | Creates the table, append-only trigger, RPC, revokes, and grants.                   |
-| `router.ts`                                                    | Exposes `createSupabaseAuditHandler()` and `createSupabaseAuditSink()`.             |
-| `doctor.ts`                                                    | Reports Supabase audit config state and rejects service-role-like runtime env vars. |
-| `.env.example`                                                 | Safe, empty runtime environment example.                                            |
-| `docs/supabase-audit-checklist.md`                             | Manual verification checklist after applying the migration.                         |
+| File                                                                                                                | Purpose                                                                              |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `supabase/migrations/20260701130000_workflow_access_audit.sql`                                                      | Creates the table, append-only trigger, RPC, revokes, and grants.                    |
+| `supabase/migrations/20260712211500_workflow_access_audit_limits.sql`                                               | Narrows the route-outcome RPC and adds payload limits for existing/fresh projects.   |
+| `router.ts`                                                                                                         | Exposes `createSupabaseAuditHandler()` and `createSupabaseAuditSink()`.              |
+| `doctor.ts`                                                                                                         | Reports Supabase audit config state and rejects service-role-like runtime env vars.  |
+| `.env.example`                                                                                                      | Safe, empty runtime environment example.                                             |
+| `docs/supabase-audit-checklist.md`                                                                                  | Manual verification checklist after applying the migration.                          |
+| `packages/create-quorum-router/templates/basic/supabase/migrations/20260701130000_workflow_access_audit.sql`        | Migration bundled into each generated project.                                       |
+| `packages/create-quorum-router/templates/basic/supabase/migrations/20260712211500_workflow_access_audit_limits.sql` | Required hardening migration bundled into each generated project.                    |
+| `packages/create-quorum-router/templates/basic/src/supabase.ts`                                                     | Generated-project status, credential boundary, RPC client, and selective route hook. |
 
 ## Migration apply
 
@@ -62,9 +67,10 @@ runtime.
 
 ### Option B: SQL editor / admin SQL runner
 
-1. Open `supabase/migrations/20260701130000_workflow_access_audit.sql` in an
+1. Open both files under `supabase/migrations/` in filename order in an
    admin-only SQL runner such as the Supabase dashboard SQL editor.
-2. Run the migration once against the target project.
+2. Run both migrations against the target project. The later limits migration is
+   mandatory, including for projects that applied the first migration earlier.
 3. Run the manual checks in
    [`supabase-audit-checklist.md`](./supabase-audit-checklist.md).
 
@@ -88,39 +94,33 @@ The table is append-only. Any `UPDATE` or `DELETE` attempt raises:
 workflow_access_audit is append-only
 ```
 
-## JWT and `org_id` claim requirements
+## JWT identity requirements
 
 Every successful audit RPC call must carry a user/session JWT that Supabase
-treats as `authenticated` and that provides both:
+treats as `authenticated`:
 
-| Requirement   | Source in DB              | Failure behavior                   |
-| ------------- | ------------------------- | ---------------------------------- |
-| actor id      | `auth.uid()`              | RPC rejects when null.             |
-| tenant/org id | `auth.jwt() ->> 'org_id'` | RPC rejects when missing or empty. |
+| Requirement     | Source in DB       | Failure behavior                                          |
+| --------------- | ------------------ | --------------------------------------------------------- |
+| actor id        | `auth.uid()`       | RPC rejects when null.                                    |
+| audit namespace | `auth.uid()::text` | Derived by the database; no client org claim is accepted. |
 
 The client payload must **not** be trusted for identity. If a caller includes
 `org_id`, `actor_id`, or `created_at` in a record payload, those fields are
 ignored by the runtime handler and are not accepted as database-owned values by
 the RPC contract. The database injects:
 
-- `org_id` from `auth.jwt() ->> 'org_id'`;
+- `org_id` from `auth.uid()::text` for this single-user BYO project boundary;
 - `actor_id` from `auth.uid()`;
 - `created_at` from `now()`.
 
-### Where the claim should come from
+This MVP intentionally has no central or shared database and no multi-org tenant
+claim. Each user connects their own Supabase project. If a future project needs
+multiple organizations, it must add a database-owned membership table and a
+separately reviewed RPC rather than trusting a client JWT `org_id`.
 
-Pick one authoritative issuer for the runtime environment:
-
-| Runtime shape                | Where to attach `org_id`                                                                                                                                        |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Supabase Auth                | Add the org/tenant identifier to the user's app metadata or custom JWT claims, then verify `auth.jwt() ->> 'org_id'` resolves in SQL.                           |
-| Custom JWT issuer            | Sign session JWTs with Supabase-compatible claims, including `sub` for `auth.uid()` and `org_id` for tenant routing.                                            |
-| Edge gateway / agent gateway | Resolve the authenticated user and org before invoking the router, then pass the resulting user/session JWT into `createSupabaseAuditHandler({ jwtProvider })`. |
-
-The repo does not define a global runtime env var for the JWT. Integrations
-should provide it through `jwtProvider` from the active request/session context.
-For a local one-off smoke script, keep any JWT process-local and ephemeral;
-never commit or print it.
+The root library receives the JWT through `jwtProvider`. The generated CLI uses
+`QUORUM_ROUTER_SUPABASE_SESSION_JWT` (or `SUPABASE_SESSION_JWT`) for its active
+process only. Keep it ephemeral; never commit or print it.
 
 ## Runtime environment example
 
@@ -139,6 +139,9 @@ QUORUM_ROUTER_SUPABASE_ANON_KEY=
 # Optional fallback names if your runtime already standardizes on SUPABASE_*.
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
+
+# Generated CLI only: active user/session JWT, never a service-role token.
+QUORUM_ROUTER_SUPABASE_SESSION_JWT=
 ```
 
 The user/session JWT is not shown as a checked-in env value. Pass it from the
@@ -155,6 +158,30 @@ const auditHandler = createSupabaseAuditHandler({
 Do not add `SUPABASE_SERVICE_ROLE_KEY` or any service-role-like Supabase
 variable to the router runtime environment. Service-role credentials are only
 for out-of-band migration/admin operations.
+
+## Generated project selective mode
+
+Supabase is absent by default. Copy `router.config.example.json` to
+`router.config.json` only when you need local configuration, then keep the
+feature shape strict and non-secret:
+
+```json
+{
+  "features": {
+    "supabase": {
+      "audit": { "mode": "optional" }
+    }
+  }
+}
+```
+
+- `disabled`: default; no audit fetch is attempted.
+- `optional`: route succeeds and prints an explicit warning if audit fails.
+- `required`: audit failure withholds the route result and exits nonzero.
+
+Run `deno task supabase:status` before routing. It performs no network request,
+prints no credential values, exits 0 for disabled or fully configured state, and
+exits 1 for partial or forbidden credentials.
 
 ## Doctor output
 
@@ -201,13 +228,11 @@ DB.
 
 ## Non-goals
 
-Phase 2.5 intentionally does not add:
+The tomorrow MVP intentionally does not add:
 
-- code behavior changes;
-- migration SQL changes;
-- router runtime logic changes;
-- an installer;
-- a routing mode switch;
-- an agent-chat mode;
-- new providers;
-- any runtime service-role path.
+- Supabase project/account creation or migration application;
+- an operator-owned central Supabase project;
+- Agent Bus or Realtime wakeups;
+- state sync or an analytics dashboard;
+- new providers or routing modes;
+- any runtime service-role/admin path.

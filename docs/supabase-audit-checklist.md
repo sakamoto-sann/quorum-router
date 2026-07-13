@@ -1,8 +1,7 @@
 # Supabase audit manual verification checklist
 
-Run this after applying
-`supabase/migrations/20260701130000_workflow_access_audit.sql` to a target
-Supabase project.
+Run this after applying both files under `supabase/migrations/` in filename
+order to a target Supabase project. The later limits migration is mandatory.
 
 Use an admin/operator SQL surface for schema inspection. Use a normal
 user/session JWT for RPC-path tests. Do not install service-role credentials
@@ -109,61 +108,54 @@ Use a non-production project or disposable test records for these calls.
   - permission error before the SQL body runs;
   - RPC error text: `missing authenticated user`.
 
-- [ ] RPC rejects an authenticated JWT with missing or empty `org_id` claim.
+- [ ] RPC accepts an authenticated JWT without any client `org_id` claim.
 
-  Use a real test user/session JWT that resolves `auth.uid()` but has no usable
-  `org_id` claim. Call the same RPC with that bearer token:
-
-  ```bash
-  curl -sS -X POST \
-    "https://<project-ref>.supabase.co/rest/v1/rpc/insert_workflow_access_audit_batch" \
-    -H "apikey: ${QUORUM_ROUTER_SUPABASE_ANON_KEY}" \
-    -H "authorization: Bearer ${TEST_USER_SESSION_JWT_WITHOUT_ORG}" \
-    -H "content-type: application/json" \
-    -d '{"records":[{"event_type":"verification.missing-org","decision":"allow"}]}'
-  ```
-
-  Expected: rejected with `missing org_id claim` or an equivalent auth error.
-
-## DB-owned field checks
-
-- [ ] RPC inserts DB-owned `org_id`, `actor_id`, and `created_at`.
-
-  With a valid test user/session JWT that includes `org_id`, call the RPC with a
-  payload that tries to spoof those fields:
+  This BYO MVP derives the audit namespace from `auth.uid()::text`; it does not
+  use a client tenant claim. Call the RPC with a real authenticated test session
+  and this narrow route-outcome payload:
 
   ```json
   {
-    "records": [
-      {
-        "event_type": "verification.db-owned-fields",
-        "decision": "allow",
-        "org_id": "spoofed-client-org",
-        "actor_id": "00000000-0000-0000-0000-000000000000",
-        "created_at": "2000-01-01T00:00:00.000Z",
-        "metadata": { "verification": true }
-      }
-    ]
+    "records": [{
+      "workflow_id": "verification-run",
+      "route": "fixture/model",
+      "decision": "allow",
+      "metadata": { "command": "route:once", "schema_valid": true }
+    }]
   }
   ```
 
-  Then inspect the inserted row through an admin/operator SQL surface:
+  Expected: accepted without an `org_id` claim.
+
+## DB-owned field checks
+
+- [ ] RPC rejects client-supplied identity and event-semantics fields.
+
+  Add any of `org_id`, `actor_id`, `created_at`, `event_type`, `actor_type`, or
+  `reason` to the record above. Expected: the whole call is rejected with
+  `audit record contains unsupported fields` and no row is inserted.
+
+- [ ] RPC inserts DB-owned identity, semantics, and timestamp.
+
+  Submit the narrow valid payload, then inspect the inserted row through an
+  admin/operator SQL surface:
 
   ```sql
-  select org_id, actor_id, created_at, event_type, decision, metadata
+  select org_id, actor_id, created_at, event_type, actor_type, decision, reason, metadata
   from public.workflow_access_audit
-  where event_type = 'verification.db-owned-fields'
+  where workflow_id = 'verification-run'
   order by created_at desc
   limit 1;
   ```
 
   Expected:
 
-  - `org_id` equals the JWT `org_id` claim, not `spoofed-client-org`;
-  - `actor_id` equals `auth.uid()`, not the spoofed all-zero UUID;
-  - `created_at` is the database insertion time, not year 2000;
-  - event fields such as `event_type`, `decision`, and object `metadata` are
-    preserved.
+  - `org_id` equals `auth.uid()::text`;
+  - `actor_id` equals `auth.uid()`;
+  - `created_at` is the database insertion time;
+  - `event_type` is `route.outcome` and `actor_type` is `ai_assistant`;
+  - `reason` is derived by the database from the allow/error decision;
+  - metadata contains only allowlisted route-outcome keys.
 
 ## Append-only checks
 
@@ -172,7 +164,7 @@ Use a non-production project or disposable test records for these calls.
   ```sql
   update public.workflow_access_audit
   set reason = 'should fail'
-  where event_type = 'verification.db-owned-fields';
+  where workflow_id = 'verification-run';
   ```
 
   Expected: `workflow_access_audit is append-only`.
@@ -181,7 +173,7 @@ Use a non-production project or disposable test records for these calls.
 
   ```sql
   delete from public.workflow_access_audit
-  where event_type = 'verification.db-owned-fields';
+  where workflow_id = 'verification-run';
   ```
 
   Expected: `workflow_access_audit is append-only`.
