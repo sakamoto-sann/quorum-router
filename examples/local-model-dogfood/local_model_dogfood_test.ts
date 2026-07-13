@@ -413,7 +413,7 @@ Deno.test("local model dogfood CLI blocks route without opt-in", async () => {
       "run",
       "--allow-env",
       "--allow-read",
-      "--allow-run=codex,claude,gemini,grok,devin,qwen",
+      "--allow-run=codex,claude,gemini,grok,devin",
       "--allow-net",
       "--allow-write=../../out/dogfood/local-model-dogfood",
       "src/cli.ts",
