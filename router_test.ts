@@ -8050,7 +8050,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.8");
+  assertEquals(packageJson.version, "0.1.9");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -8702,7 +8702,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
   assertStringIncludes(templateReadme, "deno task supabase:status");
-  assertStringIncludes(templateReadme, "v0.1.8");
+  assertStringIncludes(templateReadme, "v0.1.9");
   assertStringIncludes(templateReadme, "deno task calibration:demo");
   assertStringIncludes(templateReadme, "advisory-only");
   assertStringIncludes(templateReadme, "deno --version");
@@ -8774,7 +8774,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.8");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.9");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -9720,6 +9720,22 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
   assert(!/process adapter/i.test(script));
   assert(!/API[_-]?KEY|TOKEN|SECRET/.test(script));
 
+  const defaultDryRun = await new Deno.Command("sh", {
+    args: ["install.sh", "--dry-run"],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  assertEquals(
+    defaultDryRun.code,
+    0,
+    new TextDecoder().decode(defaultDryRun.stderr),
+  );
+  assertStringIncludes(
+    new TextDecoder().decode(defaultDryRun.stdout),
+    "ref:    v0.1.9",
+  );
+  assertStringIncludes(script, "--ref v0.1.9");
+
   const tempDir = await Deno.makeTempDir();
   try {
     const dryRun = await new Deno.Command("sh", {
@@ -9733,6 +9749,24 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
   } finally {
     await Deno.remove(tempDir, { recursive: true });
   }
+});
+
+Deno.test("calibration demo claims disclose first-run dependency resolution", async () => {
+  const releaseNotes = await Deno.readTextFile("docs/release-v0.1.8.md");
+  const packageReadme = await Deno.readTextFile(
+    "packages/create-quorum-router/README.md",
+  );
+  const templateReadme = await Deno.readTextFile(
+    "packages/create-quorum-router/templates/basic/README.md",
+  );
+  const combined = [releaseNotes, packageReadme, templateReadme].join("\n");
+
+  assert(!/offline[^\n]*calibration:demo/i.test(combined));
+  assertStringIncludes(
+    combined,
+    "first run resolves the pinned Zod dependency",
+  );
+  assertStringIncludes(combined, "does not call provider APIs");
 });
 
 Deno.test("install and Product Hunt docs preserve license and security boundaries", async () => {

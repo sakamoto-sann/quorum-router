@@ -17,7 +17,7 @@ deno task intake
 deno task supabase:status
 ```
 
-Current package version: `create-quorum-router@0.1.8`. Releases are published
+Current package version: `create-quorum-router@0.1.9`. Releases are published
 from an immutable Git tag through GitHub Actions OIDC Trusted Publishing.
 
 ## What the generated project supports
@@ -27,7 +27,9 @@ API.
 
 `deno task calibration:demo` runs the bundled calibration-by-task API against
 deterministic local observations. The report is advisory-only and is not
-connected to routing weights, provider eligibility, or execution.
+connected to routing weights, provider eligibility, or execution. The command
+does not call provider APIs; on a new Deno installation, its first run resolves
+the pinned Zod dependency before execution.
 
 `deno task intake` is the first real setup command. It detects local provider
 wrappers, checks OAuth/session status, runs safe list-only model inventory where

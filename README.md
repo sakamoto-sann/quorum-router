@@ -147,7 +147,7 @@ deno task smoke:v0.1
 ## Links
 
 - npm installer: `npx --yes create-quorum-router@latest`
-- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.5
+- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.9
 - launch assets: [docs/launch/](docs/launch/)
 - internal dogfood QA:
   [docs/dogfood/manual-qa-runbook.md](docs/dogfood/manual-qa-runbook.md)

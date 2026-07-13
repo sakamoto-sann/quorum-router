@@ -13,7 +13,8 @@ core API and the generated `create-quorum-router` scaffold.
   change routing weights, ranks, eligibility, quorum, or execution.
 - Ship the same strict Calibration API in generated workspaces as
   `src/calibration.ts`.
-- Add the offline `deno task calibration:demo` scaffold command.
+- Add `deno task calibration:demo`; it makes no provider/API calls, while a
+  first run may resolve the pinned Zod dependency.
 
 ## Validation and hardening
 

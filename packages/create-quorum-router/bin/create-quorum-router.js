@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const VERSION = "0.1.8";
+const VERSION = "0.1.9";
 const SUPPORTED_TEMPLATES = new Set(["basic"]);
 
 function usage() {

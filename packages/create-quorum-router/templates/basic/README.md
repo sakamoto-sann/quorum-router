@@ -1,7 +1,7 @@
 # QuorumRouter generated workspace
 
 This generated workspace contains the MIT-licensed QuorumRouter current release.
-npm latest targets v0.1.8.
+npm latest targets v0.1.9.
 
 QuorumRouter is **MIT**. It is **open source**. Commercial and production use
 are permitted under the MIT License.
@@ -51,7 +51,8 @@ deno task supabase:status
 `calibration:demo` exercises the bundled calibration-by-task API with local
 fixture observations. Calibration reports are advisory-only: the scaffold does
 not use them to change routing weights, ranks, provider eligibility, quorum, or
-execution.
+execution. The command does not call provider APIs; on a new Deno installation,
+its first run resolves the pinned Zod dependency before execution.
 
 `intake` detects local provider wrappers, checks OAuth/session status, runs safe
 model inventory/list-only probes where possible, writes local health traces

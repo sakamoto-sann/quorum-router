@@ -69,8 +69,8 @@ cd my-quorum-router
 deno task smoke
 ```
 
-The npm package is `create-quorum-router@0.1.8` (`latest -> 0.1.8`). Version
-`0.1.8` adds deterministic advisory task calibration to the core API and
+The npm package is `create-quorum-router@0.1.9` (`latest -> 0.1.9`). Version
+`0.1.9` includes deterministic advisory task calibration in the core API and
 generated scaffold.
 
 The release is deliberately narrow: prove the public path, explain the safety

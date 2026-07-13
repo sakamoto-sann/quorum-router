@@ -2,7 +2,7 @@
 set -eu
 
 PREFIX=${HOME}/.local
-REF=v0.1.6
+REF=v0.1.9
 DRY_RUN=0
 REPO_URL=https://github.com/sakamoto-sann/quorum-router.git
 
@@ -15,7 +15,7 @@ Usage:
 
 Defaults:
   --prefix $HOME/.local
-  --ref v0.1.6
+  --ref v0.1.9
 
 The installer prints what it will do. It does not elevate privileges, ask for
 credentials, write secret material, enable adapter execution, or configure live
