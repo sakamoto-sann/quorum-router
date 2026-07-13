@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { TaskCalibrationReportSchema } from "./calibration/calibration.ts";
+import {
+  HierarchicalTaskCalibrationDecisionSchema,
+  TaskCalibrationReportSchema,
+} from "./calibration/calibration.ts";
 import { ModelUsageSchema } from "./prompt-cache.ts";
 
 export const AuthModeSchema = z.enum(["apiKey", "oauth", "session"]);
@@ -113,7 +116,17 @@ export const DecisionReportSchema = z.object({
   validated_sources: z.array(z.string().min(1)),
   failures: z.array(DecisionFailureSchema),
   calibration: TaskCalibrationReportSchema.optional(),
+  hierarchical_calibration: HierarchicalTaskCalibrationDecisionSchema
+    .optional(),
 }).superRefine((value, context) => {
+  if (value.calibration && value.hierarchical_calibration) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "flat and hierarchical calibration reports are mutually exclusive",
+      path: ["hierarchical_calibration"],
+    });
+  }
   if (value.quorum.validated_outputs !== value.execution.successful_adapters) {
     context.addIssue({
       code: "custom",

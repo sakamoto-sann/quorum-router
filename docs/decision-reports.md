@@ -84,7 +84,10 @@ truth. A response must not be treated as correct or incorrect without an
 external evaluation.
 
 The separate [calibration API](calibration.md) aggregates only explicit,
-externally evaluated observations. Its per-task, per-source metrics are advisory
-diagnostics: they do not change routing weights, ranks, eligibility, or
-execution behavior. The caller-attested-ground-truth marker is an unverified
+externally evaluated observations. Its metrics by task, hierarchy, and source
+are advisory diagnostics: they do not change routing weights, ranks,
+eligibility, or execution behavior. When hierarchy input is supplied, the
+per-run report records the requested scope, each inspected pattern/subtype/task
+candidate, and the first sufficient fallback without treating that aggregate as
+ground truth. The caller-attested-ground-truth marker is an unverified
 provenance assertion, not proof supplied by QuorumRouter.

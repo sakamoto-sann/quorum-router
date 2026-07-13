@@ -1,7 +1,11 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  aggregateHierarchicalTaskCalibration,
   aggregateTaskCalibration,
+  HierarchicalTaskCalibrationDecisionSchema,
+  HierarchicalTaskCalibrationObservationSchema,
   MAX_CALIBRATION_OBSERVATIONS,
+  resolveHierarchicalTaskCalibration,
   TaskCalibrationObservationSchema,
   TaskCalibrationReportSchema,
 } from "../../router.ts";
@@ -324,6 +328,257 @@ Deno.test("task calibration report schema rejects contradictory groups", () => {
     TaskCalibrationReportSchema.parse({
       ...valid,
       groups: [group, group],
+    })
+  );
+});
+
+Deno.test("hierarchical calibration accepts canonical labels but rejects raw prompts and orphan patterns", () => {
+  const base = observation();
+  HierarchicalTaskCalibrationObservationSchema.parse({
+    ...base,
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+  });
+  assertThrows(() =>
+    HierarchicalTaskCalibrationObservationSchema.parse({
+      ...base,
+      task_subtype: "typescript",
+      prompt_pattern: "Review this schema boundary carefully",
+    })
+  );
+  assertThrows(() =>
+    HierarchicalTaskCalibrationObservationSchema.parse({
+      ...base,
+      task_subtype: "TypeScript",
+      prompt_pattern: "schema-boundary-review",
+    })
+  );
+  for (
+    const candidate of [
+      observation({ prompt_pattern: "schema-boundary-review" }),
+      observation({ task_subtype: " ", prompt_pattern: "pattern" }),
+      observation({ task_subtype: "typescript", raw_prompt: "review this" }),
+    ]
+  ) {
+    assertThrows(() =>
+      HierarchicalTaskCalibrationObservationSchema.parse(candidate)
+    );
+  }
+});
+
+Deno.test("hierarchical calibration emits task, subtype, and pattern groups", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "pattern-1",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+    observation({
+      observation_id: "subtype-only",
+      task_subtype: "typescript",
+      correct: false,
+      confidence: 0.6,
+    }),
+    observation({
+      observation_id: "obs-only",
+      correct: true,
+      confidence: 0.7,
+    }),
+  ], { minimum_sample_count: 2 });
+
+  assertEquals(
+    report.groups.map((group) => [
+      group.scope,
+      group.task_subtype,
+      group.prompt_pattern,
+      group.sample_count,
+      group.sample_status,
+    ]),
+    [
+      ["task_type", undefined, undefined, 3, "sufficient"],
+      ["task_subtype", "typescript", undefined, 2, "sufficient"],
+      [
+        "prompt_pattern",
+        "typescript",
+        "schema-boundary-review",
+        1,
+        "insufficient",
+      ],
+    ],
+  );
+});
+
+Deno.test("hierarchical calibration resolves pattern then falls back through subtype to task", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "pattern-1",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+    observation({
+      observation_id: "subtype-2",
+      task_subtype: "typescript",
+    }),
+    observation({ observation_id: "obs-3" }),
+  ], { minimum_sample_count: 2 });
+  const query = {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  };
+
+  const selection = resolveHierarchicalTaskCalibration(report, query);
+
+  assertEquals(selection.requested_scope, "prompt_pattern");
+  assertEquals(selection.resolution_status, "selected");
+  assertEquals(selection.selected_scope, "task_subtype");
+  assertEquals(selection.candidates, [
+    {
+      scope: "prompt_pattern",
+      sample_count: 1,
+      sample_status: "insufficient",
+    },
+    {
+      scope: "task_subtype",
+      sample_count: 2,
+      sample_status: "sufficient",
+    },
+    {
+      scope: "task_type",
+      sample_count: 3,
+      sample_status: "sufficient",
+    },
+  ]);
+  assertEquals(selection.selected_group?.scope, "task_subtype");
+});
+
+Deno.test("hierarchical calibration selects a sufficient pattern and reports no selection when all levels are insufficient", () => {
+  const sufficient = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "p1",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+    observation({
+      observation_id: "p2",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+  ], { minimum_sample_count: 2 });
+  const query = {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  };
+
+  assertEquals(
+    resolveHierarchicalTaskCalibration(sufficient, query).selected_scope,
+    "prompt_pattern",
+  );
+
+  const insufficient = aggregateHierarchicalTaskCalibration([
+    observation({
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+  ], { minimum_sample_count: 2 });
+  const selection = resolveHierarchicalTaskCalibration(insufficient, query);
+  assertEquals(selection.resolution_status, "no_sufficient_group");
+  assertEquals(selection.selected_scope, null);
+  assertEquals(selection.selected_group, undefined);
+});
+
+Deno.test("hierarchical calibration uses structured keys for delimiter-bearing labels", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "delimiter-1",
+      task_subtype: "a:b",
+      prompt_pattern: "c/d",
+    }),
+    observation({
+      observation_id: "delimiter-2",
+      task_subtype: "a",
+      prompt_pattern: "b:c/d",
+    }),
+  ], { minimum_sample_count: 1 });
+
+  assertEquals(
+    report.groups.filter((group) => group.scope === "prompt_pattern").map(
+      (group) => [group.task_subtype, group.prompt_pattern],
+    ),
+    [["a", "b:c/d"], ["a:b", "c/d"]],
+  );
+});
+
+Deno.test("hierarchical calibration never crosses provider or model boundaries", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "openai",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+    observation({
+      observation_id: "anthropic",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+      source: { provider: "Anthropic", model: "claude" },
+    }),
+  ], { minimum_sample_count: 2 });
+
+  const selection = resolveHierarchicalTaskCalibration(report, {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  });
+  assertEquals(selection.resolution_status, "no_sufficient_group");
+  assertEquals(selection.candidates[0].sample_count, 1);
+});
+
+Deno.test("hierarchical calibration decision schema rejects report-selection contradictions", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "p1",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+    observation({
+      observation_id: "p2",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+  ], { minimum_sample_count: 2 });
+  const selection = resolveHierarchicalTaskCalibration(report, {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  });
+
+  HierarchicalTaskCalibrationDecisionSchema.parse({ report, selection });
+  assertThrows(() =>
+    HierarchicalTaskCalibrationDecisionSchema.parse({
+      report,
+      selection: {
+        ...selection,
+        candidates: selection.candidates.map((candidate, index) =>
+          index === 0 ? { ...candidate, sample_count: 1 } : candidate
+        ),
+      },
+    })
+  );
+  assertThrows(() =>
+    HierarchicalTaskCalibrationDecisionSchema.parse({
+      report,
+      selection: {
+        ...selection,
+        selected_group: {
+          ...selection.selected_group,
+          source: { provider: "Anthropic", model: "claude" },
+        },
+      },
     })
   );
 });

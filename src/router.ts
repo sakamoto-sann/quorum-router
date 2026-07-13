@@ -1,6 +1,10 @@
 import type { BudgetManager } from "./budget/budget.ts";
 import {
+  aggregateHierarchicalTaskCalibration,
   aggregateTaskCalibration,
+  type HierarchicalTaskCalibrationDecision,
+  type HierarchicalTaskCalibrationQuery,
+  resolveHierarchicalTaskCalibration,
   type TaskCalibrationOptions,
   type TaskCalibrationReport,
 } from "./calibration/calibration.ts";
@@ -119,6 +123,7 @@ function buildDecisionReport(args: {
   failedAdapters: number;
   failures?: DecisionFailure[];
   calibration?: TaskCalibrationReport;
+  hierarchicalCalibration?: HierarchicalTaskCalibrationDecision;
 }): DecisionReport {
   return DecisionReportSchema.parse({
     schema_version: "quorum-router.decision-report.v1",
@@ -139,6 +144,9 @@ function buildDecisionReport(args: {
     ),
     failures: args.failures ?? [],
     ...(args.calibration ? { calibration: args.calibration } : {}),
+    ...(args.hierarchicalCalibration
+      ? { hierarchical_calibration: args.hierarchicalCalibration }
+      : {}),
   });
 }
 
@@ -165,6 +173,11 @@ export type QuorumRouterRouteOptions = {
   calibration?: {
     observations: readonly unknown[];
     options?: TaskCalibrationOptions;
+  };
+  hierarchicalCalibration?: {
+    observations: readonly unknown[];
+    options?: TaskCalibrationOptions;
+    query: HierarchicalTaskCalibrationQuery;
   };
 };
 
@@ -367,6 +380,13 @@ export class QuorumRouter {
     prompt: string,
     options: QuorumRouterRouteOptions,
   ): Promise<DecisionReportEnvelope> {
+    if (options.calibration && options.hierarchicalCalibration) {
+      failClosed(
+        4400,
+        "ambiguous_calibration_input",
+        "Flat and hierarchical calibration inputs are mutually exclusive.",
+      );
+    }
     let calibration: TaskCalibrationReport | undefined;
     if (options.calibration) {
       try {
@@ -379,6 +399,30 @@ export class QuorumRouter {
           4400,
           "calibration_validation_failed",
           "Calibration evidence failed validation.",
+        );
+      }
+    }
+    let hierarchicalCalibration:
+      | HierarchicalTaskCalibrationDecision
+      | undefined;
+    if (options.hierarchicalCalibration) {
+      try {
+        const report = aggregateHierarchicalTaskCalibration(
+          options.hierarchicalCalibration.observations,
+          options.hierarchicalCalibration.options,
+        );
+        hierarchicalCalibration = {
+          report,
+          selection: resolveHierarchicalTaskCalibration(
+            report,
+            options.hierarchicalCalibration.query,
+          ),
+        };
+      } catch {
+        failClosed(
+          4400,
+          "hierarchical_calibration_validation_failed",
+          "Hierarchical calibration evidence failed validation.",
         );
       }
     }
@@ -406,6 +450,7 @@ export class QuorumRouter {
           successfulOutputs: [],
           failedAdapters: 0,
           calibration,
+          hierarchicalCalibration,
         });
         failClosed(
           4401,
@@ -452,6 +497,7 @@ export class QuorumRouter {
           failedAdapters: telemetry.failedAdapters,
           failures: decisionFailuresFromTelemetry(telemetry),
           calibration,
+          hierarchicalCalibration,
         });
         failClosed(
           4401,
@@ -503,6 +549,7 @@ export class QuorumRouter {
           failedAdapters: telemetry.failedAdapters,
           failures: decisionFailuresFromTelemetry(telemetry),
           calibration,
+          hierarchicalCalibration,
         });
         return DecisionReportEnvelopeSchema.parse({
           final,
@@ -527,6 +574,7 @@ export class QuorumRouter {
             },
           ],
           calibration,
+          hierarchicalCalibration,
         });
         failClosed(
           4401,

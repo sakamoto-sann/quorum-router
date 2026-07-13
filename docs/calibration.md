@@ -40,9 +40,15 @@ The pure aggregation function performs no evaluator authentication,
 policy-version verification, invocation binding, durable replay protection, or
 cross-call deduplication. Callers that need those guarantees must establish them
 before calling this function. `observation_id` uniqueness is enforced only
-within one call. Callers must also provide canonical task taxonomy and immutable
-model revision identifiers when results must remain comparable; NFC
-normalization does not resolve aliases or Unicode confusables.
+within one call. Callers must also provide canonical task taxonomy, including
+stable subtype and prompt-pattern labels when using hierarchical calibration,
+and immutable model revision identifiers when results must remain comparable;
+NFC normalization does not resolve aliases or Unicode confusables. A
+`prompt_pattern` is a caller-defined category such as `schema-boundary-review`,
+never the raw prompt or an automatically generated embedding. Subtype and
+pattern labels are limited to 128 lowercase ASCII characters: they must begin
+and end with an alphanumeric character and may contain only lowercase
+alphanumerics plus `._:/-`.
 
 One call accepts at most 10,000 observations. `minimum_sample_count` must be a
 positive integer no greater than that limit. Large datasets should be bounded
@@ -133,3 +139,64 @@ minimum defaults to 20 and is only a reporting threshold; reaching it does not
 make a group trusted or authorize automatic action. `"sufficient"` means only
 `sample_count >= minimum_sample_count`; it does not establish statistical power,
 independence, representativeness, validity, or routing fitness.
+
+## Hierarchical calibration
+
+The additive hierarchical API preserves the existing flat v1 API and groups the
+same caller-attested observations at up to three scopes:
+
+1. `task_type`
+2. `task_subtype`
+3. `prompt_pattern`
+
+A pattern requires a subtype. Each observation contributes to its task group,
+and to subtype and pattern groups only when those labels are present. Provider
+and model remain part of every group key, so fallback never crosses a source
+boundary.
+
+```ts
+const report = aggregateHierarchicalTaskCalibration(observations, {
+  minimum_sample_count: 20,
+});
+
+const selection = resolveHierarchicalTaskCalibration(report, {
+  task_type: "code_review",
+  task_subtype: "typescript",
+  prompt_pattern: "schema-boundary-review",
+  source: { provider: "OpenAI", model: "gpt-5" },
+});
+```
+
+Resolution inspects the requested pattern first, then its subtype, then the task
+group. It selects the first group whose sample count meets the configured
+threshold. `selection.candidates` records every inspected scope with `missing`,
+`insufficient`, or `sufficient` status. If no scope is sufficient,
+`resolution_status` is `no_sufficient_group` and no group is selected. The
+resolver does not silently use an insufficient parent.
+
+Attach the hierarchy to a per-run Decision Report with the additive route input:
+
+```ts
+const envelope = await router.routeWithDecisionReport(prompt, {
+  hierarchicalCalibration: {
+    observations,
+    options: { minimum_sample_count: 20 },
+    query: {
+      task_type: "code_review",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+      source: { provider: "OpenAI", model: "gpt-5" },
+    },
+  },
+});
+
+console.log(envelope.decision_report.hierarchical_calibration?.selection);
+```
+
+Aggregation and resolution complete before provider invocation. Invalid labels,
+duplicate observation IDs, contradictory report fields, or a selection that does
+not match its aggregate report fail closed. Flat `calibration` and
+`hierarchicalCalibration` inputs are mutually exclusive so one run cannot attach
+conflicting evidence sets. The attached hierarchy remains `advisory_only: true`;
+candidate eligibility, rank, weight, quorum, budget, and execution are
+unchanged.

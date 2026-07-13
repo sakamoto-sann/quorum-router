@@ -139,10 +139,13 @@ The split is intended to be behavior-preserving:
 
 ## Advisory calibration boundary
 
-[`docs/calibration.md`](calibration.md) documents the pure calibration API. It
-groups caller-attested binary outcomes by task type and provider/model source,
-then returns accuracy, mean confidence, Brier score, signed mean calibration
-bias, and sample-count status.
+[`docs/calibration.md`](calibration.md) documents both pure calibration APIs.
+The legacy v1 groups caller-attested binary outcomes by task type and
+provider/model source. The additive hierarchy also emits subtype and
+caller-defined pattern groups, then resolves a run from pattern to subtype to
+task based only on the configured sample-count threshold. Both return accuracy,
+mean confidence, Brier score, signed mean calibration bias, and sample-count
+status.
 
 The module validates structure and per-call observation ID uniqueness. It does
 not authenticate evaluators, bind observations to invocations, deduplicate

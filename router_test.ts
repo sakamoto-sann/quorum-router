@@ -1147,6 +1147,125 @@ Deno.test("direct routing aggregates caller-attested calibration into the decisi
   });
 });
 
+Deno.test("direct routing attaches hierarchical calibration selection above aggregate groups", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const base = {
+    task_type: "code-review",
+    source: { provider: "Fixture", model: "counting" },
+    evaluation_basis: "caller_attested_external_ground_truth",
+    correct: true,
+    confidence: 0.8,
+    evaluated_at: "2026-07-13T00:00:00Z",
+  } as const;
+  const envelope = await router.routeWithDecisionReport("hello", {
+    hierarchicalCalibration: {
+      observations: [
+        {
+          ...base,
+          observation_id: "pattern-1",
+          task_subtype: "typescript",
+          prompt_pattern: "schema-boundary-review",
+        },
+        {
+          ...base,
+          observation_id: "subtype-2",
+          task_subtype: "typescript",
+        },
+        { ...base, observation_id: "obs-3" },
+      ],
+      options: { minimum_sample_count: 2 },
+      query: {
+        task_type: "code-review",
+        task_subtype: "typescript",
+        prompt_pattern: "schema-boundary-review",
+        source: { provider: "Fixture", model: "counting" },
+      },
+    },
+  });
+
+  assertEquals(adapter.calls, 1);
+  const hierarchy = envelope.decision_report.hierarchical_calibration;
+  assertEquals(hierarchy?.report.groups.length, 3);
+  assertEquals(hierarchy?.selection.requested_scope, "prompt_pattern");
+  assertEquals(hierarchy?.selection.selected_scope, "task_subtype");
+  assertEquals(
+    hierarchy?.selection.candidates.map((candidate) => [
+      candidate.scope,
+      candidate.sample_count,
+      candidate.sample_status,
+    ]),
+    [
+      ["prompt_pattern", 1, "insufficient"],
+      ["task_subtype", 2, "sufficient"],
+      ["task_type", 3, "sufficient"],
+    ],
+  );
+});
+
+Deno.test("flat and hierarchical calibration inputs are mutually exclusive", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const base = {
+    observation_id: "obs-1",
+    task_type: "code_review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+    evaluation_basis: "caller_attested_external_ground_truth" as const,
+    correct: true,
+    confidence: 0.8,
+    evaluated_at: "2026-07-14T00:00:00Z",
+  };
+
+  const error = await assertRejects(
+    () =>
+      router.routeWithDecisionReport("hello", {
+        calibration: { observations: [base] },
+        hierarchicalCalibration: {
+          observations: [{ ...base, task_subtype: "typescript" }],
+          query: {
+            task_type: "code_review",
+            task_subtype: "typescript",
+            source: { provider: "OpenAI", model: "gpt-5" },
+          },
+        },
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "ambiguous_calibration_input");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("invalid hierarchical calibration fails before provider invocation", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const error = await assertRejects(
+    () =>
+      router.routeWithDecisionReport("hello", {
+        hierarchicalCalibration: {
+          observations: [{
+            observation_id: "obs-1",
+            task_type: "code-review",
+            prompt_pattern: "orphan-pattern",
+            source: { provider: "Fixture", model: "counting" },
+            evaluation_basis: "caller_attested_external_ground_truth",
+            correct: true,
+            confidence: 0.8,
+            evaluated_at: "2026-07-13T00:00:00Z",
+          }],
+          query: {
+            task_type: "code-review",
+            source: { provider: "Fixture", model: "counting" },
+          },
+        },
+      }),
+    RouterError,
+  );
+
+  assertEquals(error.status, 4400);
+  assertEquals(error.code, "hierarchical_calibration_validation_failed");
+  assertEquals(adapter.calls, 0);
+});
+
 Deno.test("invalid calibration evidence fails before provider invocation", async () => {
   const adapter = new CountingAdapter();
   const router = buildRouter(adapter, staticOkSynthesis());
