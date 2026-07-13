@@ -5,9 +5,16 @@ import {
 } from "./agent-runtime/index.ts";
 import {
   type CoFailureTelemetry,
+  type DecisionFailure,
+  type DecisionOutcome,
+  type DecisionReport,
+  type DecisionReportEnvelope,
+  DecisionReportEnvelopeSchema,
+  DecisionReportSchema,
   type FinalSynthesis,
   FinalSynthesisSchema,
   type ModelOutput,
+  ModelOutputSchema,
 } from "./schemas.ts";
 import type {
   ModelAdapter,
@@ -62,6 +69,70 @@ function providerDescriptorSelectionKey(
     descriptor.transport,
     descriptor.client ?? "",
   ].map((part) => part.toLowerCase()).join("\u0000");
+}
+
+function validateAdapterOutputIdentity(
+  adapter: ModelAdapter,
+  rawOutput: unknown,
+): ModelOutput {
+  const output = ModelOutputSchema.parse(rawOutput);
+  if (
+    output.provider !== adapter.descriptor.provider ||
+    output.model !== adapter.descriptor.model
+  ) {
+    failClosed(
+      4401,
+      "provider_identity_mismatch",
+      "Adapter output identity does not match its configured descriptor.",
+      {
+        configuredProvider: adapter.descriptor.provider,
+        configuredModel: adapter.descriptor.model,
+      },
+    );
+  }
+  return output;
+}
+
+function decisionFailuresFromTelemetry(
+  telemetry: CoFailureTelemetry,
+): DecisionFailure[] {
+  return telemetry.failures.map((failure) => ({
+    stage: "adapter_execution",
+    provider: failure.provider,
+    model: failure.model,
+    code: failure.code,
+  }));
+}
+
+function buildDecisionReport(args: {
+  outcome: DecisionOutcome;
+  stage: DecisionReport["stage"];
+  configuredRequired: number;
+  effectiveRequired: number;
+  attemptedAdapters: number;
+  successfulOutputs: ModelOutput[];
+  failedAdapters: number;
+  failures?: DecisionFailure[];
+}): DecisionReport {
+  return DecisionReportSchema.parse({
+    schema_version: "quorum-router.decision-report.v1",
+    outcome: args.outcome,
+    stage: args.stage,
+    quorum: {
+      configured_required: args.configuredRequired,
+      effective_required: args.effectiveRequired,
+      validated_outputs: args.successfulOutputs.length,
+    },
+    execution: {
+      attempted_adapters: args.attemptedAdapters,
+      successful_adapters: args.successfulOutputs.length,
+      failed_adapters: args.failedAdapters,
+    },
+    validated_sources: args.successfulOutputs.map((output) =>
+      `${output.provider}/${output.model}`
+    ),
+    failures: args.failures ?? [],
+  });
 }
 
 export type QuorumRouterOptions = {
@@ -259,7 +330,31 @@ export class QuorumRouter {
       });
     }
     assertImplementedRoutingMode(routingMode);
+    return (await this.routeDirectWithDecisionReport(prompt, options)).final;
+  }
 
+  async routeWithDecisionReport(
+    prompt: string,
+    options: QuorumRouterRouteOptions = {},
+  ): Promise<DecisionReportEnvelope> {
+    const routingMode = this.describeRoutingModeDecisionForRequest(options);
+    if (routingMode.mode !== "direct") {
+      failClosed(
+        4401,
+        "decision_report_direct_mode_required",
+        "routeWithDecisionReport currently supports direct routing only.",
+        { routingMode },
+      );
+    }
+    assertImplementedRoutingMode(routingMode);
+    return await this.routeDirectWithDecisionReport(prompt, options);
+  }
+
+  private async routeDirectWithDecisionReport(
+    prompt: string,
+    options: QuorumRouterRouteOptions,
+  ): Promise<DecisionReportEnvelope> {
+    const routingMode = this.describeRoutingModeDecisionForRequest(options);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
@@ -274,6 +369,15 @@ export class QuorumRouter {
         executionAdapters.length,
       );
       if (effectiveMinSuccessfulAdapters < 1) {
+        const decisionReport = buildDecisionReport({
+          outcome: "no_executable_adapters",
+          stage: "candidate_selection",
+          configuredRequired: this.minSuccessfulAdapters,
+          effectiveRequired: effectiveMinSuccessfulAdapters,
+          attemptedAdapters: 0,
+          successfulOutputs: [],
+          failedAdapters: 0,
+        });
         failClosed(
           4401,
           "consensus_insufficient",
@@ -283,13 +387,17 @@ export class QuorumRouter {
             directRoutingDecision,
             configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
             effectiveMinSuccessfulAdapters,
+            decisionReport,
           },
         );
       }
 
       const settled = await Promise.allSettled(
-        executionAdapters.map((adapter) =>
-          adapter.invoke(prompt, controller.signal)
+        executionAdapters.map(async (adapter) =>
+          validateAdapterOutputIdentity(
+            adapter,
+            await adapter.invoke(prompt, controller.signal),
+          )
         ),
       );
 
@@ -305,6 +413,16 @@ export class QuorumRouter {
         .map((result) => result.value);
 
       if (successfulOutputs.length < effectiveMinSuccessfulAdapters) {
+        const decisionReport = buildDecisionReport({
+          outcome: "insufficient_valid_outputs",
+          stage: "candidate_execution",
+          configuredRequired: this.minSuccessfulAdapters,
+          effectiveRequired: effectiveMinSuccessfulAdapters,
+          attemptedAdapters: executionAdapters.length,
+          successfulOutputs,
+          failedAdapters: telemetry.failedAdapters,
+          failures: decisionFailuresFromTelemetry(telemetry),
+        });
         failClosed(
           4401,
           "consensus_insufficient",
@@ -315,6 +433,7 @@ export class QuorumRouter {
             directRoutingDecision,
             configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
             effectiveMinSuccessfulAdapters,
+            decisionReport,
           },
         );
       }
@@ -324,13 +443,59 @@ export class QuorumRouter {
       );
 
       try {
-        const finalResponse = await this.synthesisAdapter.synthesize(
-          prompt,
-          successfulOutputs,
-          controller.signal,
+        const final = FinalSynthesisSchema.parse(
+          await this.synthesisAdapter.synthesize(
+            prompt,
+            successfulOutputs,
+            controller.signal,
+          ),
         );
-        return FinalSynthesisSchema.parse(finalResponse);
+        const validatedSourceLabels = new Set(
+          successfulOutputs.map((output) =>
+            `${output.provider}/${output.model}`
+          ),
+        );
+        if (
+          new Set(final.sources).size !== final.sources.length ||
+          final.sources.some((source) => !validatedSourceLabels.has(source))
+        ) {
+          throw new Error(
+            "Synthesis sources must be unique and reference only validated candidate outputs.",
+          );
+        }
+        const decisionReport = buildDecisionReport({
+          outcome: "minimum_valid_outputs_synthesized",
+          stage: "synthesis",
+          configuredRequired: this.minSuccessfulAdapters,
+          effectiveRequired: effectiveMinSuccessfulAdapters,
+          attemptedAdapters: executionAdapters.length,
+          successfulOutputs,
+          failedAdapters: telemetry.failedAdapters,
+          failures: decisionFailuresFromTelemetry(telemetry),
+        });
+        return DecisionReportEnvelopeSchema.parse({
+          final,
+          decision_report: decisionReport,
+        });
       } catch (error) {
+        const decisionReport = buildDecisionReport({
+          outcome: "synthesis_failed",
+          stage: "synthesis",
+          configuredRequired: this.minSuccessfulAdapters,
+          effectiveRequired: effectiveMinSuccessfulAdapters,
+          attemptedAdapters: executionAdapters.length,
+          successfulOutputs,
+          failedAdapters: telemetry.failedAdapters,
+          failures: [
+            ...decisionFailuresFromTelemetry(telemetry),
+            {
+              stage: "synthesis",
+              provider: this.synthesisAdapter.descriptor.provider,
+              model: this.synthesisAdapter.descriptor.model,
+              code: "synthesis_failed",
+            },
+          ],
+        });
         failClosed(
           4401,
           "consensus_validation_failed",
@@ -340,6 +505,7 @@ export class QuorumRouter {
             routingMode,
             telemetry,
             directRoutingDecision,
+            decisionReport,
           },
         );
       }

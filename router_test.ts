@@ -30,6 +30,8 @@ import {
   createSupabaseAuditHandler,
   createSupabaseAuditSink,
   createZcodeGlmAdapter,
+  DecisionReportEnvelopeSchema,
+  DecisionReportSchema,
   DEFAULT_AGENT_RUNTIME_BUS_IDS,
   describeRoutingModeDecision,
   fallbackReasonFromError,
@@ -72,6 +74,10 @@ import type {
   AgentRuntimeConfig,
   AgentRuntimeRole,
   CommanderConfig,
+  DecisionFailure as SmokeDecisionFailure,
+  DecisionOutcome as SmokeDecisionOutcome,
+  DecisionReport as SmokeDecisionReport,
+  DecisionReportEnvelope as SmokeDecisionReportEnvelope,
   DirectRoutingDecision,
   ProviderDescriptor,
 } from "./router.ts";
@@ -227,6 +233,10 @@ type PublicExportTypeSmoke = [
   SmokeCommanderSelectionResult,
   SmokeCommanderSelectionStrategy,
   SmokeDevinCliAdapterOptions,
+  SmokeDecisionFailure,
+  SmokeDecisionOutcome,
+  SmokeDecisionReport,
+  SmokeDecisionReportEnvelope,
   SmokeDirectHttpAdapterOptions,
   SmokeDirectHttpExecutionResult,
   SmokeDirectRoutingDecision,
@@ -791,12 +801,14 @@ function buildRouter(
   });
 }
 
-function staticOkSynthesis(): StaticSynthesisAdapter {
+function staticOkSynthesis(
+  sources: string[] = ["Fixture/counting"],
+): StaticSynthesisAdapter {
   return new StaticSynthesisAdapter({
     synthesis: "ok",
     reasoning: "fixture consensus",
     consensusModel: "Test/static-synth",
-    sources: ["Fixture/counting"],
+    sources,
   });
 }
 
@@ -985,6 +997,305 @@ function makeAgentRuntimeConfig(input: {
     adaptersByRole,
   };
 }
+
+Deno.test("decision report schema accepts truthful counts and rejects contradictions", () => {
+  const report = {
+    schema_version: "quorum-router.decision-report.v1" as const,
+    outcome: "minimum_valid_outputs_synthesized" as const,
+    stage: "synthesis" as const,
+    quorum: {
+      configured_required: 2,
+      effective_required: 2,
+      validated_outputs: 2,
+    },
+    execution: {
+      attempted_adapters: 3,
+      successful_adapters: 2,
+      failed_adapters: 1,
+    },
+    validated_sources: ["A/a", "B/b"],
+    failures: [{
+      stage: "adapter_execution" as const,
+      provider: "C",
+      model: "c",
+      code: "fixture_failed",
+    }],
+  };
+  assertEquals(DecisionReportSchema.parse(report), report);
+  assertThrows(() =>
+    DecisionReportSchema.parse({
+      ...report,
+      execution: { ...report.execution, failed_adapters: 0 },
+    })
+  );
+  assertThrows(() =>
+    DecisionReportSchema.parse({
+      ...report,
+      validated_sources: ["A/a"],
+    })
+  );
+  assertThrows(() =>
+    DecisionReportSchema.parse({
+      ...report,
+      quorum: { ...report.quorum, effective_required: 3 },
+    })
+  );
+  assertThrows(() =>
+    DecisionReportSchema.parse({
+      ...report,
+      outcome: "insufficient_valid_outputs",
+      stage: "candidate_execution",
+    })
+  );
+  assertThrows(() =>
+    DecisionReportSchema.parse({
+      ...report,
+      outcome: "synthesis_failed",
+    })
+  );
+});
+
+Deno.test("decision report envelope preserves final synthesis without raw candidates", () => {
+  const envelope = DecisionReportEnvelopeSchema.parse({
+    final: {
+      synthesis: "answer",
+      reasoning: "reason",
+      consensusModel: "Synthesis/model",
+      sources: ["A/a", "B/b"],
+    },
+    decision_report: {
+      schema_version: "quorum-router.decision-report.v1",
+      outcome: "minimum_valid_outputs_synthesized",
+      stage: "synthesis",
+      quorum: {
+        configured_required: 2,
+        effective_required: 2,
+        validated_outputs: 2,
+      },
+      execution: {
+        attempted_adapters: 2,
+        successful_adapters: 2,
+        failed_adapters: 0,
+      },
+      validated_sources: ["A/a", "B/b"],
+      failures: [],
+    },
+  });
+  assertEquals(envelope.final.synthesis, "answer");
+  assertEquals("content" in envelope.decision_report, false);
+  assertEquals("prompt" in envelope.decision_report, false);
+});
+
+Deno.test("routeWithDecisionReport preserves route output and reports observed counts", async () => {
+  const router = buildRouter(new CountingAdapter(), staticOkSynthesis());
+  const legacy = await router.route("hello");
+  const envelope = await router.routeWithDecisionReport("hello");
+
+  assertEquals(envelope.final, legacy);
+  assertEquals(envelope.decision_report, {
+    schema_version: "quorum-router.decision-report.v1",
+    outcome: "minimum_valid_outputs_synthesized",
+    stage: "synthesis",
+    quorum: {
+      configured_required: 1,
+      effective_required: 1,
+      validated_outputs: 1,
+    },
+    execution: {
+      attempted_adapters: 1,
+      successful_adapters: 1,
+      failed_adapters: 0,
+    },
+    validated_sources: ["Fixture/counting"],
+    failures: [],
+  });
+});
+
+Deno.test("routeWithDecisionReport rejects spoofed adapter identity", async () => {
+  const descriptor = {
+    provider: "Fixture",
+    model: "configured",
+    authMode: "session",
+    transport: "processAdapter",
+    client: "SpoofFixture",
+  } as const;
+  const adapter: ModelAdapter = {
+    descriptor,
+    invoke: () =>
+      Promise.resolve({
+        provider: "TrustedProvider",
+        model: "pretend-model",
+        content: "spoofed",
+        latencyMs: 1,
+      }),
+  };
+  const router = new QuorumRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+  });
+
+  const error = await assertRejects(
+    () => router.routeWithDecisionReport("hello"),
+    RouterError,
+  );
+  const details = error.details as {
+    decisionReport?: { failures?: unknown; validated_sources?: unknown };
+  };
+  assertEquals(details.decisionReport?.validated_sources, []);
+  assertEquals(details.decisionReport?.failures, [{
+    stage: "adapter_execution",
+    provider: "Fixture",
+    model: "configured",
+    code: "provider_identity_mismatch",
+  }]);
+  assertEquals(JSON.stringify(error.details).includes("pretend-model"), false);
+  assertEquals(
+    JSON.stringify(error.details).includes("TrustedProvider"),
+    false,
+  );
+});
+
+Deno.test("routeWithDecisionReport rejects unknown and duplicate synthesis sources", async () => {
+  for (
+    const sources of [["Unknown/model"], [
+      "Fixture/counting",
+      "Fixture/counting",
+    ]]
+  ) {
+    const synthesisAdapter: SynthesisAdapter = {
+      descriptor: staticOkSynthesis().descriptor,
+      synthesize: () =>
+        Promise.resolve({
+          synthesis: "unsafe provenance",
+          reasoning: "fixture",
+          consensusModel: "Test/static-synth",
+          sources,
+        }),
+    };
+    const router = buildRouter(new CountingAdapter(), synthesisAdapter);
+    const error = await assertRejects(
+      () => router.routeWithDecisionReport("hello"),
+      RouterError,
+    );
+    assertEquals(error.code, "consensus_validation_failed");
+    assertEquals(
+      (error.details as {
+        decisionReport?: { outcome?: string; failures?: unknown };
+      }).decisionReport?.outcome,
+      "synthesis_failed",
+    );
+  }
+});
+
+Deno.test("routeWithDecisionReport does not execute direct adapters in agent_chat mode", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis(), {
+    routingMode: "agent_chat",
+  });
+
+  const error = await assertRejects(
+    () => router.routeWithDecisionReport("hello"),
+    RouterError,
+  );
+  assertEquals(error.code, "decision_report_direct_mode_required");
+  assertEquals(adapter.calls, 0);
+});
+
+Deno.test("routeWithDecisionReport counts malformed custom adapter output as validation failure", async () => {
+  const descriptor = {
+    provider: "Fixture",
+    model: "malformed-custom",
+    authMode: "session",
+    transport: "processAdapter",
+    client: "MalformedFixture",
+  } as const;
+  const adapter: ModelAdapter = {
+    descriptor,
+    invoke: () =>
+      Promise.resolve({
+        provider: descriptor.provider,
+        model: descriptor.model,
+        content: "",
+        latencyMs: -1,
+      } as ModelOutput),
+  };
+  const router = new QuorumRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter: staticOkSynthesis(),
+    minSuccessfulAdapters: 1,
+  });
+
+  const error = await assertRejects(
+    () => router.routeWithDecisionReport("hello"),
+    RouterError,
+  );
+  assertEquals(
+    (error.details as {
+      decisionReport?: { outcome?: string; failures?: unknown };
+    }).decisionReport?.outcome,
+    "insufficient_valid_outputs",
+  );
+  assertEquals(
+    (error.details as {
+      decisionReport?: { failures?: unknown };
+    }).decisionReport?.failures,
+    [{
+      stage: "adapter_execution",
+      provider: "Fixture",
+      model: "malformed-custom",
+      code: "validation_failed",
+    }],
+  );
+});
+
+Deno.test("routeWithDecisionReport fails closed when policy selects no adapters", async () => {
+  const adapter = new CountingAdapter();
+  const synthesisAdapter = staticOkSynthesis();
+  const router = new QuorumRouter({
+    modelAdapters: [adapter],
+    synthesisAdapter,
+    minSuccessfulAdapters: 1,
+    directRoutingPolicy: {
+      decide: () => ({
+        mode: "direct",
+        selectedAdapters: [],
+        rejectedAdapters: [{
+          descriptor: adapter.descriptor,
+          reason: "fixture unavailable",
+        }],
+        synthesis: synthesisAdapter.descriptor,
+        fallbackPolicy: "disabled",
+      }),
+    },
+  });
+
+  const error = await assertRejects(
+    () => router.routeWithDecisionReport("hello"),
+    RouterError,
+  );
+  assertEquals(adapter.calls, 0);
+  assertEquals(
+    (error.details as { decisionReport?: unknown }).decisionReport,
+    {
+      schema_version: "quorum-router.decision-report.v1",
+      outcome: "no_executable_adapters",
+      stage: "candidate_selection",
+      quorum: {
+        configured_required: 1,
+        effective_required: 0,
+        validated_outputs: 0,
+      },
+      execution: {
+        attempted_adapters: 0,
+        successful_adapters: 0,
+        failed_adapters: 0,
+      },
+      validated_sources: [],
+      failures: [],
+    },
+  );
+});
 
 Deno.test("agent chat roles enum accepts known roles only", () => {
   assertEquals(AgentChatRoleSchema.parse("planner"), "planner");
@@ -2248,21 +2559,18 @@ Deno.test("fallback reason mapping classifies explicit unsafe origins", () => {
 });
 
 Deno.test("default behavior remains unchanged without policy", async () => {
-  const first = new CountingAdapter({
-    provider: "Fixture",
-    model: "first",
-    content: "first validated output",
-    latencyMs: 1,
-  });
-  const second = new CountingAdapter({
-    provider: "Fixture",
-    model: "second",
-    content: "second validated output",
-    latencyMs: 1,
-  });
+  const first = new DescriptorFixtureAdapter(
+    fixtureDescriptor("Fixture", "first", "FirstCLI"),
+  );
+  const second = new DescriptorFixtureAdapter(
+    fixtureDescriptor("Fixture", "second", "SecondCLI"),
+  );
   const router = new QuorumRouter({
     modelAdapters: [first, second],
-    synthesisAdapter: staticOkSynthesis(),
+    synthesisAdapter: staticOkSynthesis([
+      "Fixture/first",
+      "Fixture/second",
+    ]),
     minSuccessfulAdapters: 2,
     timeoutMs: 10_000,
   });
@@ -2275,7 +2583,7 @@ Deno.test("default behavior remains unchanged without policy", async () => {
 });
 
 Deno.test("adaptive direct wiring passes readiness and budget and recalculates quorum", async () => {
-  const synthesisAdapter = staticOkSynthesis();
+  const synthesisAdapter = staticOkSynthesis(["Fixture/cheap"]);
   const notReadyDescriptor = fixtureDescriptor(
     "Fixture",
     "not-ready",
@@ -4803,6 +5111,31 @@ exit 1
     source: "default",
     implemented: true,
   });
+  assertEquals(
+    (error.details as { decisionReport?: unknown }).decisionReport,
+    {
+      schema_version: "quorum-router.decision-report.v1",
+      outcome: "insufficient_valid_outputs",
+      stage: "candidate_execution",
+      quorum: {
+        configured_required: 1,
+        effective_required: 1,
+        validated_outputs: 0,
+      },
+      execution: {
+        attempted_adapters: 1,
+        successful_adapters: 0,
+        failed_adapters: 1,
+      },
+      validated_sources: [],
+      failures: [{
+        stage: "adapter_execution",
+        provider: "Fixture",
+        model: "always-fails",
+        code: "process_failed",
+      }],
+    },
+  );
 });
 
 Deno.test("process adapter failure diagnostics redact credentials", async () => {
@@ -4989,6 +5322,31 @@ echo 'validated upstream output'
     source: "default",
     implemented: true,
   });
+  assertEquals(
+    (error.details as { decisionReport?: unknown }).decisionReport,
+    {
+      schema_version: "quorum-router.decision-report.v1",
+      outcome: "synthesis_failed",
+      stage: "synthesis",
+      quorum: {
+        configured_required: 1,
+        effective_required: 1,
+        validated_outputs: 1,
+      },
+      execution: {
+        attempted_adapters: 1,
+        successful_adapters: 1,
+        failed_adapters: 0,
+      },
+      validated_sources: ["Fixture/good"],
+      failures: [{
+        stage: "synthesis",
+        provider: "Test",
+        model: "invalid-synth",
+        code: "synthesis_failed",
+      }],
+    },
+  );
 });
 
 Deno.test("rate-limited adapter retries and succeeds", async () => {

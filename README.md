@@ -127,6 +127,8 @@ deno task smoke:v0.1
   [docs/prompt-caching.md](docs/prompt-caching.md)
 - benchmark methodology and current pilot results:
   [docs/bench.md](docs/bench.md)
+- decision outcomes and disagreement evidence:
+  [docs/decision-reports.md](docs/decision-reports.md)
 - verified model catalog, explicit config, and probes:
   [docs/model-catalog.md](docs/model-catalog.md)
 - security notes: [docs/security.md](docs/security.md)
