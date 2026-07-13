@@ -69,9 +69,9 @@ cd my-quorum-router
 deno task smoke
 ```
 
-The npm package is `create-quorum-router@0.1.6` (`latest -> 0.1.6`). Version
-`0.1.6` is an engineering NPX scaffold / generated-demo compatibility patch in
-the current release line, not a separate product milestone.
+The npm package is `create-quorum-router@0.1.7` (`latest -> 0.1.7`). Version
+`0.1.7` adds BYO Supabase selective audit, pre-invocation cost-aware Best Route
+controls, and truthful Decision Reports.
 
 The release is deliberately narrow: prove the public path, explain the safety
 boundaries, and give builders a readable generated demo.
