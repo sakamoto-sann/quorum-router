@@ -41,7 +41,7 @@ strongest final answer.
 
 No model-to-model conversation in this mode.
 
-Attach: `docs/assets/launch/quorum-router-best-route.mp4`
+Watch: `https://youtu.be/8GHw-9f1hjI`
 
 ### 3/6 — Agent Chat video
 
@@ -54,7 +54,7 @@ The CLI keeps model identity and `replying to` lineage visible across six
 rounds. The source-backed command invokes two distinct working provider/model
 wrappers; fewer than two working identities fails closed.
 
-Attach: `docs/assets/launch/quorum-router-agent-chat.mp4`
+Watch: `https://youtu.be/RYmaAOSCkF8`
 
 ### 4/6
 

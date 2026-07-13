@@ -3,6 +3,8 @@
 MIT-licensed Deno control plane for fail-closed best-answer routing and
 SafeLoop-authorized multi-role agent execution.
 
+**Website:** https://sakamoto-sann.github.io/quorum-router/
+
 ## Quickstart
 
 ```bash
@@ -54,9 +56,7 @@ Best Route asks models for **independent candidates**. They do not talk to each
 other. QuorumRouter compares the answers, explains the selection, and
 synthesizes the strongest final answer.
 
-![QuorumRouter Best Route CLI demo](docs/assets/launch/quorum-router-best-route.gif)
-
-[Watch the 15-second Best Route MP4](docs/assets/launch/quorum-router-best-route.mp4)
+[Watch the 15-second Best Route demo on YouTube](https://youtu.be/8GHw-9f1hjI)
 
 ```bash
 RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route \
@@ -71,9 +71,7 @@ multiple rounds**. The CLI prints every model identity, reply target, and
 response as it arrives. If a discovered wrapper fails, participant establishment
 safely tries the next candidate; fewer than two working identities fails closed.
 
-![QuorumRouter Grok vs GLM Agent Chat CLI demo](docs/assets/launch/quorum-router-agent-chat.gif)
-
-[Watch the 26-second Agent Chat MP4](docs/assets/launch/quorum-router-agent-chat.mp4)
+[Watch the 26-second Agent Chat demo on YouTube](https://youtu.be/RYmaAOSCkF8)
 
 ```bash
 RUN_EXTERNAL_MODEL_DOGFOOD=1 \
@@ -205,8 +203,9 @@ deno task smoke:v0.1
 ## Links
 
 - npm installer: `npx --yes create-quorum-router@latest`
+- website: https://sakamoto-sann.github.io/quorum-router/
 - release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.16
-- launch assets: [docs/launch/](docs/launch/)
+- launch notes: [docs/launch/](docs/launch/)
 - release verification: [docs/release-runbook.md](docs/release-runbook.md)
 - Hermes Agent on-demand integration:
   [integrations/hermes/](integrations/hermes/)
