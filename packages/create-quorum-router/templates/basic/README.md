@@ -1,7 +1,7 @@
 # QuorumRouter generated workspace
 
 This generated workspace contains the MIT-licensed QuorumRouter current release.
-npm latest targets v0.1.15.
+npm latest targets v0.1.16.
 
 QuorumRouter is **MIT**. It is **open source**. Commercial and production use
 are permitted under the MIT License.
@@ -66,6 +66,13 @@ Resolution checks `prompt_pattern → task_subtype → task_type`, using the fir
 group that reaches the configured sample threshold. Groups never cross exact
 provider/model source boundaries, labels must not contain raw prompts, and the
 result remains advisory-only.
+
+The scaffold also exports opt-in
+`resolveHierarchicalTaskCalibrationWithDriftGuard()`. It can quarantine a child
+whose Brier score is worse than its immediate parent by more than an explicit
+caller threshold and continue parent fallback. This is an outcome-metric
+heuristic, not semantic label verification; it does not rename labels or affect
+routing authority.
 
 `intake` detects local provider wrappers, checks OAuth/session status, runs safe
 model inventory/list-only probes where possible, writes local health traces

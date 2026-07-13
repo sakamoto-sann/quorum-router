@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
-  HierarchicalTaskCalibrationDecisionSchema,
+  HierarchicalTaskCalibrationAnyDecisionSchema,
+  type HierarchicalTaskCalibrationDecision,
+  type HierarchicalTaskCalibrationGuardedDecision,
   TaskCalibrationReportSchema,
 } from "./calibration/calibration.ts";
 import { ModelUsageSchema } from "./prompt-cache.ts";
@@ -116,7 +118,7 @@ export const DecisionReportSchema = z.object({
   validated_sources: z.array(z.string().min(1)),
   failures: z.array(DecisionFailureSchema),
   calibration: TaskCalibrationReportSchema.optional(),
-  hierarchical_calibration: HierarchicalTaskCalibrationDecisionSchema
+  hierarchical_calibration: HierarchicalTaskCalibrationAnyDecisionSchema
     .optional(),
 }).superRefine((value, context) => {
   if (value.calibration && value.hierarchical_calibration) {
@@ -178,16 +180,48 @@ export const DecisionReportSchema = z.object({
 
 export type DecisionOutcome = z.infer<typeof DecisionOutcomeSchema>;
 export type DecisionFailure = z.infer<typeof DecisionFailureSchema>;
-export type DecisionReport = z.infer<typeof DecisionReportSchema>;
+export type DecisionReportAny = z.infer<typeof DecisionReportSchema>;
+export type DecisionReport =
+  & Omit<
+    DecisionReportAny,
+    "hierarchical_calibration"
+  >
+  & {
+    hierarchical_calibration?: HierarchicalTaskCalibrationDecision;
+  };
+export type DecisionReportWithGuardedCalibration =
+  & Omit<
+    DecisionReportAny,
+    "hierarchical_calibration"
+  >
+  & {
+    hierarchical_calibration: HierarchicalTaskCalibrationGuardedDecision;
+  };
 
 export const DecisionReportEnvelopeSchema = z.object({
   final: FinalSynthesisSchema,
   decision_report: DecisionReportSchema,
 });
 
-export type DecisionReportEnvelope = z.infer<
+export type DecisionReportEnvelopeAny = z.infer<
   typeof DecisionReportEnvelopeSchema
 >;
+export type DecisionReportEnvelope =
+  & Omit<
+    DecisionReportEnvelopeAny,
+    "decision_report"
+  >
+  & {
+    decision_report: DecisionReport;
+  };
+export type DecisionReportEnvelopeWithGuardedCalibration =
+  & Omit<
+    DecisionReportEnvelopeAny,
+    "decision_report"
+  >
+  & {
+    decision_report: DecisionReportWithGuardedCalibration;
+  };
 
 export const TelemetryFailureSchema = z.object({
   provider: z.string().min(1),

@@ -210,3 +210,42 @@ not match its aggregate report fail closed. Flat `calibration` and
 conflicting evidence sets. The attached hierarchy remains `advisory_only: true`;
 candidate eligibility, rank, weight, quorum, budget, and execution are
 unchanged.
+
+### Optional child-versus-parent drift guard
+
+Sample-count fallback does not detect a caller assigning an observation to the
+wrong canonical label. Callers that want an outcome-level guard can opt into a
+separate, additive resolver:
+
+```ts
+const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+  report,
+  {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  },
+  { maximum_child_parent_brier_score_delta: 0.1 },
+);
+```
+
+For each sufficiently sampled child, the guarded resolver compares its Brier
+score with the immediate sufficiently sampled parent for the same exact
+task/provider/model identity. A child whose score is worse by more than the
+caller-specified threshold is marked `quarantined` and selection continues at
+the parent. Equality remains within threshold. If the immediate parent cannot be
+validated, that child is `parent_unavailable` and is not selected. The audit
+rows snapshot the candidate metrics and record the parent scope, deterministic
+score delta, and drift status. The guarded report additionally rejects
+impossible child-count or weighted-metric roll-ups. Validate the combined
+guarded decision when report provenance matters; schema validation can prove
+internal consistency, not authenticate caller-supplied observations.
+
+This guard is opt-in and outcome-based. It does **not** inspect raw prompts or
+prove that a label is semantically correct. Parent metrics include child
+observations, so the comparison is not an independent statistical test. It can
+miss a wrong label whose outcomes resemble its parent, and it can quarantine a
+legitimate specialized bucket whose outcomes differ. It never renames or deletes
+labels. The guarded result remains advisory-only and cannot change provider
+eligibility, rank, weight, quorum, budget, routing, or execution.

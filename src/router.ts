@@ -2,9 +2,11 @@ import type { BudgetManager } from "./budget/budget.ts";
 import {
   aggregateHierarchicalTaskCalibration,
   aggregateTaskCalibration,
-  type HierarchicalTaskCalibrationDecision,
+  type HierarchicalCalibrationDriftGuardOptions,
+  type HierarchicalTaskCalibrationAnyDecision,
   type HierarchicalTaskCalibrationQuery,
   resolveHierarchicalTaskCalibration,
+  resolveHierarchicalTaskCalibrationWithDriftGuard,
   type TaskCalibrationOptions,
   type TaskCalibrationReport,
 } from "./calibration/calibration.ts";
@@ -16,9 +18,11 @@ import {
   type CoFailureTelemetry,
   type DecisionFailure,
   type DecisionOutcome,
-  type DecisionReport,
+  type DecisionReportAny,
   type DecisionReportEnvelope,
+  type DecisionReportEnvelopeAny,
   DecisionReportEnvelopeSchema,
+  type DecisionReportEnvelopeWithGuardedCalibration,
   DecisionReportSchema,
   type FinalSynthesis,
   FinalSynthesisSchema,
@@ -115,7 +119,7 @@ function decisionFailuresFromTelemetry(
 
 function buildDecisionReport(args: {
   outcome: DecisionOutcome;
-  stage: DecisionReport["stage"];
+  stage: DecisionReportAny["stage"];
   configuredRequired: number;
   effectiveRequired: number;
   attemptedAdapters: number;
@@ -123,8 +127,8 @@ function buildDecisionReport(args: {
   failedAdapters: number;
   failures?: DecisionFailure[];
   calibration?: TaskCalibrationReport;
-  hierarchicalCalibration?: HierarchicalTaskCalibrationDecision;
-}): DecisionReport {
+  hierarchicalCalibration?: HierarchicalTaskCalibrationAnyDecision;
+}): DecisionReportAny {
   return DecisionReportSchema.parse({
     schema_version: "quorum-router.decision-report.v1",
     outcome: args.outcome,
@@ -180,6 +184,24 @@ export type QuorumRouterRouteOptions = {
     query: HierarchicalTaskCalibrationQuery;
   };
 };
+
+export type QuorumRouterGuardedRouteOptions =
+  & Omit<
+    QuorumRouterRouteOptions,
+    "hierarchicalCalibration"
+  >
+  & {
+    hierarchicalCalibration: {
+      observations: readonly unknown[];
+      options?: TaskCalibrationOptions;
+      query: HierarchicalTaskCalibrationQuery;
+      driftGuard: HierarchicalCalibrationDriftGuardOptions;
+    };
+  };
+
+type QuorumRouterAnyRouteOptions =
+  | QuorumRouterRouteOptions
+  | QuorumRouterGuardedRouteOptions;
 
 export class QuorumRouter {
   private readonly modelAdapters: ModelAdapter[];
@@ -327,7 +349,7 @@ export class QuorumRouter {
 
   async route(
     prompt: string,
-    options: QuorumRouterRouteOptions = {},
+    options: QuorumRouterAnyRouteOptions = {},
   ): Promise<FinalSynthesis> {
     const routingMode = this.describeRoutingModeDecisionForRequest(options);
     if (routingMode.mode === "agent_chat") {
@@ -361,8 +383,16 @@ export class QuorumRouter {
 
   async routeWithDecisionReport(
     prompt: string,
-    options: QuorumRouterRouteOptions = {},
-  ): Promise<DecisionReportEnvelope> {
+    options: QuorumRouterGuardedRouteOptions,
+  ): Promise<DecisionReportEnvelopeWithGuardedCalibration>;
+  async routeWithDecisionReport(
+    prompt: string,
+    options?: QuorumRouterRouteOptions,
+  ): Promise<DecisionReportEnvelope>;
+  async routeWithDecisionReport(
+    prompt: string,
+    options: QuorumRouterAnyRouteOptions = {},
+  ): Promise<DecisionReportEnvelopeAny> {
     const routingMode = this.describeRoutingModeDecisionForRequest(options);
     if (routingMode.mode !== "direct") {
       failClosed(
@@ -378,8 +408,8 @@ export class QuorumRouter {
 
   private async routeDirectWithDecisionReport(
     prompt: string,
-    options: QuorumRouterRouteOptions,
-  ): Promise<DecisionReportEnvelope> {
+    options: QuorumRouterAnyRouteOptions,
+  ): Promise<DecisionReportEnvelopeAny> {
     if (options.calibration && options.hierarchicalCalibration) {
       failClosed(
         4400,
@@ -403,7 +433,7 @@ export class QuorumRouter {
       }
     }
     let hierarchicalCalibration:
-      | HierarchicalTaskCalibrationDecision
+      | HierarchicalTaskCalibrationAnyDecision
       | undefined;
     if (options.hierarchicalCalibration) {
       try {
@@ -411,13 +441,25 @@ export class QuorumRouter {
           options.hierarchicalCalibration.observations,
           options.hierarchicalCalibration.options,
         );
-        hierarchicalCalibration = {
-          report,
-          selection: resolveHierarchicalTaskCalibration(
+        const driftGuard = "driftGuard" in options.hierarchicalCalibration
+          ? options.hierarchicalCalibration.driftGuard
+          : undefined;
+        hierarchicalCalibration = driftGuard === undefined
+          ? {
             report,
-            options.hierarchicalCalibration.query,
-          ),
-        };
+            selection: resolveHierarchicalTaskCalibration(
+              report,
+              options.hierarchicalCalibration.query,
+            ),
+          }
+          : {
+            report,
+            selection: resolveHierarchicalTaskCalibrationWithDriftGuard(
+              report,
+              options.hierarchicalCalibration.query,
+              driftGuard,
+            ),
+          };
       } catch {
         failClosed(
           4400,
@@ -599,5 +641,7 @@ export class QuorumRouter {
 export type FusionRouterOptions = QuorumRouterOptions;
 /** @deprecated Use QuorumRouterRouteOptions. */
 export type FusionRouterRouteOptions = QuorumRouterRouteOptions;
+/** @deprecated Use QuorumRouterGuardedRouteOptions. */
+export type FusionRouterGuardedRouteOptions = QuorumRouterGuardedRouteOptions;
 /** @deprecated Use QuorumRouter. */
 export { QuorumRouter as FusionRouter };

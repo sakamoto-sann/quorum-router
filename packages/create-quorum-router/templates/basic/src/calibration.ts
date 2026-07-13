@@ -488,6 +488,294 @@ export const HierarchicalTaskCalibrationSelectionSchema = z.object({
   }
 });
 
+export const HierarchicalCalibrationDriftGuardOptionsSchema = z.object({
+  maximum_child_parent_brier_score_delta: z.number().finite().min(0).max(1),
+}).strict();
+
+const HIERARCHICAL_ROLLUP_TOLERANCE = 1e-9;
+
+export const HierarchicalTaskCalibrationGuardedReportSchema =
+  HierarchicalTaskCalibrationReportSchema.superRefine((report, context) => {
+    report.groups.forEach((parent, parentIndex) => {
+      const childScope = parent.scope === "task_type"
+        ? "task_subtype"
+        : parent.scope === "task_subtype"
+        ? "prompt_pattern"
+        : undefined;
+      if (childScope === undefined) return;
+
+      const children = report.groups.filter((child) =>
+        child.scope === childScope && child.task_type === parent.task_type &&
+        child.source.provider === parent.source.provider &&
+        child.source.model === parent.source.model &&
+        (parent.scope === "task_type" ||
+          child.task_subtype === parent.task_subtype)
+      );
+      if (children.length === 0) return;
+
+      const childCount = children.reduce(
+        (sum, child) => sum + child.sample_count,
+        0,
+      );
+      const remainderCount = parent.sample_count - childCount;
+      if (remainderCount < 0) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "hierarchical child sample counts cannot exceed their parent",
+          path: ["groups", parentIndex, "sample_count"],
+        });
+        return;
+      }
+
+      for (
+        const metric of ["accuracy", "mean_confidence", "brier_score"] as const
+      ) {
+        const parentTotal = parent[metric] * parent.sample_count;
+        const childTotal = children.reduce(
+          (sum, child) => sum + child[metric] * child.sample_count,
+          0,
+        );
+        const remainderTotal = parentTotal - childTotal;
+        if (
+          remainderTotal < -HIERARCHICAL_ROLLUP_TOLERANCE ||
+          remainderTotal > remainderCount + HIERARCHICAL_ROLLUP_TOLERANCE
+        ) {
+          context.addIssue({
+            code: "custom",
+            message:
+              `hierarchical ${metric} totals are incompatible with the parent roll-up`,
+            path: ["groups", parentIndex, metric],
+          });
+        }
+      }
+    });
+  });
+
+export const HierarchicalCalibrationDriftStatusSchema = z.enum([
+  "not_applicable",
+  "not_evaluated",
+  "parent_unavailable",
+  "within_threshold",
+  "quarantined",
+]);
+
+const HierarchicalGuardedCalibrationCandidateSchema = z.object({
+  scope: HierarchicalCalibrationScopeSchema,
+  sample_count: z.number().int().positive().max(MAX_CALIBRATION_OBSERVATIONS)
+    .nullable(),
+  sample_status: z.enum(["missing", "insufficient", "sufficient"]),
+  accuracy: z.number().finite().min(0).max(1).nullable(),
+  mean_confidence: z.number().finite().min(0).max(1).nullable(),
+  mean_calibration_bias: z.number().finite().min(-1).max(1).nullable(),
+  brier_score: z.number().finite().min(0).max(1).nullable(),
+  drift_status: HierarchicalCalibrationDriftStatusSchema,
+  parent_scope: HierarchicalCalibrationScopeSchema.nullable(),
+  child_parent_brier_score_delta: z.number().finite().min(-1).max(1).nullable(),
+}).strict().superRefine((candidate, context) => {
+  const metrics = [
+    candidate.accuracy,
+    candidate.mean_confidence,
+    candidate.mean_calibration_bias,
+    candidate.brier_score,
+  ];
+  if (
+    (candidate.sample_status === "missing") !==
+      (candidate.sample_count === null)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "missing candidates must have a null sample_count",
+    });
+  }
+  if (
+    candidate.sample_status === "missing"
+      ? metrics.some((metric) => metric !== null)
+      : metrics.some((metric) => metric === null)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "candidate metrics must be null exactly when the candidate is missing",
+    });
+  }
+});
+
+export const HierarchicalTaskCalibrationGuardedSelectionSchema = z.object({
+  schema_version: z.literal(
+    "quorum-router.hierarchical-guarded-selection.v1",
+  ),
+  advisory_only: z.literal(true),
+  query: HierarchicalTaskCalibrationQuerySchema,
+  requested_scope: HierarchicalCalibrationScopeSchema,
+  drift_guard: HierarchicalCalibrationDriftGuardOptionsSchema,
+  resolution_status: z.enum(["selected", "no_eligible_group"]),
+  selected_scope: HierarchicalCalibrationScopeSchema.nullable(),
+  candidates: z.array(HierarchicalGuardedCalibrationCandidateSchema).min(1)
+    .max(3),
+  selected_group: HierarchicalTaskCalibrationGroupSchema.optional(),
+}).strict().superRefine((selection, context) => {
+  const queryScope = selection.query.prompt_pattern !== undefined
+    ? "prompt_pattern"
+    : selection.query.task_subtype !== undefined
+    ? "task_subtype"
+    : "task_type";
+  if (selection.requested_scope !== queryScope) {
+    context.addIssue({
+      code: "custom",
+      message: "requested_scope must match the query labels",
+      path: ["requested_scope"],
+    });
+  }
+
+  const expectedScopes: HierarchicalCalibrationScope[] =
+    selection.requested_scope === "prompt_pattern"
+      ? ["prompt_pattern", "task_subtype", "task_type"]
+      : selection.requested_scope === "task_subtype"
+      ? ["task_subtype", "task_type"]
+      : ["task_type"];
+  if (
+    JSON.stringify(selection.candidates.map((candidate) => candidate.scope)) !==
+      JSON.stringify(expectedScopes)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "candidates must follow the requested scope fallback order",
+      path: ["candidates"],
+    });
+  }
+
+  selection.candidates.forEach((candidate, index) => {
+    const isRoot = candidate.scope === "task_type";
+    const immediateParent = selection.candidates[index + 1];
+    if (isRoot) {
+      if (
+        candidate.drift_status !== "not_applicable" ||
+        candidate.parent_scope !== null ||
+        candidate.child_parent_brier_score_delta !== null
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "task_type drift comparison must be not_applicable",
+          path: ["candidates", index],
+        });
+      }
+      return;
+    }
+
+    if (candidate.parent_scope !== immediateParent?.scope) {
+      context.addIssue({
+        code: "custom",
+        message: "child candidates must name their immediate parent scope",
+        path: ["candidates", index, "parent_scope"],
+      });
+    }
+    if (candidate.sample_status !== "sufficient") {
+      if (
+        candidate.drift_status !== "not_evaluated" ||
+        candidate.child_parent_brier_score_delta !== null
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "non-sufficient child drift must not be evaluated",
+          path: ["candidates", index],
+        });
+      }
+      return;
+    }
+    if (immediateParent?.sample_status !== "sufficient") {
+      if (
+        candidate.drift_status !== "parent_unavailable" ||
+        candidate.child_parent_brier_score_delta !== null
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "a sufficient child without a sufficient parent is unavailable",
+          path: ["candidates", index],
+        });
+      }
+      return;
+    }
+
+    const delta = candidate.child_parent_brier_score_delta;
+    if (
+      delta === null || candidate.brier_score === null ||
+      immediateParent.brier_score === null
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "comparable child candidates require Brier score evidence",
+        path: ["candidates", index, "child_parent_brier_score_delta"],
+      });
+      return;
+    }
+    const rawDelta = candidate.brier_score - immediateParent.brier_score;
+    if (delta !== stableMetric(rawDelta)) {
+      context.addIssue({
+        code: "custom",
+        message: "Brier score delta must match the candidate metric snapshots",
+        path: ["candidates", index, "child_parent_brier_score_delta"],
+      });
+    }
+    const expectedStatus = rawDelta >
+        selection.drift_guard.maximum_child_parent_brier_score_delta
+      ? "quarantined"
+      : "within_threshold";
+    if (candidate.drift_status !== expectedStatus) {
+      context.addIssue({
+        code: "custom",
+        message: "drift_status must match the configured Brier score threshold",
+        path: ["candidates", index, "drift_status"],
+      });
+    }
+  });
+
+  const firstEligible = selection.candidates.find((candidate) =>
+    candidate.sample_status === "sufficient" &&
+    (candidate.drift_status === "within_threshold" ||
+      candidate.drift_status === "not_applicable")
+  );
+  if (firstEligible === undefined) {
+    if (
+      selection.resolution_status !== "no_eligible_group" ||
+      selection.selected_scope !== null ||
+      selection.selected_group !== undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "no eligible candidate must produce no selection",
+      });
+    }
+  } else if (
+    selection.resolution_status !== "selected" ||
+    selection.selected_scope !== firstEligible.scope ||
+    selection.selected_group?.scope !== firstEligible.scope ||
+    selection.selected_group.sample_count !== firstEligible.sample_count ||
+    selection.selected_group.sample_status !== "sufficient" ||
+    selection.selected_group.accuracy !== firstEligible.accuracy ||
+    selection.selected_group.mean_confidence !==
+      firstEligible.mean_confidence ||
+    selection.selected_group.mean_calibration_bias !==
+      firstEligible.mean_calibration_bias ||
+    selection.selected_group.brier_score !== firstEligible.brier_score ||
+    selection.selected_group.task_type !== selection.query.task_type ||
+    selection.selected_group.source.provider !==
+      selection.query.source.provider ||
+    selection.selected_group.source.model !== selection.query.source.model ||
+    (firstEligible.scope !== "task_type" &&
+      selection.selected_group.task_subtype !== selection.query.task_subtype) ||
+    (firstEligible.scope === "prompt_pattern" &&
+      selection.selected_group.prompt_pattern !==
+        selection.query.prompt_pattern)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "guarded selection must use the first eligible candidate",
+    });
+  }
+});
+
 export const HierarchicalTaskCalibrationDecisionSchema = z.object({
   report: HierarchicalTaskCalibrationReportSchema,
   selection: HierarchicalTaskCalibrationSelectionSchema,
@@ -540,6 +828,29 @@ export const HierarchicalTaskCalibrationDecisionSchema = z.object({
   }
 });
 
+export const HierarchicalTaskCalibrationGuardedDecisionSchema = z.object({
+  report: HierarchicalTaskCalibrationGuardedReportSchema,
+  selection: HierarchicalTaskCalibrationGuardedSelectionSchema,
+}).strict().superRefine((decision, context) => {
+  const expected = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    decision.report,
+    decision.selection.query,
+    decision.selection.drift_guard,
+  );
+  if (JSON.stringify(decision.selection) !== JSON.stringify(expected)) {
+    context.addIssue({
+      code: "custom",
+      message: "guarded selection must be derived from the aggregate report",
+      path: ["selection"],
+    });
+  }
+});
+
+export const HierarchicalTaskCalibrationAnyDecisionSchema = z.union([
+  HierarchicalTaskCalibrationDecisionSchema,
+  HierarchicalTaskCalibrationGuardedDecisionSchema,
+]);
+
 export type HierarchicalCalibrationScope = z.infer<
   typeof HierarchicalCalibrationScopeSchema
 >;
@@ -560,6 +871,18 @@ export type HierarchicalTaskCalibrationSelection = z.infer<
 >;
 export type HierarchicalTaskCalibrationDecision = z.infer<
   typeof HierarchicalTaskCalibrationDecisionSchema
+>;
+export type HierarchicalCalibrationDriftGuardOptions = z.infer<
+  typeof HierarchicalCalibrationDriftGuardOptionsSchema
+>;
+export type HierarchicalTaskCalibrationGuardedSelection = z.infer<
+  typeof HierarchicalTaskCalibrationGuardedSelectionSchema
+>;
+export type HierarchicalTaskCalibrationGuardedDecision = z.infer<
+  typeof HierarchicalTaskCalibrationGuardedDecisionSchema
+>;
+export type HierarchicalTaskCalibrationAnyDecision = z.infer<
+  typeof HierarchicalTaskCalibrationAnyDecisionSchema
 >;
 
 type HierarchicalGroupSeed = {
@@ -739,6 +1062,127 @@ export function resolveHierarchicalTaskCalibration(
     requested_scope,
     resolution_status: selected_group === undefined
       ? "no_sufficient_group"
+      : "selected",
+    selected_scope: selected_group?.scope ?? null,
+    candidates,
+    ...(selected_group === undefined ? {} : { selected_group }),
+  });
+}
+
+export function resolveHierarchicalTaskCalibrationWithDriftGuard(
+  report: HierarchicalTaskCalibrationReport,
+  query: HierarchicalTaskCalibrationQuery,
+  driftGuard: HierarchicalCalibrationDriftGuardOptions,
+): HierarchicalTaskCalibrationGuardedSelection {
+  const parsedReport = HierarchicalTaskCalibrationGuardedReportSchema.parse(
+    report,
+  );
+  const parsedQuery = HierarchicalTaskCalibrationQuerySchema.parse(query);
+  const drift_guard = HierarchicalCalibrationDriftGuardOptionsSchema.parse(
+    driftGuard,
+  );
+  const requested_scope: HierarchicalCalibrationScope =
+    parsedQuery.prompt_pattern !== undefined
+      ? "prompt_pattern"
+      : parsedQuery.task_subtype !== undefined
+      ? "task_subtype"
+      : "task_type";
+  const scopes: HierarchicalCalibrationScope[] = requested_scope ===
+      "prompt_pattern"
+    ? ["prompt_pattern", "task_subtype", "task_type"]
+    : requested_scope === "task_subtype"
+    ? ["task_subtype", "task_type"]
+    : ["task_type"];
+
+  const matchingGroups = scopes.map((scope) =>
+    parsedReport.groups.find((group) =>
+      group.scope === scope && group.task_type === parsedQuery.task_type &&
+      group.source.provider === parsedQuery.source.provider &&
+      group.source.model === parsedQuery.source.model &&
+      (scope === "task_type" ||
+        group.task_subtype === parsedQuery.task_subtype) &&
+      (scope !== "prompt_pattern" ||
+        group.prompt_pattern === parsedQuery.prompt_pattern)
+    )
+  );
+  const candidates = scopes.map((scope, index) => {
+    const group = matchingGroups[index];
+    const base = group === undefined
+      ? {
+        scope,
+        sample_count: null,
+        sample_status: "missing" as const,
+        accuracy: null,
+        mean_confidence: null,
+        mean_calibration_bias: null,
+        brier_score: null,
+      }
+      : {
+        scope,
+        sample_count: group.sample_count,
+        sample_status: group.sample_status,
+        accuracy: group.accuracy,
+        mean_confidence: group.mean_confidence,
+        mean_calibration_bias: group.mean_calibration_bias,
+        brier_score: group.brier_score,
+      };
+    if (scope === "task_type") {
+      return {
+        ...base,
+        drift_status: "not_applicable" as const,
+        parent_scope: null,
+        child_parent_brier_score_delta: null,
+      };
+    }
+
+    const parent_scope = scopes[index + 1] ?? null;
+    if (group?.sample_status !== "sufficient") {
+      return {
+        ...base,
+        drift_status: "not_evaluated" as const,
+        parent_scope,
+        child_parent_brier_score_delta: null,
+      };
+    }
+    const parent = matchingGroups[index + 1];
+    if (parent?.sample_status !== "sufficient") {
+      return {
+        ...base,
+        drift_status: "parent_unavailable" as const,
+        parent_scope,
+        child_parent_brier_score_delta: null,
+      };
+    }
+
+    const rawDelta = group.brier_score - parent.brier_score;
+    const child_parent_brier_score_delta = stableMetric(rawDelta);
+    return {
+      ...base,
+      drift_status: rawDelta >
+          drift_guard.maximum_child_parent_brier_score_delta
+        ? "quarantined" as const
+        : "within_threshold" as const,
+      parent_scope,
+      child_parent_brier_score_delta,
+    };
+  });
+  const selectedCandidate = candidates.find((candidate) =>
+    candidate.sample_status === "sufficient" &&
+    (candidate.drift_status === "within_threshold" ||
+      candidate.drift_status === "not_applicable")
+  );
+  const selected_group = selectedCandidate === undefined
+    ? undefined
+    : matchingGroups[candidates.indexOf(selectedCandidate)];
+
+  return HierarchicalTaskCalibrationGuardedSelectionSchema.parse({
+    schema_version: "quorum-router.hierarchical-guarded-selection.v1",
+    advisory_only: true,
+    query: parsedQuery,
+    requested_scope,
+    drift_guard,
+    resolution_status: selected_group === undefined
+      ? "no_eligible_group"
       : "selected",
     selected_scope: selected_group?.scope ?? null,
     candidates,

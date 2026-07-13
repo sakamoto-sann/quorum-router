@@ -2,11 +2,15 @@ import { assertEquals, assertThrows } from "@std/assert";
 import {
   aggregateHierarchicalTaskCalibration,
   aggregateTaskCalibration,
+  HierarchicalCalibrationDriftGuardOptionsSchema,
   HierarchicalTaskCalibrationDecisionSchema,
+  HierarchicalTaskCalibrationGuardedDecisionSchema,
+  HierarchicalTaskCalibrationGuardedSelectionSchema,
   HierarchicalTaskCalibrationObservationSchema,
   HierarchicalTaskCalibrationSelectionSchema,
   MAX_CALIBRATION_OBSERVATIONS,
   resolveHierarchicalTaskCalibration,
+  resolveHierarchicalTaskCalibrationWithDriftGuard,
   TaskCalibrationObservationSchema,
   TaskCalibrationReportSchema,
 } from "../../router.ts";
@@ -620,6 +624,337 @@ Deno.test("hierarchical calibration decision schema rejects report-selection con
           source: { provider: "Anthropic", model: "claude" },
         },
       },
+    })
+  );
+});
+
+function driftObservation(
+  observation_id: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return observation({
+    observation_id,
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    ...overrides,
+  });
+}
+
+function driftFixture() {
+  const report = aggregateHierarchicalTaskCalibration([
+    driftObservation("p1", { correct: false, confidence: 1 }),
+    driftObservation("p2", { correct: false, confidence: 1 }),
+    driftObservation("s1", { prompt_pattern: undefined }),
+    driftObservation("s2", { prompt_pattern: undefined }),
+  ], { minimum_sample_count: 2 });
+  const query = {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  };
+  return { report, query };
+}
+
+Deno.test("drift guard is additive and leaves default selection exactly compatible", () => {
+  const { report, query } = driftFixture();
+  assertEquals(resolveHierarchicalTaskCalibration(report, query), {
+    schema_version: "quorum-router.hierarchical-selection.v1",
+    advisory_only: true,
+    query,
+    requested_scope: "prompt_pattern",
+    resolution_status: "selected",
+    selected_scope: "prompt_pattern",
+    candidates: [
+      { scope: "prompt_pattern", sample_count: 2, sample_status: "sufficient" },
+      { scope: "task_subtype", sample_count: 4, sample_status: "sufficient" },
+      { scope: "task_type", sample_count: 4, sample_status: "sufficient" },
+    ],
+    selected_group: report.groups.find((group) =>
+      group.scope === "prompt_pattern"
+    ),
+  });
+});
+
+Deno.test("drift guard quarantines a worse pattern and selects its subtype", () => {
+  const { report, query } = driftFixture();
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.1 },
+  );
+  assertEquals(
+    selection.schema_version,
+    "quorum-router.hierarchical-guarded-selection.v1",
+  );
+  assertEquals(selection.selected_scope, "task_subtype");
+  assertEquals(
+    selection.candidates.map((candidate) => [
+      candidate.scope,
+      candidate.drift_status,
+      candidate.parent_scope,
+      candidate.child_parent_brier_score_delta,
+    ]),
+    [
+      ["prompt_pattern", "quarantined", "task_subtype", 0.48],
+      ["task_subtype", "within_threshold", "task_type", 0],
+      ["task_type", "not_applicable", null, null],
+    ],
+  );
+});
+
+Deno.test("drift guard treats equality as within threshold", () => {
+  const { report, query } = driftFixture();
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.48 },
+  );
+  assertEquals(selection.candidates[0].drift_status, "within_threshold");
+  assertEquals(selection.selected_scope, "prompt_pattern");
+});
+
+Deno.test("drift guard cascades quarantines to the task root", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    driftObservation("p1", { correct: false, confidence: 1 }),
+    driftObservation("p2", { correct: false, confidence: 1 }),
+    driftObservation("s1", { prompt_pattern: undefined }),
+    driftObservation("s2", { prompt_pattern: undefined }),
+    ...Array.from(
+      { length: 8 },
+      (_, index) => observation({ observation_id: `t${index}`, confidence: 1 }),
+    ),
+  ], { minimum_sample_count: 2 });
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(report, {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  }, { maximum_child_parent_brier_score_delta: 0.1 });
+  assertEquals(
+    selection.candidates.map((candidate) => candidate.drift_status),
+    [
+      "quarantined",
+      "quarantined",
+      "not_applicable",
+    ],
+  );
+  assertEquals(selection.selected_scope, "task_type");
+});
+
+Deno.test("drift guard fails closed when an immediate parent is unavailable", () => {
+  const { report, query } = driftFixture();
+  const missingParent = {
+    ...report,
+    groups: report.groups.filter((group) => group.scope !== "task_subtype"),
+  };
+  const missing = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    missingParent,
+    query,
+    { maximum_child_parent_brier_score_delta: 1 },
+  );
+  assertEquals(missing.candidates[0].drift_status, "parent_unavailable");
+  assertEquals(missing.selected_scope, "task_type");
+
+  const contradictoryParent = {
+    ...report,
+    minimum_sample_count: 5,
+    groups: report.groups.map((group) => ({
+      ...group,
+      sample_status: group.scope === "prompt_pattern"
+        ? "sufficient" as const
+        : "insufficient" as const,
+    })),
+  };
+  assertThrows(() =>
+    resolveHierarchicalTaskCalibrationWithDriftGuard(
+      contradictoryParent,
+      query,
+      { maximum_child_parent_brier_score_delta: 1 },
+    )
+  );
+});
+
+Deno.test("drift guard never borrows a parent across source or model", () => {
+  const { report: own, query } = driftFixture();
+  const foreign = aggregateHierarchicalTaskCalibration([
+    driftObservation("f1", { source: { provider: "Other", model: "other" } }),
+    driftObservation("f2", { source: { provider: "Other", model: "other" } }),
+  ], { minimum_sample_count: 2 });
+  const report = {
+    ...own,
+    groups: [
+      ...own.groups.filter((group) => group.scope === "prompt_pattern"),
+      ...foreign.groups,
+    ],
+  };
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 1 },
+  );
+  assertEquals(selection.candidates[0].drift_status, "parent_unavailable");
+  assertEquals(selection.resolution_status, "no_eligible_group");
+});
+
+Deno.test("drift guard validates policy and rejects tampered guarded decisions", () => {
+  for (const value of [-0.01, 1.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assertThrows(() =>
+      HierarchicalCalibrationDriftGuardOptionsSchema.parse({
+        maximum_child_parent_brier_score_delta: value,
+      })
+    );
+  }
+  assertThrows(() => HierarchicalCalibrationDriftGuardOptionsSchema.parse({}));
+  assertThrows(() =>
+    HierarchicalCalibrationDriftGuardOptionsSchema.parse({
+      maximum_child_parent_brier_score_delta: 0.1,
+      enabled: true,
+    })
+  );
+
+  const { report, query } = driftFixture();
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.1 },
+  );
+  const tamperedAudit = {
+    ...selection,
+    candidates: selection.candidates.map((candidate, index) =>
+      index === 0
+        ? { ...candidate, child_parent_brier_score_delta: 0.05 }
+        : candidate
+    ),
+  };
+  assertThrows(() =>
+    HierarchicalTaskCalibrationGuardedSelectionSchema.parse(tamperedAudit)
+  );
+  assertThrows(() =>
+    HierarchicalTaskCalibrationGuardedSelectionSchema.parse({
+      ...selection,
+      selected_group: {
+        ...selection.selected_group!,
+        brier_score: 1,
+      },
+    })
+  );
+  HierarchicalTaskCalibrationGuardedDecisionSchema.parse({ report, selection });
+  assertThrows(() =>
+    HierarchicalTaskCalibrationGuardedDecisionSchema.parse({
+      report,
+      selection: tamperedAudit,
+    })
+  );
+  assertThrows(() =>
+    HierarchicalTaskCalibrationGuardedDecisionSchema.parse({
+      report,
+      selection: { ...selection, selected_scope: "prompt_pattern" },
+    })
+  );
+
+  const objectKeys = new Set<string>();
+  const collectKeys = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(collectKeys);
+    } else if (value !== null && typeof value === "object") {
+      for (const [key, child] of Object.entries(value)) {
+        objectKeys.add(key.toLowerCase());
+        collectKeys(child);
+      }
+    }
+  };
+  collectKeys(selection);
+  for (
+    const field of [
+      "weight",
+      "rank",
+      "quorum",
+      "budget",
+      "execution",
+      "authority",
+    ]
+  ) {
+    assertEquals(objectKeys.has(field), false, field);
+  }
+});
+
+Deno.test("drift guard accepts a feasible unlabeled remainder at exact equality", () => {
+  const source = { provider: "Fixture", model: "A" } as const;
+  const report = aggregateHierarchicalTaskCalibration([
+    {
+      observation_id: "child",
+      task_type: "code-review",
+      task_subtype: "typescript",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: false,
+      confidence: 1,
+      evaluated_at: "2026-07-13T00:00:00Z",
+    },
+    {
+      observation_id: "unlabeled-parent-remainder",
+      task_type: "code-review",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: true,
+      confidence: 1,
+      evaluated_at: "2026-07-13T00:00:01Z",
+    },
+  ], { minimum_sample_count: 1 });
+  const query = {
+    task_type: "code-review",
+    task_subtype: "typescript",
+    source,
+  };
+
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.5 },
+  );
+  assertEquals(selection.selected_scope, "task_subtype");
+  assertEquals(selection.candidates[0].child_parent_brier_score_delta, 0.5);
+  assertEquals(selection.candidates[0].drift_status, "within_threshold");
+
+  const impossibleWeightedRollup = {
+    ...report,
+    groups: report.groups.map((group) =>
+      group.scope === "task_type" ? { ...group, brier_score: 0.1 } : group
+    ),
+  };
+  assertThrows(() =>
+    resolveHierarchicalTaskCalibrationWithDriftGuard(
+      impossibleWeightedRollup,
+      query,
+      { maximum_child_parent_brier_score_delta: 0.5 },
+    )
+  );
+});
+
+Deno.test("drift guard rejects impossible hierarchical roll-ups", () => {
+  const { report, query } = driftFixture();
+  const impossible = {
+    ...report,
+    groups: report.groups.map((group) =>
+      group.scope === "task_subtype" ? { ...group, sample_count: 1 } : group
+    ),
+  };
+  assertThrows(() =>
+    resolveHierarchicalTaskCalibrationWithDriftGuard(
+      impossible,
+      query,
+      { maximum_child_parent_brier_score_delta: 0.1 },
+    )
+  );
+  assertThrows(() =>
+    HierarchicalTaskCalibrationGuardedDecisionSchema.parse({
+      report: impossible,
+      selection: resolveHierarchicalTaskCalibrationWithDriftGuard(
+        report,
+        query,
+        { maximum_child_parent_brier_score_delta: 0.1 },
+      ),
     })
   );
 });
