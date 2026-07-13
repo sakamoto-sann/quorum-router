@@ -132,6 +132,8 @@ jobs:
             'templates/basic/src/auth_oauth.ts',
             'templates/basic/src/auth_session.ts',
             'templates/basic/src/best_route.ts',
+            'templates/basic/src/calibration.ts',
+            'templates/basic/src/calibration_demo.ts',
             'templates/basic/src/cli.ts',
             'templates/basic/src/context.ts',
             'templates/basic/src/cost_aware.ts',

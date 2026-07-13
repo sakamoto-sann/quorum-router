@@ -1,7 +1,7 @@
 # QuorumRouter generated workspace
 
 This generated workspace contains the MIT-licensed QuorumRouter current release.
-npm latest targets v0.1.7.
+npm latest targets v0.1.8.
 
 QuorumRouter is **MIT**. It is **open source**. Commercial and production use
 are permitted under the MIT License.
@@ -37,6 +37,7 @@ deno --version
 
 ```bash
 deno task smoke
+deno task calibration:demo
 deno task intake
 deno task auth:status
 deno task models:list
@@ -46,6 +47,11 @@ deno task supabase:status
 
 `smoke` proves the local scaffold runs with deterministic fixtures only. It does
 **not** call a real provider API.
+
+`calibration:demo` exercises the bundled calibration-by-task API with local
+fixture observations. Calibration reports are advisory-only: the scaffold does
+not use them to change routing weights, ranks, provider eligibility, quorum, or
+execution.
 
 `intake` detects local provider wrappers, checks OAuth/session status, runs safe
 model inventory/list-only probes where possible, writes local health traces
@@ -218,6 +224,8 @@ not paste them into chat/logs and do not commit `.env`.
   `src/provider_client.ts` — provider discovery and safe invocation.
 - `src/best_route.ts`, `src/agent_chat.ts` — gated dogfood commands.
 - `src/cost_aware.ts` — estimated-cost budget selection for Best Route.
+- `src/calibration.ts`, `src/calibration_demo.ts` — strict advisory calibration
+  aggregation and an offline runnable example.
 - `src/trace.ts`, `src/redact.ts`, `src/schema.ts`, `src/fixture_smoke.ts` —
   trace/redaction/schema/fixture support.
 - `out/.gitkeep` — local output directory placeholder.

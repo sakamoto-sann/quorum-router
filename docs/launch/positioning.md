@@ -69,9 +69,9 @@ cd my-quorum-router
 deno task smoke
 ```
 
-The npm package is `create-quorum-router@0.1.7` (`latest -> 0.1.7`). Version
-`0.1.7` adds BYO Supabase selective audit, pre-invocation cost-aware Best Route
-controls, and truthful Decision Reports.
+The npm package is `create-quorum-router@0.1.8` (`latest -> 0.1.8`). Version
+`0.1.8` adds deterministic advisory task calibration to the core API and
+generated scaffold.
 
 The release is deliberately narrow: prove the public path, explain the safety
 boundaries, and give builders a readable generated demo.

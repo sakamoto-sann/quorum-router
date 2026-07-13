@@ -10,14 +10,13 @@ tags, release notes, npm scaffold packaging, and compatibility patches.
 
 ## Current public artifacts
 
-- `v0.1.7` is the current public preview release line target for GitHub release
+- `v0.1.8` is the current public preview release line target for GitHub release
   tags, install-helper docs, and generated scaffold packaging.
-- `create-quorum-router@0.1.7` is the current NPX package target.
-- `create-quorum-router@latest` should resolve to `0.1.7` after release
+- `create-quorum-router@0.1.8` is the current NPX package target.
+- `create-quorum-router@latest` should resolve to `0.1.8` after release
   approval.
-- `0.1.7` adds BYO Supabase selective audit, pre-invocation cost-aware Best
-  Route controls, and truthful Decision Reports while preserving fail-closed
-  routing and MIT licensing.
+- `0.1.8` adds deterministic advisory task calibration to the core and generated
+  scaffold while preserving fail-closed routing and MIT licensing.
 
 ## Public quickstart
 
@@ -30,7 +29,7 @@ deno task smoke
 Fixed package version:
 
 ```bash
-npx --yes create-quorum-router@0.1.7 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.8 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 ```

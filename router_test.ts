@@ -8020,6 +8020,8 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/templates/basic/src/provider_client.ts",
     "packages/create-quorum-router/templates/basic/src/best_route.ts",
     "packages/create-quorum-router/templates/basic/src/agent_chat.ts",
+    "packages/create-quorum-router/templates/basic/src/calibration.ts",
+    "packages/create-quorum-router/templates/basic/src/calibration_demo.ts",
     "packages/create-quorum-router/templates/basic/src/context.ts",
     "packages/create-quorum-router/templates/basic/src/trace.ts",
     "packages/create-quorum-router/templates/basic/src/redact.ts",
@@ -8048,7 +8050,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.7");
+  assertEquals(packageJson.version, "0.1.8");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -8079,6 +8081,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
       "route:once",
       "best-route",
       "agent-chat",
+      "calibration:demo",
     ]
   ) {
     assert(task in templateTasks, `missing generated task ${task}`);
@@ -8095,6 +8098,16 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   assertStringIncludes(String(templateTasks["best-route"]), "best-route");
   assertStringIncludes(String(templateTasks["agent-chat"]), "agent-chat");
   assertStringIncludes(String(templateTasks["agent-chat"]), "--allow-run");
+  assertStringIncludes(
+    String(templateTasks["calibration:demo"]),
+    "calibration_demo.ts",
+  );
+  assertEquals(
+    await Deno.readTextFile(
+      "packages/create-quorum-router/templates/basic/src/calibration.ts",
+    ),
+    await Deno.readTextFile("src/calibration/calibration.ts"),
+  );
   assert(!("external:check" in templateTasks));
   assert(!("external:once" in templateTasks));
   assert(!("external:matrix" in templateTasks));
@@ -8524,6 +8537,8 @@ Deno.test("create-quorum-router npm tarball contents are constrained", async () 
     "templates/basic/src/auth_oauth.ts",
     "templates/basic/src/auth_session.ts",
     "templates/basic/src/best_route.ts",
+    "templates/basic/src/calibration.ts",
+    "templates/basic/src/calibration_demo.ts",
     "templates/basic/src/cli.ts",
     "templates/basic/src/context.ts",
     "templates/basic/src/cost_aware.ts",
@@ -8687,7 +8702,9 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
   assertStringIncludes(templateReadme, "deno task supabase:status");
-  assertStringIncludes(templateReadme, "v0.1.7");
+  assertStringIncludes(templateReadme, "v0.1.8");
+  assertStringIncludes(templateReadme, "deno task calibration:demo");
+  assertStringIncludes(templateReadme, "advisory-only");
   assertStringIncludes(templateReadme, "deno --version");
   assertStringIncludes(templateReadme, "QUORUM_ROUTER_MAX_BUDGET_USD");
   assertStringIncludes(templateReadme, "not live provider billing data");
@@ -8757,7 +8774,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.7");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.8");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -8791,6 +8808,8 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
         "src/provider_client.ts",
         "src/best_route.ts",
         "src/agent_chat.ts",
+        "src/calibration.ts",
+        "src/calibration_demo.ts",
         "src/trace.ts",
         "src/redact.ts",
         "src/schema.ts",
@@ -8857,6 +8876,20 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
       new TextDecoder().decode(smoke.stderr);
     assertEquals(smoke.code, 0, smokeOutput);
     assertStringIncludes(smokeOutput, "fixtureOnly");
+
+    const calibration = await new Deno.Command("deno", {
+      args: ["task", "calibration:demo"],
+      cwd: `${tempDir}/demo`,
+      clearEnv: true,
+      env: cleanEnv,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const calibrationOutput = new TextDecoder().decode(calibration.stdout) +
+      new TextDecoder().decode(calibration.stderr);
+    assertEquals(calibration.code, 0, calibrationOutput);
+    assertStringIncludes(calibrationOutput, '"advisory_only": true');
+    assertStringIncludes(calibrationOutput, '"sample_count": 2');
 
     const intake = await new Deno.Command("deno", {
       args: ["task", "intake"],
