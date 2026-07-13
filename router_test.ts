@@ -78,6 +78,8 @@ import type {
   DecisionOutcome as SmokeDecisionOutcome,
   DecisionReport as SmokeDecisionReport,
   DecisionReportEnvelope as SmokeDecisionReportEnvelope,
+  DecisionReportEnvelopeWithGuardedCalibration
+    as SmokeDecisionReportEnvelopeWithGuardedCalibration,
   DirectRoutingDecision,
   ProviderDescriptor,
 } from "./router.ts";
@@ -1158,35 +1160,40 @@ Deno.test("direct routing attaches hierarchical calibration selection above aggr
     confidence: 0.8,
     evaluated_at: "2026-07-13T00:00:00Z",
   } as const;
-  const envelope = await router.routeWithDecisionReport("hello", {
-    hierarchicalCalibration: {
-      observations: [
-        {
-          ...base,
-          observation_id: "pattern-1",
+  const envelope: SmokeDecisionReportEnvelope = await router
+    .routeWithDecisionReport("hello", {
+      hierarchicalCalibration: {
+        observations: [
+          {
+            ...base,
+            observation_id: "pattern-1",
+            task_subtype: "typescript",
+            prompt_pattern: "schema-boundary-review",
+          },
+          {
+            ...base,
+            observation_id: "subtype-2",
+            task_subtype: "typescript",
+          },
+          { ...base, observation_id: "obs-3" },
+        ],
+        options: { minimum_sample_count: 2 },
+        query: {
+          task_type: "code-review",
           task_subtype: "typescript",
           prompt_pattern: "schema-boundary-review",
+          source: { provider: "Fixture", model: "counting" },
         },
-        {
-          ...base,
-          observation_id: "subtype-2",
-          task_subtype: "typescript",
-        },
-        { ...base, observation_id: "obs-3" },
-      ],
-      options: { minimum_sample_count: 2 },
-      query: {
-        task_type: "code-review",
-        task_subtype: "typescript",
-        prompt_pattern: "schema-boundary-review",
-        source: { provider: "Fixture", model: "counting" },
       },
-    },
-  });
+    });
 
   assertEquals(adapter.calls, 1);
   const hierarchy = envelope.decision_report.hierarchical_calibration;
   assertEquals(hierarchy?.report.groups.length, 3);
+  assertEquals(
+    hierarchy?.selection.schema_version,
+    "quorum-router.hierarchical-selection.v1",
+  );
   assertEquals(hierarchy?.selection.requested_scope, "prompt_pattern");
   assertEquals(hierarchy?.selection.selected_scope, "task_subtype");
   assertEquals(
@@ -1201,6 +1208,106 @@ Deno.test("direct routing attaches hierarchical calibration selection above aggr
       ["task_type", 3, "sufficient"],
     ],
   );
+});
+
+Deno.test("direct routing attaches guarded drift quarantine and parent fallback", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const base = {
+    task_type: "code-review",
+    source: { provider: "Fixture", model: "counting" },
+    evaluation_basis: "caller_attested_external_ground_truth" as const,
+    evaluated_at: "2026-07-13T00:00:00Z",
+  };
+  const envelope: SmokeDecisionReportEnvelopeWithGuardedCalibration =
+    await router.routeWithDecisionReport("hello", {
+      hierarchicalCalibration: {
+        observations: [
+          {
+            ...base,
+            observation_id: "pattern-1",
+            task_subtype: "typescript",
+            prompt_pattern: "schema-boundary-review",
+            correct: false,
+            confidence: 1,
+          },
+          {
+            ...base,
+            observation_id: "pattern-2",
+            task_subtype: "typescript",
+            prompt_pattern: "schema-boundary-review",
+            correct: false,
+            confidence: 1,
+          },
+          {
+            ...base,
+            observation_id: "subtype-1",
+            task_subtype: "typescript",
+            correct: true,
+            confidence: 1,
+          },
+          {
+            ...base,
+            observation_id: "subtype-2",
+            task_subtype: "typescript",
+            correct: true,
+            confidence: 1,
+          },
+        ],
+        options: { minimum_sample_count: 2 },
+        query: {
+          task_type: "code-review",
+          task_subtype: "typescript",
+          prompt_pattern: "schema-boundary-review",
+          source: { provider: "Fixture", model: "counting" },
+        },
+        driftGuard: { maximum_child_parent_brier_score_delta: 0.1 },
+      },
+    });
+
+  assertEquals(adapter.calls, 1);
+  const hierarchy = envelope.decision_report.hierarchical_calibration;
+  if (
+    hierarchy?.selection.schema_version !==
+      "quorum-router.hierarchical-guarded-selection.v1"
+  ) {
+    throw new Error("expected guarded hierarchical selection");
+  }
+  assertEquals(hierarchy.selection.selected_scope, "task_subtype");
+  assertEquals(hierarchy.selection.candidates[0].drift_status, "quarantined");
+  assertEquals(
+    hierarchy.selection.candidates[0].child_parent_brier_score_delta,
+    0.5,
+  );
+});
+
+Deno.test("invalid hierarchical drift guard fails before provider invocation", async () => {
+  const adapter = new CountingAdapter();
+  const router = buildRouter(adapter, staticOkSynthesis());
+  const error = await assertRejects(
+    () =>
+      router.routeWithDecisionReport("hello", {
+        hierarchicalCalibration: {
+          observations: [{
+            observation_id: "obs-1",
+            task_type: "code-review",
+            source: { provider: "Fixture", model: "counting" },
+            evaluation_basis: "caller_attested_external_ground_truth",
+            correct: true,
+            confidence: 0.8,
+            evaluated_at: "2026-07-13T00:00:00Z",
+          }],
+          query: {
+            task_type: "code-review",
+            source: { provider: "Fixture", model: "counting" },
+          },
+          driftGuard: { maximum_child_parent_brier_score_delta: 1.01 },
+        },
+      }),
+    RouterError,
+  );
+  assertEquals(error.code, "hierarchical_calibration_validation_failed");
+  assertEquals(adapter.calls, 0);
 });
 
 Deno.test("flat and hierarchical calibration inputs are mutually exclusive", async () => {
@@ -8256,7 +8363,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.15");
+  assertEquals(packageJson.version, "0.1.16");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -8928,7 +9035,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
   assertStringIncludes(templateReadme, "deno task supabase:status");
-  assertStringIncludes(templateReadme, "v0.1.15");
+  assertStringIncludes(templateReadme, "v0.1.16");
   assertStringIncludes(templateReadme, "deno task calibration:demo");
   assertStringIncludes(templateReadme, "advisory-only");
   assertStringIncludes(templateReadme, "deno --version");
@@ -9000,7 +9107,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.15");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.16");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -10063,9 +10170,9 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
   );
   assertStringIncludes(
     new TextDecoder().decode(defaultDryRun.stdout),
-    "ref:    v0.1.15",
+    "ref:    v0.1.16",
   );
-  assertStringIncludes(script, "--ref v0.1.15");
+  assertStringIncludes(script, "--ref v0.1.16");
 
   const tempDir = await Deno.makeTempDir();
   try {

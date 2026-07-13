@@ -180,6 +180,12 @@ console.log(selection.selected_scope); // "task_subtype"
 Groups and fallback stay isolated by exact provider/model source. Subtype and
 pattern values are caller-defined lowercase canonical labels, never raw prompts.
 
+For outcome-level drift handling, the additive
+`resolveHierarchicalTaskCalibrationWithDriftGuard()` API can quarantine a
+sufficient child whose Brier score is materially worse than its immediate
+parent, then continue parent fallback. It is explicit opt-in, not semantic label
+verification, and never mutates labels or routing authority.
+
 This is a pure, advisory API. QuorumRouter does not use its output to change
 routing weights, ranks, eligibility, quorum, or execution. The caller must
 establish evaluator trust, invocation binding, durable replay protection, and
@@ -199,7 +205,7 @@ deno task smoke:v0.1
 ## Links
 
 - npm installer: `npx --yes create-quorum-router@latest`
-- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.15
+- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.16
 - launch assets: [docs/launch/](docs/launch/)
 - release verification: [docs/release-runbook.md](docs/release-runbook.md)
 - Hermes Agent on-demand integration:

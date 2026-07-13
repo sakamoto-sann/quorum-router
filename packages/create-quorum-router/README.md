@@ -18,7 +18,7 @@ deno task intake
 deno task supabase:status
 ```
 
-Current package version: `create-quorum-router@0.1.15`. Releases are published
+Current package version: `create-quorum-router@0.1.16`. Releases are published
 from an immutable Git tag through GitHub Actions OIDC Trusted Publishing.
 
 ## What the generated project supports
@@ -38,6 +38,12 @@ advisory-only and are not connected to routing weights, provider eligibility, or
 execution. Both demos are local-only; the hierarchy demo does not call provider
 APIs. On a new Deno installation, the first run resolves the pinned Zod
 dependency before execution.
+
+Generated projects also export the opt-in
+`resolveHierarchicalTaskCalibrationWithDriftGuard()` API. It can quarantine a
+child whose Brier score is worse than its immediate parent by more than an
+explicit caller threshold. This is outcome-metric drift handling, not semantic
+label verification; it does not rename labels or affect routing authority.
 
 `deno task intake` is the first real setup command. It detects local provider
 wrappers, checks OAuth/session status, runs safe list-only model inventory where
