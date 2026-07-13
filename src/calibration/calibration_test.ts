@@ -4,6 +4,7 @@ import {
   aggregateTaskCalibration,
   HierarchicalTaskCalibrationDecisionSchema,
   HierarchicalTaskCalibrationObservationSchema,
+  HierarchicalTaskCalibrationSelectionSchema,
   MAX_CALIBRATION_OBSERVATIONS,
   resolveHierarchicalTaskCalibration,
   TaskCalibrationObservationSchema,
@@ -535,6 +536,46 @@ Deno.test("hierarchical calibration never crosses provider or model boundaries",
   });
   assertEquals(selection.resolution_status, "no_sufficient_group");
   assertEquals(selection.candidates[0].sample_count, 1);
+});
+
+Deno.test("standalone hierarchical selection schema rejects contradictory selected groups", () => {
+  const report = aggregateHierarchicalTaskCalibration([
+    observation({
+      observation_id: "selected-1",
+      task_subtype: "typescript",
+      prompt_pattern: "schema-boundary-review",
+    }),
+  ], { minimum_sample_count: 1 });
+  const selection = resolveHierarchicalTaskCalibration(report, {
+    task_type: "code_review",
+    task_subtype: "typescript",
+    prompt_pattern: "schema-boundary-review",
+    source: { provider: "OpenAI", model: "gpt-5" },
+  });
+  const selectedGroup = selection.selected_group!;
+  const contradictoryGroups = [
+    { ...selectedGroup, task_type: "other_task" },
+    {
+      ...selectedGroup,
+      source: { ...selectedGroup.source, provider: "Anthropic" },
+    },
+    {
+      ...selectedGroup,
+      source: { ...selectedGroup.source, model: "other-model" },
+    },
+    { ...selectedGroup, sample_status: "insufficient" },
+    { ...selectedGroup, task_subtype: "javascript" },
+    { ...selectedGroup, prompt_pattern: "api-review" },
+  ];
+
+  for (const selected_group of contradictoryGroups) {
+    assertThrows(() =>
+      HierarchicalTaskCalibrationSelectionSchema.parse({
+        ...selection,
+        selected_group,
+      })
+    );
+  }
 });
 
 Deno.test("hierarchical calibration decision schema rejects report-selection contradictions", () => {

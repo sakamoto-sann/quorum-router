@@ -54,6 +54,15 @@ not use them to change routing weights, ranks, provider eligibility, quorum, or
 execution. The command does not call provider APIs; on a new Deno installation,
 its first run resolves the pinned Zod dependency before execution.
 
+For narrower diagnostics, import `aggregateHierarchicalTaskCalibration()` and
+`resolveHierarchicalTaskCalibration()` from `src/calibration.ts`. For example,
+classify an observation with `task_type: "code_review"`,
+`task_subtype: "typescript"`, and `prompt_pattern: "schema-boundary-review"`.
+Resolution checks `prompt_pattern → task_subtype → task_type`, using the first
+group that reaches the configured sample threshold. Groups never cross exact
+provider/model source boundaries, labels must not contain raw prompts, and the
+result remains advisory-only.
+
 `intake` detects local provider wrappers, checks OAuth/session status, runs safe
 model inventory/list-only probes where possible, writes local health traces
 under `out/`, and recommends the next command.
@@ -228,8 +237,9 @@ not paste them into chat/logs and do not commit `.env`.
   `src/provider_client.ts` — provider discovery and safe invocation.
 - `src/best_route.ts`, `src/agent_chat.ts` — gated dogfood commands.
 - `src/cost_aware.ts` — estimated-cost budget selection for Best Route.
-- `src/calibration.ts`, `src/calibration_demo.ts` — strict advisory calibration
-  aggregation and an offline runnable example.
+- `src/calibration.ts`, `src/calibration_demo.ts` — strict flat and hierarchical
+  advisory aggregation, parent fallback resolution, and an offline runnable
+  example.
 - `src/trace.ts`, `src/redact.ts`, `src/schema.ts`, `src/fixture_smoke.ts` —
   trace/redaction/schema/fixture support.
 - `out/.gitkeep` — local output directory placeholder.
