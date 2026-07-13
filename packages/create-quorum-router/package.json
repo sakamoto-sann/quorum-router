@@ -1,6 +1,6 @@
 {
   "name": "create-quorum-router",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Create a local QuorumRouter project.",
   "license": "MIT",
   "bin": {
