@@ -199,7 +199,7 @@ deno task smoke:v0.1
 ## Links
 
 - npm installer: `npx --yes create-quorum-router@latest`
-- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.13
+- release: https://github.com/sakamoto-sann/quorum-router/releases/tag/v0.1.14
 - launch assets: [docs/launch/](docs/launch/)
 - release verification: [docs/release-runbook.md](docs/release-runbook.md)
 - Hermes Agent on-demand integration:

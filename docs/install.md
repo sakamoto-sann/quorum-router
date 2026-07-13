@@ -36,19 +36,21 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-npm package: `create-quorum-router@0.1.13`; npm dist-tag: `latest -> 0.1.13`.
+npm package: `create-quorum-router@0.1.14`; npm dist-tag: `latest -> 0.1.14`.
 For a fixed package version:
 
 ```bash
-npx --yes create-quorum-router@0.1.13 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.14 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
+deno task calibration:hierarchy-demo
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. `0.1.13` adds advisory hierarchical calibration
-across task type, subtype, and prompt-pattern labels with explicit parent
-fallback when a narrower group is below the configured sample threshold. Flat
+dependencies automatically. `0.1.14` adds a deterministic offline walkthrough of
+hierarchical calibration: direct prompt-pattern selection, subtype fallback, and
+task fallback when narrower groups are below the configured sample threshold.
+The underlying advisory hierarchical API shipped in `0.1.13`, and flat
 calibration remains backward compatible. The generated `deno task smoke` path is
 offline/fixture-only and does not call a provider API or
 `raw.githubusercontent.com`.
@@ -122,7 +124,7 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.13`: verify network access and the ref
+- Clone or checkout errors for `v0.1.14`: verify network access and the ref
   spelling.
 - `quorum-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Scaffold `deno task smoke` is offline/fixture-only. If it fails, check local

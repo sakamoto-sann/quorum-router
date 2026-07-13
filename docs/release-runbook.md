@@ -15,15 +15,15 @@ deno task smoke
 Pin a release only when reproducibility requires it:
 
 ```bash
-npx --yes create-quorum-router@0.1.13 my-quorum-router
+npx --yes create-quorum-router@0.1.14 my-quorum-router
 ```
 
 ## Release readback
 
 ```bash
 npm view create-quorum-router version dist-tags dist.integrity dist.attestations --json
-gh release view v0.1.13 --repo sakamoto-sann/quorum-router
-git ls-remote --tags origin refs/tags/v0.1.13
+gh release view v0.1.14 --repo sakamoto-sann/quorum-router
+git ls-remote --tags origin refs/tags/v0.1.14
 ```
 
 The npm version, `latest` dist-tag, GitHub Release, source tag, and SLSA
