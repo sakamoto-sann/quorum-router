@@ -23,6 +23,8 @@ barrel that re-exports the public contracts from the split modules, including:
 - AgentChat protocol / simulator and Agent Bus contract exports through
   `src/agent-chat/index.ts`
 - experimental AgentRuntime exports through `src/agent-runtime/index.ts`
+- advisory calibration schemas, types, and aggregation through
+  `src/calibration/calibration.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -50,6 +52,9 @@ src/
     buffered-batch-sink.ts        # generic bounded buffer + OTLP/telemetry helpers
   audit/
     supabase-audit.ts             # Supabase audit RPC handler/sink
+  calibration/
+    calibration.ts                # pure advisory aggregation by task/source
+    calibration_test.ts           # truth-boundary and metric regressions
   policy/
     provider-registry.ts          # provider/model capability metadata
     direct-routing-policy.ts      # Adaptive Direct candidate selection decision
@@ -128,6 +133,21 @@ The split is intended to be behavior-preserving:
 - Adaptive Direct is opt-in; without `directRoutingPolicy`, direct mode still
   invokes every configured adapter as before
 - fallback remains policy classification, not silent fallback success
+- calibration reports remain advisory-only and are not consumed by routing,
+  ranking, quorum, or execution paths
+
+## Advisory calibration boundary
+
+[`docs/calibration.md`](calibration.md) documents the pure calibration API. It
+groups caller-attested binary outcomes by task type and provider/model source,
+then returns accuracy, mean confidence, Brier score, signed mean calibration
+bias, and sample-count status.
+
+The module validates structure and per-call observation ID uniqueness. It does
+not authenticate evaluators, bind observations to invocations, deduplicate
+across calls, persist observations, or normalize model aliases. Those guarantees
+belong upstream. No routing or execution module imports or consumes calibration
+reports.
 
 ## Adaptive Direct policy skeleton
 
