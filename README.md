@@ -133,6 +133,53 @@ const report = aggregateTaskCalibration([
 console.log(report.groups[0]);
 ```
 
+For narrower diagnostics, use `aggregateHierarchicalTaskCalibration()` and
+`resolveHierarchicalTaskCalibration()`. Every labeled observation contributes to
+its task group and, when present, its subtype and prompt-pattern groups. The
+resolver selects the first sufficiently sampled group in
+`prompt_pattern → task_subtype → task_type` order:
+
+```ts
+import {
+  aggregateHierarchicalTaskCalibration,
+  resolveHierarchicalTaskCalibration,
+} from "./router.ts";
+
+const source = { provider: "OpenAI", model: "gpt-5" };
+const common = {
+  task_type: "code_review",
+  task_subtype: "typescript",
+  source,
+  evaluation_basis: "caller_attested_external_ground_truth" as const,
+  correct: true,
+  confidence: 0.8,
+  evaluated_at: "2026-07-13T00:00:00Z",
+};
+const hierarchy = aggregateHierarchicalTaskCalibration([
+  {
+    ...common,
+    observation_id: "review-001",
+    prompt_pattern: "schema-boundary-review",
+  },
+  {
+    ...common,
+    observation_id: "review-002",
+    prompt_pattern: "api-review",
+  },
+], { minimum_sample_count: 2 });
+
+const selection = resolveHierarchicalTaskCalibration(hierarchy, {
+  task_type: "code_review",
+  task_subtype: "typescript",
+  prompt_pattern: "schema-boundary-review",
+  source,
+});
+console.log(selection.selected_scope); // "task_subtype"
+```
+
+Groups and fallback stay isolated by exact provider/model source. Subtype and
+pattern values are caller-defined lowercase canonical labels, never raw prompts.
+
 This is a pure, advisory API. QuorumRouter does not use its output to change
 routing weights, ranks, eligibility, quorum, or execution. The caller must
 establish evaluator trust, invocation binding, durable replay protection, and

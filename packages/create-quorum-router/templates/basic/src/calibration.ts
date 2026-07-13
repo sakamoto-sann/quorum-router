@@ -469,7 +469,17 @@ export const HierarchicalTaskCalibrationSelectionSchema = z.object({
     selection.resolution_status !== "selected" ||
     selection.selected_scope !== firstSufficient.scope ||
     selection.selected_group?.scope !== firstSufficient.scope ||
-    selection.selected_group.sample_count !== firstSufficient.sample_count
+    selection.selected_group.sample_count !== firstSufficient.sample_count ||
+    selection.selected_group.sample_status !== "sufficient" ||
+    selection.selected_group.task_type !== selection.query.task_type ||
+    selection.selected_group.source.provider !==
+      selection.query.source.provider ||
+    selection.selected_group.source.model !== selection.query.source.model ||
+    (firstSufficient.scope !== "task_type" &&
+      selection.selected_group.task_subtype !== selection.query.task_subtype) ||
+    (firstSufficient.scope === "prompt_pattern" &&
+      selection.selected_group.prompt_pattern !==
+        selection.query.prompt_pattern)
   ) {
     context.addIssue({
       code: "custom",
