@@ -1,7 +1,7 @@
 # QuorumRouter generated workspace
 
 This generated workspace contains the MIT-licensed QuorumRouter current release.
-npm latest targets v0.1.6.
+npm latest targets v0.1.7.
 
 QuorumRouter is **MIT**. It is **open source**. Commercial and production use
 are permitted under the MIT License.
@@ -222,6 +222,5 @@ not paste them into chat/logs and do not commit `.env`.
   trace/redaction/schema/fixture support.
 - `out/.gitkeep` — local output directory placeholder.
 
-Public Product Hunt/X launch remains blocked until the user personally runs a
-local pre-release workspace and approves release continuation. This scaffold
-does not publish npm, create a GitHub release, or mutate tags/dist-tags.
+This generated scaffold operates locally. It does not publish npm packages,
+create GitHub releases, or mutate tags or dist-tags.
