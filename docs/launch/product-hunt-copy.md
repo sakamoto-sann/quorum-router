@@ -187,5 +187,5 @@ Use two separate videos; do not combine the interaction contracts:
 2. **Agent Chat (26s):** Grok ↔ GLM shared-context dialogue with disagreement,
    counterargument, strategy revision, challenge, and consensus.
 
-- Best Route MP4: `docs/assets/launch/quorum-router-best-route.mp4`
-- Agent Chat MP4: `docs/assets/launch/quorum-router-agent-chat.mp4`
+- Best Route video: `https://youtu.be/8GHw-9f1hjI`
+- Agent Chat video: `https://youtu.be/RYmaAOSCkF8`

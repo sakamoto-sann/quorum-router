@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#070a12" />
+    <meta
+      name="description"
+      content="QuorumRouter is an MIT-licensed control plane for fail-closed best-answer routing and permission-bound AI agent execution."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="QuorumRouter — Route with evidence. Execute only with permission."
+    />
+    <meta
+      property="og:description"
+      content="Fail-closed routing and safe execution for AI agents. MIT licensed."
+    />
+    <meta
+      property="og:url"
+      content="https://sakamoto-sann.github.io/quorum-router/"
+    />
+    <meta
+      property="og:image"
+      content="https://sakamoto-sann.github.io/quorum-router/og.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>QuorumRouter — Evidence-first routing for AI agents</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./site.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-header>
+      <a class="wordmark" href="#top" aria-label="QuorumRouter home">
+        <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+          <circle
+            cx="20"
+            cy="20"
+            r="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="5"
+          ></circle>
+          <path
+            d="M27.5 27.5 34 34"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="5"
+          ></path>
+          <circle cx="20" cy="20" r="3" fill="currentColor"></circle>
+        </svg>
+        <span>QuorumRouter</span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#modes">
+          <span data-lang="en">Modes</span><span data-lang="ja">モード</span>
+        </a>
+        <a href="#demos">
+          <span data-lang="en">Demos</span><span data-lang="ja">デモ</span>
+        </a>
+        <a href="#safety">
+          <span data-lang="en">Safety</span><span data-lang="ja"
+          >安全性</span>
+        </a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="language-switch" role="group" aria-label="Language">
+          <button type="button" data-language="en" aria-pressed="true">
+            EN
+          </button>
+          <button type="button" data-language="ja" aria-pressed="false">
+            JA
+          </button>
+        </div>
+        <a
+          class="button button-small"
+          href="https://github.com/sakamoto-sann/quorum-router"
+          target="_blank"
+          rel="noreferrer"
+        >GitHub</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <div class="eyebrow reveal">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span data-lang="en">MIT-licensed control plane for AI agents</span>
+          <span data-lang="ja"
+          >AIエージェントのためのMITライセンス制御プレーン</span>
+        </div>
+
+        <h1 class="reveal">
+          <span data-lang="en">Route with evidence.<br /><em>Execute only with
+              permission.</em></span>
+          <span data-lang="ja">証拠で選ぶ。<br /><em
+            >許可なしでは動かさない。</em></span>
+        </h1>
+
+        <p class="hero-lead reveal">
+          <span data-lang="en">
+            QuorumRouter collects independent model answers, makes the selection
+            inspectable, and fails closed before unsafe execution.
+          </span>
+          <span data-lang="ja">
+            独立したモデル回答を集め、選択理由を検証可能にし、危険な実行の前でfail
+            closedします。
+          </span>
+        </p>
+
+        <div class="hero-actions reveal">
+          <a
+            class="button button-primary"
+            href="https://github.com/sakamoto-sann/quorum-router#quickstart"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span data-lang="en">Open quickstart</span><span data-lang="ja"
+            >Quickstartを見る</span>
+          </a>
+          <div class="install-command" aria-label="Install command">
+            <span class="prompt" aria-hidden="true">$</span>
+            <code>npx --yes create-quorum-router@latest my-router</code>
+            <button
+              class="copy-button"
+              type="button"
+              data-copy="npx --yes create-quorum-router@latest my-router"
+            >
+              <span data-copy-label data-lang="en">Copy</span>
+              <span data-copy-label data-lang="ja">コピー</span>
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="router-stage reveal"
+          aria-label="Independent model candidates converge through an evidence gate"
+        >
+          <div class="orbit orbit-one" aria-hidden="true"></div>
+          <div class="orbit orbit-two" aria-hidden="true"></div>
+          <div class="candidate candidate-a">
+            <span>01</span><strong>OpenAI</strong><small data-lang="en"
+            >candidate</small><small data-lang="ja">候補</small>
+          </div>
+          <div class="candidate candidate-b">
+            <span>02</span><strong>Grok</strong><small data-lang="en"
+            >candidate</small><small data-lang="ja">候補</small>
+          </div>
+          <div class="candidate candidate-c">
+            <span>03</span><strong>Local</strong><small data-lang="en"
+            >candidate</small><small data-lang="ja">候補</small>
+          </div>
+          <svg class="route-lines" viewBox="0 0 900 390" aria-hidden="true">
+            <path d="M132 95 C260 95 282 195 420 195" />
+            <path d="M132 295 C260 295 282 195 420 195" />
+            <path d="M768 95 C640 95 618 195 480 195" />
+            <path class="selected-line" d="M450 195 C520 195 570 245 645 245" />
+          </svg>
+          <div class="gate">
+            <span class="gate-ring"></span>
+            <span class="gate-core"></span>
+            <strong data-lang="en">Evidence gate</strong><strong data-lang="ja"
+            >証拠ゲート</strong>
+            <small data-lang="en">inspect · compare · select</small><small
+              data-lang="ja"
+            >検証・比較・選択</small>
+          </div>
+          <div class="result">
+            <span class="result-check" aria-hidden="true">✓</span>
+            <strong data-lang="en">Best answer</strong><strong data-lang="ja"
+            >最良の回答</strong>
+            <small data-lang="en">decision report attached</small><small
+              data-lang="ja"
+            >Decision Report付き</small>
+          </div>
+        </div>
+
+        <ul class="proof-strip reveal" aria-label="Project properties">
+          <li>
+            <strong>MIT</strong><span data-lang="en">open source</span><span
+              data-lang="ja"
+            >オープンソース</span>
+          </li>
+          <li>
+            <strong>Fail closed</strong><span data-lang="en"
+            >by default</span><span data-lang="ja">デフォルト動作</span>
+          </li>
+          <li>
+            <strong>Local-first</strong><span data-lang="en"
+            >existing CLI auth</span><span data-lang="ja">既存CLI認証</span>
+          </li>
+          <li>
+            <strong>Inspectable</strong><span data-lang="en"
+            >per-run evidence</span><span data-lang="ja"
+            >run単位の証跡</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="section" id="how">
+        <div class="section-heading reveal">
+          <p class="section-index">01 / ROUTING</p>
+          <h2 data-lang="en">A decision pipeline, not a model lottery.</h2>
+          <h2 data-lang="ja">
+            モデルガチャではなく、検証可能な意思決定パイプライン。
+          </h2>
+          <p data-lang="en">
+            Each stage has one job. If a required condition is missing, the
+            pipeline stops.
+          </p>
+          <p data-lang="ja">
+            各段階の役割は1つ。必要条件が欠ければ、その場で停止します。
+          </p>
+        </div>
+
+        <ol class="flow-list reveal">
+          <li>
+            <span class="flow-number">01</span>
+            <div>
+              <h3 data-lang="en">Collect independently</h3>
+              <h3 data-lang="ja">独立して収集</h3>
+              <p data-lang="en">
+                Models answer without seeing or anchoring on each other's
+                candidates.
+              </p>
+              <p data-lang="ja">
+                モデル同士が他の候補に引きずられない状態で回答します。
+              </p>
+            </div>
+            <code>candidate[]</code>
+          </li>
+          <li>
+            <span class="flow-number">02</span>
+            <div>
+              <h3 data-lang="en">Compare with evidence</h3>
+              <h3 data-lang="ja">証拠で比較</h3>
+              <p data-lang="en">
+                Scores, disagreement, calibration context, and selection
+                rationale stay visible.
+              </p>
+              <p data-lang="ja">
+                score・不一致・calibration
+                context・選択理由を可視化します。
+              </p>
+            </div>
+            <code>decision_report</code>
+          </li>
+          <li>
+            <span class="flow-number">03</span>
+            <div>
+              <h3 data-lang="en">Stop before mutation</h3>
+              <h3 data-lang="ja">mutation前で停止</h3>
+              <p data-lang="en">
+                Routing never becomes execution authority. SafeLoop approval is
+                a separate boundary.
+              </p>
+              <p data-lang="ja">
+                routingは実行権限になりません。SafeLoop承認は別境界です。
+              </p>
+            </div>
+            <code>verified_receipt</code>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section modes-section" id="modes">
+        <div class="section-heading reveal">
+          <p class="section-index">02 / MODES</p>
+          <h2 data-lang="en">
+            Use only as much coordination as the task needs.
+          </h2>
+          <h2 data-lang="ja">
+            タスクに必要な分だけ、協調させる。
+          </h2>
+        </div>
+
+        <div class="mode-stack reveal">
+          <article class="mode-row">
+            <div class="mode-label">
+              <span>01</span><strong>Route Once</strong>
+            </div>
+            <p data-lang="en">
+              One selected provider. Fast, explicit, observable.
+            </p>
+            <p data-lang="ja">
+              選択した1
+              providerを呼び出す。高速・明示的・観測可能。
+            </p>
+            <code>RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task route:once</code>
+          </article>
+          <article class="mode-row mode-featured">
+            <div class="mode-label">
+              <span>02</span><strong>Best Route</strong>
+            </div>
+            <p data-lang="en">
+              Independent candidates compete. QuorumRouter chooses or
+              synthesizes the strongest answer.
+            </p>
+            <p data-lang="ja">
+              独立候補を比較し、最も強い回答を選択または統合。
+            </p>
+            <code>RUN_EXTERNAL_MODEL_DOGFOOD=1 deno task best-route</code>
+          </article>
+          <article class="mode-row">
+            <div class="mode-label">
+              <span>03</span><strong>Agent Chat</strong>
+            </div>
+            <p data-lang="en">
+              Two distinct working model identities exchange bounded,
+              reply-linked turns.
+            </p>
+            <p data-lang="ja">
+              異なる実モデル2者が、上限付き・返信関係付きで対話。
+            </p>
+            <code>RUN_EXTERNAL_MODEL_DOGFOOD=1 RUN_AGENT_CHAT=1 deno task agent-chat</code>
+          </article>
+        </div>
+      </section>
+
+      <section class="section calibration-section" id="calibration">
+        <div class="calibration-copy reveal">
+          <p class="section-index">03 / CALIBRATION</p>
+          <h2 data-lang="en">
+            Start narrow. Fall back only when evidence runs thin.
+          </h2>
+          <h2 data-lang="ja">
+            狭い証拠から始め、不足したときだけ親へ戻る。
+          </h2>
+          <p data-lang="en">
+            Hierarchical calibration resolves the narrowest sufficiently sampled
+            group while keeping every result advisory-only.
+          </p>
+          <p data-lang="ja">
+            階層calibrationは、十分なsampleを持つ最も狭いgroupを選択します。結果は常にadvisory-onlyです。
+          </p>
+          <a
+            class="text-link"
+            href="https://github.com/sakamoto-sann/quorum-router/blob/main/docs/calibration.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span data-lang="en">Read the calibration contract</span><span
+              data-lang="ja"
+            >calibration contractを読む</span><span aria-hidden="true"
+            >↗</span>
+          </a>
+        </div>
+
+        <div
+          class="hierarchy reveal"
+          aria-label="Calibration fallback hierarchy"
+        >
+          <div class="hierarchy-row hierarchy-active">
+            <span class="scope-dot"></span><div>
+              <strong>prompt_pattern</strong><small
+              >schema-boundary-review</small>
+            </div><span class="sample">n ≥ min</span>
+          </div>
+          <div class="fallback-arrow">
+            <span data-lang="en">insufficient samples</span><span data-lang="ja"
+            >sample不足</span><b>↓</b>
+          </div>
+          <div class="hierarchy-row">
+            <span class="scope-dot"></span><div>
+              <strong>task_subtype</strong><small>typescript</small>
+            </div><span class="sample">fallback 01</span>
+          </div>
+          <div class="fallback-arrow">
+            <span data-lang="en">insufficient samples</span><span data-lang="ja"
+            >sample不足</span><b>↓</b>
+          </div>
+          <div class="hierarchy-row">
+            <span class="scope-dot"></span><div>
+              <strong>task_type</strong><small>code_review</small>
+            </div><span class="sample">fallback 02</span>
+          </div>
+          <div class="advisory-note">
+            <span class="lock" aria-hidden="true">◇</span><span data-lang="en"
+            >Never changes ranks, weights, eligibility, quorum, budget, or
+              execution.</span><span data-lang="ja"
+            >rank・weight・eligibility・quorum・budget・executionは変更しません。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="demos">
+        <div class="section-heading reveal">
+          <p class="section-index">04 / DEMOS</p>
+          <h2 data-lang="en">Watch the real paths, separately.</h2>
+          <h2 data-lang="ja">異なる実行pathを、分けて見る。</h2>
+          <p data-lang="en">
+            No video binaries in the repository. Each demo opens on YouTube.
+          </p>
+          <p data-lang="ja">
+            動画binaryはrepositoryに置かず、YouTubeで公開しています。
+          </p>
+        </div>
+
+        <div class="demo-grid reveal">
+          <a
+            class="demo-card"
+            href="https://youtu.be/8GHw-9f1hjI"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <div class="demo-visual best-route-visual">
+              <span class="mini-node"></span><span
+                class="mini-node"
+              ></span><span class="mini-node"></span><b>✓</b>
+            </div>
+            <div>
+              <span class="demo-meta">15 SEC · BEST ANSWER</span><h3>
+                Best Route
+              </h3>
+              <p data-lang="en">
+                Independent candidates → selection and synthesis.
+              </p>
+              <p data-lang="ja">独立候補 → 選択・統合。</p>
+            </div>
+            <span class="play" aria-hidden="true">▶</span>
+          </a>
+          <a
+            class="demo-card"
+            href="https://youtu.be/RYmaAOSCkF8"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <div class="demo-visual chat-visual">
+              <span>A</span><i>↔</i><span>B</span>
+            </div>
+            <div>
+              <span class="demo-meta">26 SEC · MULTI-TURN</span><h3>
+                Agent Chat
+              </h3>
+              <p data-lang="en">Distinct real models reply to each other.</p>
+              <p data-lang="ja">
+                異なる実モデル同士のmulti-turn対話。
+              </p>
+            </div>
+            <span class="play" aria-hidden="true">▶</span>
+          </a>
+          <a
+            class="demo-card"
+            href="https://youtu.be/-878sG-VS7o"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <div class="demo-visual hierarchy-visual">
+              <span></span><span></span><span></span>
+            </div>
+            <div>
+              <span class="demo-meta">30 SEC · OFFLINE</span><h3>
+                Hierarchical Calibration
+              </h3>
+              <p data-lang="en">
+                Narrowest sufficient evidence with safe fallback.
+              </p>
+              <p data-lang="ja">
+                最も狭い十分な証拠と安全なfallback。
+              </p>
+            </div>
+            <span class="play" aria-hidden="true">▶</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section safety-section" id="safety">
+        <div class="section-heading reveal">
+          <p class="section-index">05 / EXECUTION BOUNDARY</p>
+          <h2 data-lang="en">A good answer is not permission to act.</h2>
+          <h2 data-lang="ja">良い回答は、実行許可ではない。</h2>
+          <p data-lang="en">
+            QuorumRouter can propose. Only an injected SafeLoop authority can
+            approve and execute a bounded mutation.
+          </p>
+          <p data-lang="ja">
+            QuorumRouterは提案できます。限定mutationを承認・実行できるのは、注入されたSafeLoop
+            authorityだけです。
+          </p>
+        </div>
+
+        <div class="safety-layout reveal">
+          <div class="terminal" aria-label="Execution boundary example">
+            <div class="terminal-bar">
+              <span></span><span></span><span></span><b
+              >execution-boundary.log</b>
+            </div>
+            <pre><code><span class="muted">01</span> proposal       <span class="ok">structured</span>
+<span class="muted">02</span> action digest   <span class="ok">canonical</span>
+<span class="muted">03</span> approver        <span class="ok">distinct actor</span>
+<span class="muted">04</span> receipt binding <span class="ok">verified</span>
+<span class="muted">05</span> repository path <span class="ok">confined</span>
+
+<span class="accent">ALLOW</span> only when every gate matches
+<span class="danger">DENY</span>  on missing, stale, or mismatched evidence</code></pre>
+          </div>
+
+          <ul class="boundary-list">
+            <li>
+              <span>01</span><div>
+                <strong data-lang="en">No self-approval</strong><strong
+                  data-lang="ja"
+                >自己承認なし</strong><p data-lang="en">
+                  The router does not sign policy or create approval decisions.
+                </p>
+                <p data-lang="ja">
+                  routerはpolicyへ署名せず、approval
+                  decisionを作りません。
+                </p>
+              </div>
+            </li>
+            <li>
+              <span>02</span><div>
+                <strong data-lang="en">Digest-bound receipts</strong><strong
+                  data-lang="ja"
+                >digest-bound receipt</strong><p data-lang="en">
+                  The verified receipt must bind to the exact prepared request.
+                </p>
+                <p data-lang="ja">
+                  verified receiptはexact prepared
+                  requestにbindingされます。
+                </p>
+              </div>
+            </li>
+            <li>
+              <span>03</span><div>
+                <strong data-lang="en">Explicit scope</strong><strong
+                  data-lang="ja"
+                >明示的なscope</strong><p data-lang="en">
+                  Repository and shell writes stay inside the bounded worker
+                  contract.
+                </p>
+                <p data-lang="ja">
+                  repository/shell writeは限定worker
+                  contract内だけです。
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="cta-section">
+        <p class="section-index">INSTALL / INSPECT / EXTEND</p>
+        <h2 data-lang="en">
+          Put a control plane between the prompt and the consequence.
+        </h2>
+        <h2 data-lang="ja">
+          promptと結果の間に、制御プレーンを置く。
+        </h2>
+        <div class="cta-actions">
+          <a
+            class="button button-primary"
+            href="https://github.com/sakamoto-sann/quorum-router#quickstart"
+            target="_blank"
+            rel="noreferrer"
+          ><span data-lang="en">Open quickstart</span><span data-lang="ja"
+          >Quickstartを見る</span></a>
+          <a
+            class="button"
+            href="https://www.npmjs.com/package/create-quorum-router"
+            target="_blank"
+            rel="noreferrer"
+          >npm package</a>
+          <a
+            class="button"
+            href="https://github.com/sakamoto-sann/quorum-router"
+            target="_blank"
+            rel="noreferrer"
+          >View source</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>QuorumRouter</strong><p data-lang="en">
+          Fail-closed routing and safe execution for AI agents.
+        </p>
+        <p data-lang="ja">
+          AIエージェントのfail-closed routingと安全な実行。
+        </p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a
+          href="https://github.com/sakamoto-sann/quorum-router"
+          target="_blank"
+          rel="noreferrer"
+        >GitHub</a>
+        <a
+          href="https://www.npmjs.com/package/create-quorum-router"
+          target="_blank"
+          rel="noreferrer"
+        >npm</a>
+        <a
+          href="https://github.com/sakamoto-sann/quorum-router/blob/main/docs/security.md"
+          target="_blank"
+          rel="noreferrer"
+        >Security</a>
+        <a
+          href="https://github.com/sakamoto-sann/quorum-router/blob/main/LICENSE"
+          target="_blank"
+          rel="noreferrer"
+        >MIT License</a>
+      </nav>
+      <p class="copyright">© <span data-year></span> QuorumRouter</p>
+    </footer>
+  </body>
+</html>
