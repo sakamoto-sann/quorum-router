@@ -99,8 +99,9 @@ QuorumRouter is MIT. This is open source.
 
 Commercial and production use are permitted under the MIT License.
 
-Do not add an MIT, Apache, GPL, or other open source license to the example repo
-unless the upstream license decision changes explicitly.
+When the example repository copies a substantial portion of QuorumRouter,
+include the MIT copyright and permission notice required by the upstream
+license.
 
 ## Maintenance checklist
 

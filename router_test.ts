@@ -4433,6 +4433,29 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
   }
 });
 
+Deno.test("MIT grant covers every repository version", async () => {
+  const readme = await Deno.readTextFile("README.md");
+  const history = await Deno.readTextFile("LICENSE-HISTORY.md");
+  const normalizedHistory = history.replace(/\s+/g, " ");
+  const demoShotlist = await Deno.readTextFile(
+    "docs/launch/demo-gif-shotlist.md",
+  );
+
+  assertStringIncludes(readme, "LICENSE-HISTORY.md");
+  for (
+    const phrase of [
+      "every version, commit, branch, and tag",
+      "v0.1.0` through `v0.1.4",
+      "Fusion Router Source-Available Non-Commercial License",
+      "commercial use, and production use",
+    ]
+  ) {
+    assertStringIncludes(normalizedHistory, phrase);
+  }
+  assertStringIncludes(demoShotlist, "MIT-licensed open source");
+  assertEquals(demoShotlist.includes("not open source"), false);
+});
+
 Deno.test("public docs state commander is role not model", async () => {
   const docs = [
     await Deno.readTextFile("docs/commander-role.md"),
