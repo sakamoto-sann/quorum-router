@@ -83,8 +83,6 @@ positioning.
 
 ## What not to claim
 
-- “QuorumRouter is open source.”
-- “QuorumRouter is MIT” unless a future release actually changes the license.
 - “Grok/GLM were called live in the demo.”
 - “Agent Chat is production-ready.”
 - “Best Route always uses Agent Chat.”

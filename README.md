@@ -228,8 +228,8 @@ deno task smoke:v0.1
 QuorumRouter is MIT-licensed open source.
 
 Commercial and production use are permitted under the MIT License. The grant
-applies retroactively to every version, commit, branch, and tag, including
-`v0.1.0` through `v0.1.4`; see [LICENSE](LICENSE) and
+applies retroactively to every version, commit, branch, and tag existing through
+July 14, 2026, including `v0.1.0` through `v0.1.4`; see [LICENSE](LICENSE) and
 [LICENSE-HISTORY.md](LICENSE-HISTORY.md).
 
 SafeLoop v1 receipts are strictly verified by `SafeLoopCliClient` before they

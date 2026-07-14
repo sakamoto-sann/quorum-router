@@ -4434,17 +4434,28 @@ Deno.test("security docs state license runtime posture and non-goals", async () 
 });
 
 Deno.test("MIT grant covers every repository version", async () => {
+  const license = await Deno.readTextFile("LICENSE");
   const readme = await Deno.readTextFile("README.md");
   const history = await Deno.readTextFile("LICENSE-HISTORY.md");
   const normalizedHistory = history.replace(/\s+/g, " ");
   const demoShotlist = await Deno.readTextFile(
     "docs/launch/demo-gif-shotlist.md",
   );
+  const demoScript = await Deno.readTextFile("docs/launch/demo-script.md");
+  const exampleRepoPlan = await Deno.readTextFile(
+    "docs/launch/example-repo-plan.md",
+  );
 
+  assertStringIncludes(license, "MIT License");
+  assertStringIncludes(license, "Permission is hereby granted, free of charge");
+  assertStringIncludes(
+    readme,
+    "every version, commit, branch, and tag existing through",
+  );
   assertStringIncludes(readme, "LICENSE-HISTORY.md");
   for (
     const phrase of [
-      "every version, commit, branch, and tag",
+      "every version, commit, branch, and tag existing as of that date",
       "v0.1.0` through `v0.1.4",
       "Fusion Router Source-Available Non-Commercial License",
       "commercial use, and production use",
@@ -4452,8 +4463,21 @@ Deno.test("MIT grant covers every repository version", async () => {
   ) {
     assertStringIncludes(normalizedHistory, phrase);
   }
+
   assertStringIncludes(demoShotlist, "MIT-licensed open source");
-  assertEquals(demoShotlist.includes("not open source"), false);
+  assertStringIncludes(demoScript, "QuorumRouter is MIT, open source");
+  const whatNotToClaim = demoScript.split("## What not to claim")[1] ?? "";
+  assertEquals(whatNotToClaim.includes("QuorumRouter is open source"), false);
+  assertEquals(whatNotToClaim.includes("QuorumRouter is MIT"), false);
+  assertStringIncludes(exampleRepoPlan, "include the MIT copyright");
+
+  for (const publicDoc of [demoShotlist, demoScript, exampleRepoPlan]) {
+    assertEquals(publicDoc.includes("not open source"), false);
+    assertEquals(
+      publicDoc.includes("Source-Available Non-Commercial"),
+      false,
+    );
+  }
 });
 
 Deno.test("public docs state commander is role not model", async () => {

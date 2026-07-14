@@ -1,8 +1,9 @@
 # Retroactive MIT License Grant
 
-Effective July 14, 2026, the copyright holder grants the software and associated
-documentation in **every version, commit, branch, and tag** of this repository
-under the MIT License reproduced in [`LICENSE`](LICENSE).
+Effective July 14, 2026, the copyright holder grants under the MIT License
+reproduced in [`LICENSE`](LICENSE) all software and associated documentation
+present in this repository on or before that date, including **every version,
+commit, branch, and tag existing as of that date**.
 
 This grant expressly includes:
 
