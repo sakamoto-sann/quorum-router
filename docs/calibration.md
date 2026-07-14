@@ -235,12 +235,26 @@ score with the immediate sufficiently sampled parent for the same exact
 task/provider/model identity. A child whose score is worse by more than the
 caller-specified threshold is marked `quarantined` and selection continues at
 the parent. Equality remains within threshold. If the immediate parent cannot be
-validated, that child is `parent_unavailable` and is not selected. The audit
-rows snapshot the candidate metrics and record the parent scope, deterministic
-score delta, and drift status. The guarded report additionally rejects
-impossible child-count or weighted-metric roll-ups. Validate the combined
-guarded decision when report provenance matters; schema validation can prove
-internal consistency, not authenticate caller-supplied observations.
+validated, that child is `parent_unavailable` and is not selected. The guarded
+selection carries `minimum_sample_count`, binds every candidate status to that
+threshold, checks candidate bias and binary-outcome accuracy counts, and records
+the parent scope and deterministic score delta. The guarded report additionally
+rejects impossible child counts, fractional implied correct counts, and
+weighted-metric roll-ups. Malformed guarded decisions and composed envelopes
+return a normal `safeParse(...).success === false` result instead of throwing
+from a nested refinement.
+
+`DecisionReportSchema` and `DecisionReportEnvelopeSchema` remain the legacy
+unguarded schemas so their inferred TypeScript outputs stay source-compatible.
+Callers that explicitly accept guarded output can use `DecisionReportAnySchema`
+and `DecisionReportEnvelopeAnySchema`, or the guarded-specific schemas/types.
+
+A standalone guarded selection schema proves internal field consistency; it
+cannot authenticate an independently supplied, coherently rewritten snapshot.
+Validate `HierarchicalTaskCalibrationGuardedDecisionSchema` (or a composed any /
+guarded envelope) to bind the selection exactly to its aggregate report. Even
+that validation authenticates neither the caller nor the original observations;
+evaluator trust and invocation binding remain application responsibilities.
 
 This guard is opt-in and outcome-based. It does **not** inspect raw prompts or
 prove that a label is semantically correct. Parent metrics include child

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
   HierarchicalTaskCalibrationAnyDecisionSchema,
-  type HierarchicalTaskCalibrationDecision,
-  type HierarchicalTaskCalibrationGuardedDecision,
+  HierarchicalTaskCalibrationDecisionSchema,
+  HierarchicalTaskCalibrationGuardedDecisionSchema,
   TaskCalibrationReportSchema,
 } from "./calibration/calibration.ts";
 import { ModelUsageSchema } from "./prompt-cache.ts";
@@ -109,7 +109,7 @@ export const DecisionFailureSchema = z.object({
   code: z.string().min(1),
 });
 
-export const DecisionReportSchema = z.object({
+const DecisionReportBaseSchema = z.object({
   schema_version: z.literal("quorum-router.decision-report.v1"),
   outcome: DecisionOutcomeSchema,
   stage: DecisionStageSchema,
@@ -118,9 +118,18 @@ export const DecisionReportSchema = z.object({
   validated_sources: z.array(z.string().min(1)),
   failures: z.array(DecisionFailureSchema),
   calibration: TaskCalibrationReportSchema.optional(),
-  hierarchical_calibration: HierarchicalTaskCalibrationAnyDecisionSchema
-    .optional(),
-}).superRefine((value, context) => {
+});
+
+type DecisionReportValidationValue =
+  & z.infer<typeof DecisionReportBaseSchema>
+  & {
+    hierarchical_calibration?: unknown;
+  };
+
+function refineDecisionReport(
+  value: DecisionReportValidationValue,
+  context: z.RefinementCtx,
+): void {
   if (value.calibration && value.hierarchical_calibration) {
     context.addIssue({
       code: "custom",
@@ -141,9 +150,9 @@ export const DecisionReportSchema = z.object({
       message: "validated_sources must match validated_outputs",
     });
   }
-  const adapterFailures = value.failures.filter((failure) =>
-    failure.stage === "adapter_execution"
-  ).length;
+  const adapterFailures =
+    value.failures.filter((failure) => failure.stage === "adapter_execution")
+      .length;
   if (adapterFailures !== value.execution.failed_adapters) {
     context.addIssue({
       code: "custom",
@@ -153,9 +162,8 @@ export const DecisionReportSchema = z.object({
 
   const minimumMet = value.quorum.effective_required > 0 &&
     value.quorum.validated_outputs >= value.quorum.effective_required;
-  const synthesisFailures = value.failures.filter((failure) =>
-    failure.stage === "synthesis"
-  ).length;
+  const synthesisFailures =
+    value.failures.filter((failure) => failure.stage === "synthesis").length;
   const validOutcome = (value.outcome === "minimum_valid_outputs_synthesized" &&
     value.stage === "synthesis" && minimumMet && synthesisFailures === 0) ||
     (value.outcome === "synthesis_failed" &&
@@ -176,52 +184,57 @@ export const DecisionReportSchema = z.object({
         "outcome, stage, quorum, execution, and failures are inconsistent",
     });
   }
-});
+}
+
+/** Legacy v1 report schema. Its inferred output remains source-compatible. */
+export const DecisionReportSchema = DecisionReportBaseSchema.extend({
+  hierarchical_calibration: HierarchicalTaskCalibrationDecisionSchema
+    .optional(),
+}).superRefine(refineDecisionReport);
+
+/** Runtime schema for callers that explicitly accept guarded or unguarded reports. */
+export const DecisionReportAnySchema = DecisionReportBaseSchema.extend({
+  hierarchical_calibration: HierarchicalTaskCalibrationAnyDecisionSchema
+    .optional(),
+}).superRefine(refineDecisionReport);
+
+export const DecisionReportWithGuardedCalibrationSchema =
+  DecisionReportBaseSchema.extend({
+    hierarchical_calibration: HierarchicalTaskCalibrationGuardedDecisionSchema,
+  }).superRefine(refineDecisionReport);
 
 export type DecisionOutcome = z.infer<typeof DecisionOutcomeSchema>;
 export type DecisionFailure = z.infer<typeof DecisionFailureSchema>;
-export type DecisionReportAny = z.infer<typeof DecisionReportSchema>;
-export type DecisionReport =
-  & Omit<
-    DecisionReportAny,
-    "hierarchical_calibration"
-  >
-  & {
-    hierarchical_calibration?: HierarchicalTaskCalibrationDecision;
-  };
-export type DecisionReportWithGuardedCalibration =
-  & Omit<
-    DecisionReportAny,
-    "hierarchical_calibration"
-  >
-  & {
-    hierarchical_calibration: HierarchicalTaskCalibrationGuardedDecision;
-  };
+export type DecisionReport = z.infer<typeof DecisionReportSchema>;
+export type DecisionReportAny = z.infer<typeof DecisionReportAnySchema>;
+export type DecisionReportWithGuardedCalibration = z.infer<
+  typeof DecisionReportWithGuardedCalibrationSchema
+>;
 
 export const DecisionReportEnvelopeSchema = z.object({
   final: FinalSynthesisSchema,
   decision_report: DecisionReportSchema,
 });
 
-export type DecisionReportEnvelopeAny = z.infer<
+export const DecisionReportEnvelopeAnySchema = z.object({
+  final: FinalSynthesisSchema,
+  decision_report: DecisionReportAnySchema,
+});
+
+export const DecisionReportEnvelopeWithGuardedCalibrationSchema = z.object({
+  final: FinalSynthesisSchema,
+  decision_report: DecisionReportWithGuardedCalibrationSchema,
+});
+
+export type DecisionReportEnvelope = z.infer<
   typeof DecisionReportEnvelopeSchema
 >;
-export type DecisionReportEnvelope =
-  & Omit<
-    DecisionReportEnvelopeAny,
-    "decision_report"
-  >
-  & {
-    decision_report: DecisionReport;
-  };
-export type DecisionReportEnvelopeWithGuardedCalibration =
-  & Omit<
-    DecisionReportEnvelopeAny,
-    "decision_report"
-  >
-  & {
-    decision_report: DecisionReportWithGuardedCalibration;
-  };
+export type DecisionReportEnvelopeAny = z.infer<
+  typeof DecisionReportEnvelopeAnySchema
+>;
+export type DecisionReportEnvelopeWithGuardedCalibration = z.infer<
+  typeof DecisionReportEnvelopeWithGuardedCalibrationSchema
+>;
 
 export const TelemetryFailureSchema = z.object({
   provider: z.string().min(1),

@@ -36,24 +36,24 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-npm package: `create-quorum-router@0.1.16`; npm dist-tag: `latest -> 0.1.16`.
+npm package: `create-quorum-router@0.1.17`; npm dist-tag: `latest -> 0.1.17`.
 For a fixed package version:
 
 ```bash
-npx --yes create-quorum-router@0.1.16 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.17 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 deno task calibration:hierarchy-demo
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. `0.1.16` adds an opt-in advisory child-versus-parent
-Brier drift guard for hierarchical calibration, with deterministic quarantine
-and parent fallback. `0.1.15` added the offline hierarchy walkthrough. The
-underlying advisory hierarchical API shipped in `0.1.13`, and flat task
-calibration remains available separately. The generated `deno task smoke` path
-is offline/fixture-only and does not call a provider API or
-`raw.githubusercontent.com`.
+dependencies automatically. `0.1.17` hardens guarded calibration schema
+validation and restores legacy decision-report schema inference compatibility.
+`0.1.16` added the opt-in child-versus-parent Brier drift guard and `0.1.15`
+added the offline hierarchy walkthrough. The underlying advisory hierarchical
+API shipped in `0.1.13`, and flat task calibration remains available separately.
+The generated `deno task smoke` path is offline/fixture-only and does not call a
+provider API or `raw.githubusercontent.com`.
 
 ## Install helper dry run
 
@@ -124,7 +124,7 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.16`: verify network access and the ref
+- Clone or checkout errors for `v0.1.17`: verify network access and the ref
   spelling.
 - `quorum-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Scaffold `deno task smoke` is offline/fixture-only. If it fails, check local

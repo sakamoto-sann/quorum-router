@@ -8,6 +8,14 @@ function stableMetric(value: number): number {
   return rounded === 0 ? 0 : rounded;
 }
 
+function isCanonicalBinaryAccuracy(
+  sampleCount: number,
+  accuracy: number,
+): boolean {
+  const correctCount = Math.round(accuracy * sampleCount);
+  return accuracy === stableMetric(correctCount / sampleCount);
+}
+
 function boundedCanonicalText(maxLength: number) {
   return z.string().trim().transform((value) => value.normalize("NFC")).pipe(
     z.string().min(1).max(maxLength).refine(
@@ -254,6 +262,7 @@ export function aggregateTaskCalibration(
 
 export const MAX_HIERARCHICAL_CALIBRATION_GROUPS =
   MAX_CALIBRATION_OBSERVATIONS * 3;
+const HIERARCHICAL_ROLLUP_TOLERANCE = 1e-9;
 
 export const HierarchicalCalibrationScopeSchema = z.enum([
   "task_type",
@@ -492,11 +501,18 @@ export const HierarchicalCalibrationDriftGuardOptionsSchema = z.object({
   maximum_child_parent_brier_score_delta: z.number().finite().min(0).max(1),
 }).strict();
 
-const HIERARCHICAL_ROLLUP_TOLERANCE = 1e-9;
-
 export const HierarchicalTaskCalibrationGuardedReportSchema =
   HierarchicalTaskCalibrationReportSchema.superRefine((report, context) => {
     report.groups.forEach((parent, parentIndex) => {
+      if (!isCanonicalBinaryAccuracy(parent.sample_count, parent.accuracy)) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "guarded accuracy must be the canonical ratio of integer correct observations",
+          path: ["groups", parentIndex, "accuracy"],
+        });
+      }
+
       const childScope = parent.scope === "task_type"
         ? "task_subtype"
         : parent.scope === "task_subtype"
@@ -599,6 +615,33 @@ const HierarchicalGuardedCalibrationCandidateSchema = z.object({
         "candidate metrics must be null exactly when the candidate is missing",
     });
   }
+  if (
+    candidate.sample_count !== null && candidate.accuracy !== null &&
+    candidate.mean_confidence !== null &&
+    candidate.mean_calibration_bias !== null
+  ) {
+    if (
+      candidate.mean_calibration_bias !==
+        stableMetric(candidate.mean_confidence - candidate.accuracy)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "candidate mean_calibration_bias must equal mean_confidence - accuracy",
+        path: ["mean_calibration_bias"],
+      });
+    }
+    if (
+      !isCanonicalBinaryAccuracy(candidate.sample_count, candidate.accuracy)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "candidate accuracy must be the canonical ratio of integer correct observations",
+        path: ["accuracy"],
+      });
+    }
+  }
 });
 
 export const HierarchicalTaskCalibrationGuardedSelectionSchema = z.object({
@@ -608,6 +651,9 @@ export const HierarchicalTaskCalibrationGuardedSelectionSchema = z.object({
   advisory_only: z.literal(true),
   query: HierarchicalTaskCalibrationQuerySchema,
   requested_scope: HierarchicalCalibrationScopeSchema,
+  minimum_sample_count: z.number().int().positive().max(
+    MAX_CALIBRATION_OBSERVATIONS,
+  ),
   drift_guard: HierarchicalCalibrationDriftGuardOptionsSchema,
   resolution_status: z.enum(["selected", "no_eligible_group"]),
   selected_scope: HierarchicalCalibrationScopeSchema.nullable(),
@@ -646,6 +692,19 @@ export const HierarchicalTaskCalibrationGuardedSelectionSchema = z.object({
   }
 
   selection.candidates.forEach((candidate, index) => {
+    const expectedSampleStatus = candidate.sample_count === null
+      ? "missing"
+      : candidate.sample_count < selection.minimum_sample_count
+      ? "insufficient"
+      : "sufficient";
+    if (candidate.sample_status !== expectedSampleStatus) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "candidate sample_status must match the configured sample threshold",
+        path: ["candidates", index, "sample_status"],
+      });
+    }
     const isRoot = candidate.scope === "task_type";
     const immediateParent = selection.candidates[index + 1];
     if (isRoot) {
@@ -832,12 +891,21 @@ export const HierarchicalTaskCalibrationGuardedDecisionSchema = z.object({
   report: HierarchicalTaskCalibrationGuardedReportSchema,
   selection: HierarchicalTaskCalibrationGuardedSelectionSchema,
 }).strict().superRefine((decision, context) => {
-  const expected = resolveHierarchicalTaskCalibrationWithDriftGuard(
+  const parsedReport = HierarchicalTaskCalibrationGuardedReportSchema.safeParse(
     decision.report,
-    decision.selection.query,
-    decision.selection.drift_guard,
   );
-  if (JSON.stringify(decision.selection) !== JSON.stringify(expected)) {
+  const parsedSelection = HierarchicalTaskCalibrationGuardedSelectionSchema
+    .safeParse(
+      decision.selection,
+    );
+  if (!parsedReport.success || !parsedSelection.success) return;
+
+  const expected = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    parsedReport.data,
+    parsedSelection.data.query,
+    parsedSelection.data.drift_guard,
+  );
+  if (JSON.stringify(parsedSelection.data) !== JSON.stringify(expected)) {
     context.addIssue({
       code: "custom",
       message: "guarded selection must be derived from the aggregate report",
@@ -1180,6 +1248,7 @@ export function resolveHierarchicalTaskCalibrationWithDriftGuard(
     advisory_only: true,
     query: parsedQuery,
     requested_scope,
+    minimum_sample_count: parsedReport.minimum_sample_count,
     drift_guard,
     resolution_status: selected_group === undefined
       ? "no_eligible_group"

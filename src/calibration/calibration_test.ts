@@ -5,8 +5,10 @@ import {
   HierarchicalCalibrationDriftGuardOptionsSchema,
   HierarchicalTaskCalibrationDecisionSchema,
   HierarchicalTaskCalibrationGuardedDecisionSchema,
+  HierarchicalTaskCalibrationGuardedReportSchema,
   HierarchicalTaskCalibrationGuardedSelectionSchema,
   HierarchicalTaskCalibrationObservationSchema,
+  HierarchicalTaskCalibrationReportSchema,
   HierarchicalTaskCalibrationSelectionSchema,
   MAX_CALIBRATION_OBSERVATIONS,
   resolveHierarchicalTaskCalibration,
@@ -853,6 +855,32 @@ Deno.test("drift guard validates policy and rejects tampered guarded decisions",
     })
   );
 
+  const internallyConsistentButReportDivergent = {
+    ...selection,
+    candidates: selection.candidates.map((candidate, index) =>
+      index === 0
+        ? {
+          ...candidate,
+          brier_score: 0.9,
+          child_parent_brier_score_delta: 0.38,
+        }
+        : candidate
+    ),
+  };
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedSelectionSchema.safeParse(
+      internallyConsistentButReportDivergent,
+    ).success,
+    true,
+  );
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedDecisionSchema.safeParse({
+      report,
+      selection: internallyConsistentButReportDivergent,
+    }).success,
+    false,
+  );
+
   const objectKeys = new Set<string>();
   const collectKeys = (value: unknown) => {
     if (Array.isArray(value)) {
@@ -957,4 +985,213 @@ Deno.test("drift guard rejects impossible hierarchical roll-ups", () => {
       ),
     })
   );
+});
+
+Deno.test("guarded selection binds candidate status to its minimum sample count", () => {
+  const source = { provider: "Fixture", model: "A" } as const;
+  const report = aggregateHierarchicalTaskCalibration([
+    {
+      observation_id: "one",
+      task_type: "code-review",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: true,
+      confidence: 1,
+      evaluated_at: "2026-07-13T00:00:00Z",
+    },
+    {
+      observation_id: "two",
+      task_type: "code-review",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: true,
+      confidence: 1,
+      evaluated_at: "2026-07-13T00:00:01Z",
+    },
+  ], { minimum_sample_count: 2 });
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    { task_type: "code-review", source },
+    { maximum_child_parent_brier_score_delta: 0.1 },
+  );
+  assertEquals(
+    (selection as unknown as Record<string, unknown>).minimum_sample_count,
+    2,
+  );
+
+  const { selected_group: _selectedGroup, ...withoutSelectedGroup } = selection;
+  const tampered = {
+    ...withoutSelectedGroup,
+    resolution_status: "no_eligible_group",
+    selected_scope: null,
+    candidates: [{
+      ...selection.candidates[0],
+      sample_status: "insufficient",
+    }],
+  };
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedSelectionSchema.safeParse(tampered)
+      .success,
+    false,
+  );
+});
+
+Deno.test("guarded selection rejects contradictory candidate calibration bias", () => {
+  const { report, query } = driftFixture();
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.1 },
+  );
+  const tampered = {
+    ...selection,
+    candidates: selection.candidates.map((candidate, index) =>
+      index === 0 ? { ...candidate, mean_calibration_bias: 0 } : candidate
+    ),
+  };
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedSelectionSchema.safeParse(tampered)
+      .success,
+    false,
+  );
+});
+
+Deno.test("guarded report rejects fractional implied correct counts", () => {
+  const source = { provider: "Fixture", model: "A" } as const;
+  const report = aggregateHierarchicalTaskCalibration([
+    {
+      observation_id: "child-correct",
+      task_type: "code-review",
+      task_subtype: "typescript",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: true,
+      confidence: 0.8,
+      evaluated_at: "2026-07-13T00:00:00Z",
+    },
+    {
+      observation_id: "child-incorrect",
+      task_type: "code-review",
+      task_subtype: "typescript",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: false,
+      confidence: 0.8,
+      evaluated_at: "2026-07-13T00:00:01Z",
+    },
+    {
+      observation_id: "parent-only-correct",
+      task_type: "code-review",
+      source,
+      evaluation_basis: "caller_attested_external_ground_truth",
+      correct: true,
+      confidence: 0.8,
+      evaluated_at: "2026-07-13T00:00:02Z",
+    },
+  ], { minimum_sample_count: 1 });
+  const impossible = {
+    ...report,
+    groups: report.groups.map((group) =>
+      group.scope === "task_type"
+        ? {
+          ...group,
+          accuracy: 0.5,
+          mean_calibration_bias: 0.3,
+        }
+        : group
+    ),
+  };
+
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedReportSchema.safeParse(impossible)
+      .success,
+    false,
+  );
+});
+
+Deno.test("guarded accuracy is canonical without narrowing legacy v1", () => {
+  const source = { provider: "Fixture", model: "A" } as const;
+  const accuracy = 0.50000000000005;
+  const group = {
+    scope: "task_type" as const,
+    task_type: "code-review",
+    source,
+    sample_count: 10_000,
+    accuracy,
+    mean_confidence: accuracy,
+    brier_score: 0.25,
+    mean_calibration_bias: 0,
+    sample_status: "sufficient" as const,
+  };
+  const report = {
+    schema_version: "quorum-router.hierarchical-calibration.v1" as const,
+    advisory_only: true as const,
+    minimum_sample_count: 1,
+    groups: [group],
+  };
+  const query = { task_type: "code-review", source };
+  const selection = {
+    schema_version: "quorum-router.hierarchical-guarded-selection.v1" as const,
+    advisory_only: true as const,
+    query,
+    requested_scope: "task_type" as const,
+    minimum_sample_count: 1,
+    drift_guard: { maximum_child_parent_brier_score_delta: 0.1 },
+    resolution_status: "selected" as const,
+    selected_scope: "task_type" as const,
+    candidates: [{
+      ...group,
+      parent_scope: null,
+      parent_brier_score: null,
+      child_parent_brier_score_delta: null,
+      drift_status: "not_applicable" as const,
+    }],
+    selected_group: group,
+  };
+
+  assertEquals(
+    HierarchicalTaskCalibrationReportSchema.safeParse(report).success,
+    true,
+  );
+  assertEquals(
+    resolveHierarchicalTaskCalibration(report, query).selected_scope,
+    "task_type",
+  );
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedReportSchema.safeParse(report).success,
+    false,
+  );
+  assertEquals(
+    HierarchicalTaskCalibrationGuardedSelectionSchema.safeParse(selection)
+      .success,
+    false,
+  );
+});
+
+Deno.test("guarded decision safeParse never throws for an invalid nested report", () => {
+  const { report, query } = driftFixture();
+  const selection = resolveHierarchicalTaskCalibrationWithDriftGuard(
+    report,
+    query,
+    { maximum_child_parent_brier_score_delta: 0.1 },
+  );
+  const impossible = {
+    ...report,
+    groups: report.groups.map((group) =>
+      group.scope === "task_subtype" ? { ...group, sample_count: 1 } : group
+    ),
+  };
+
+  let threw = false;
+  let success = true;
+  try {
+    success = HierarchicalTaskCalibrationGuardedDecisionSchema.safeParse({
+      report: impossible,
+      selection,
+    }).success;
+  } catch {
+    threw = true;
+  }
+  assertEquals(threw, false);
+  assertEquals(success, false);
 });

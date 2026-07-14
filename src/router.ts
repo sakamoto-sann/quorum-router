@@ -19,11 +19,11 @@ import {
   type DecisionFailure,
   type DecisionOutcome,
   type DecisionReportAny,
+  DecisionReportAnySchema,
   type DecisionReportEnvelope,
   type DecisionReportEnvelopeAny,
-  DecisionReportEnvelopeSchema,
+  DecisionReportEnvelopeAnySchema,
   type DecisionReportEnvelopeWithGuardedCalibration,
-  DecisionReportSchema,
   type FinalSynthesis,
   FinalSynthesisSchema,
   type ModelOutput,
@@ -129,7 +129,7 @@ function buildDecisionReport(args: {
   calibration?: TaskCalibrationReport;
   hierarchicalCalibration?: HierarchicalTaskCalibrationAnyDecision;
 }): DecisionReportAny {
-  return DecisionReportSchema.parse({
+  return DecisionReportAnySchema.parse({
     schema_version: "quorum-router.decision-report.v1",
     outcome: args.outcome,
     stage: args.stage,
@@ -593,7 +593,7 @@ export class QuorumRouter {
           calibration,
           hierarchicalCalibration,
         });
-        return DecisionReportEnvelopeSchema.parse({
+        return DecisionReportEnvelopeAnySchema.parse({
           final,
           decision_report: decisionReport,
         });

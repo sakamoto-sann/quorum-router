@@ -1,7 +1,7 @@
 # QuorumRouter generated workspace
 
 This generated workspace contains the MIT-licensed QuorumRouter current release.
-npm latest targets v0.1.16.
+npm latest targets v0.1.17.
 
 QuorumRouter is **MIT**. It is **open source**. Commercial and production use
 are permitted under the MIT License.

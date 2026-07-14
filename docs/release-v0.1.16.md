@@ -1,5 +1,10 @@
 # QuorumRouter v0.1.16
 
+> **Superseded for guarded-schema validation by v0.1.17.** Do not treat a
+> standalone v0.1.16 guarded selection as authenticated or threshold-bound;
+> regenerate persisted guarded selections from their reports with v0.1.17 or
+> later.
+
 QuorumRouter v0.1.16 adds an opt-in advisory child-versus-parent Brier drift
 guard for hierarchical task calibration.
 
@@ -25,9 +30,9 @@ guard for hierarchical task calibration.
 - A quarantined child falls back to its parent. A child whose immediate parent
   cannot be validated is marked `parent_unavailable` and is not selected.
 - Guarded reports reject impossible child-count and weighted-metric roll-ups.
-- Standalone guarded selections bind candidate metrics, computed deltas, status,
-  and the selected group; combined decisions recompute selection from the
-  report.
+- Combined guarded decisions bind candidate metrics, computed deltas, status,
+  and the selected group back to the report. Standalone selection
+  self-consistency was incomplete in v0.1.16 and is hardened in v0.1.17.
 
 ## Safety and compatibility
 

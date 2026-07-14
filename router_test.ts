@@ -30,6 +30,7 @@ import {
   createSupabaseAuditHandler,
   createSupabaseAuditSink,
   createZcodeGlmAdapter,
+  DecisionReportEnvelopeAnySchema,
   DecisionReportEnvelopeSchema,
   DecisionReportSchema,
   DEFAULT_AGENT_RUNTIME_BUS_IDS,
@@ -1023,7 +1024,10 @@ Deno.test("decision report schema accepts truthful counts and rejects contradict
       code: "fixture_failed",
     }],
   };
-  assertEquals(DecisionReportSchema.parse(report), report);
+  const parsedLegacyReport: SmokeDecisionReport = DecisionReportSchema.parse(
+    report,
+  );
+  assertEquals(parsedLegacyReport, report);
   assertThrows(() =>
     DecisionReportSchema.parse({
       ...report,
@@ -1058,31 +1062,32 @@ Deno.test("decision report schema accepts truthful counts and rejects contradict
 });
 
 Deno.test("decision report envelope preserves final synthesis without raw candidates", () => {
-  const envelope = DecisionReportEnvelopeSchema.parse({
-    final: {
-      synthesis: "answer",
-      reasoning: "reason",
-      consensusModel: "Synthesis/model",
-      sources: ["A/a", "B/b"],
-    },
-    decision_report: {
-      schema_version: "quorum-router.decision-report.v1",
-      outcome: "minimum_valid_outputs_synthesized",
-      stage: "synthesis",
-      quorum: {
-        configured_required: 2,
-        effective_required: 2,
-        validated_outputs: 2,
+  const envelope: SmokeDecisionReportEnvelope = DecisionReportEnvelopeSchema
+    .parse({
+      final: {
+        synthesis: "answer",
+        reasoning: "reason",
+        consensusModel: "Synthesis/model",
+        sources: ["A/a", "B/b"],
       },
-      execution: {
-        attempted_adapters: 2,
-        successful_adapters: 2,
-        failed_adapters: 0,
+      decision_report: {
+        schema_version: "quorum-router.decision-report.v1",
+        outcome: "minimum_valid_outputs_synthesized",
+        stage: "synthesis",
+        quorum: {
+          configured_required: 2,
+          effective_required: 2,
+          validated_outputs: 2,
+        },
+        execution: {
+          attempted_adapters: 2,
+          successful_adapters: 2,
+          failed_adapters: 0,
+        },
+        validated_sources: ["A/a", "B/b"],
+        failures: [],
       },
-      validated_sources: ["A/a", "B/b"],
-      failures: [],
-    },
-  });
+    });
   assertEquals(envelope.final.synthesis, "answer");
   assertEquals("content" in envelope.decision_report, false);
   assertEquals("prompt" in envelope.decision_report, false);
@@ -1279,6 +1284,34 @@ Deno.test("direct routing attaches guarded drift quarantine and parent fallback"
     hierarchy.selection.candidates[0].child_parent_brier_score_delta,
     0.5,
   );
+
+  const impossibleEnvelope = {
+    ...envelope,
+    decision_report: {
+      ...envelope.decision_report,
+      hierarchical_calibration: {
+        ...hierarchy,
+        report: {
+          ...hierarchy.report,
+          groups: hierarchy.report.groups.map((group) =>
+            group.scope === "task_subtype"
+              ? { ...group, sample_count: 1 }
+              : group
+          ),
+        },
+      },
+    },
+  };
+  let threw = false;
+  let success = true;
+  try {
+    success = DecisionReportEnvelopeAnySchema.safeParse(impossibleEnvelope)
+      .success;
+  } catch {
+    threw = true;
+  }
+  assertEquals(threw, false);
+  assertEquals(success, false);
 });
 
 Deno.test("invalid hierarchical drift guard fails before provider invocation", async () => {
@@ -8363,7 +8396,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.16");
+  assertEquals(packageJson.version, "0.1.17");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -9035,7 +9068,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
   assertStringIncludes(templateReadme, "deno task supabase:status");
-  assertStringIncludes(templateReadme, "v0.1.16");
+  assertStringIncludes(templateReadme, "v0.1.17");
   assertStringIncludes(templateReadme, "deno task calibration:demo");
   assertStringIncludes(templateReadme, "advisory-only");
   assertStringIncludes(templateReadme, "deno --version");
@@ -9107,7 +9140,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.16");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.17");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -10170,9 +10203,9 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
   );
   assertStringIncludes(
     new TextDecoder().decode(defaultDryRun.stdout),
-    "ref:    v0.1.16",
+    "ref:    v0.1.17",
   );
-  assertStringIncludes(script, "--ref v0.1.16");
+  assertStringIncludes(script, "--ref v0.1.17");
 
   const tempDir = await Deno.makeTempDir();
   try {
