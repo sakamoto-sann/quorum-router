@@ -24,14 +24,32 @@ Deno.test("ChainPilot canonical JSON rejects non-finite numbers", () => {
 
 Deno.test("ChainPilot OpenAI reviewer requires an explicit zero-tool agent", () => {
   assertThrows(() => assertToollessReviewerConfig([]), Error, "not_enforced");
-  assertThrows(() => assertToollessReviewerConfig([{ id: "chainpilot-reviewer", tools: { allow: [], deny: [] } }]), Error, "not_enforced");
-  assertToollessReviewerConfig([{ id: "chainpilot-reviewer", tools: { allow: [], deny: ["*"] } }]);
+  assertThrows(
+    () =>
+      assertToollessReviewerConfig([{
+        id: "chainpilot-reviewer",
+        tools: { allow: [], deny: [] },
+      }]),
+    Error,
+    "not_enforced",
+  );
+  assertToollessReviewerConfig([{
+    id: "chainpilot-reviewer",
+    tools: { allow: [], deny: ["*"] },
+  }]);
 });
 
 Deno.test("ChainPilot reviewer session is scoped to the tool-less reviewer agent", () => {
-  assertEquals(reviewerSessionKey("qr_boundary_probe", 1), "agent:chainpilot-reviewer:chainpilot-qr_boundary_probe-1");
+  assertEquals(
+    reviewerSessionKey("qr_boundary_probe", 1),
+    "agent:chainpilot-reviewer:chainpilot-qr_boundary_probe-1",
+  );
   assertThrows(() => reviewerSessionKey("bad:session", 1), Error, "invalid");
-  assertThrows(() => reviewerSessionKey("qr_boundary_probe", 3), Error, "invalid");
+  assertThrows(
+    () => reviewerSessionKey("qr_boundary_probe", 3),
+    Error,
+    "invalid",
+  );
 });
 
 Deno.test("ChainPilot reviewer prompt preserves the approved demo topology contract", () => {
@@ -67,7 +85,10 @@ Deno.test("ChainPilot reviewer prompt preserves the approved demo topology contr
     prompt,
     "exact reviewer identities, no-fallback status, and local model fingerprint",
   );
-  assertStringIncludes(prompt, "Require only evidence applicable to the current stage");
+  assertStringIncludes(
+    prompt,
+    "Require only evidence applicable to the current stage",
+  );
   assertStringIncludes(
     prompt,
     "do not invent a prerequisite for prior-stage or submission evidence before it can exist",

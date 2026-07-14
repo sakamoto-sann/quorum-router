@@ -146,22 +146,40 @@ async function assertToollessReviewerConfigured(): Promise<void> {
   const output = await command.output();
   if (!output.success) throw new Error("tool_less_reviewer_config_unavailable");
   let agents: unknown;
-  try { agents = JSON.parse(new TextDecoder().decode(output.stdout)); }
-  catch { throw new Error("tool_less_reviewer_config_invalid"); }
+  try {
+    agents = JSON.parse(new TextDecoder().decode(output.stdout));
+  } catch {
+    throw new Error("tool_less_reviewer_config_invalid");
+  }
   assertToollessReviewerConfig(agents);
 }
 
 export function assertToollessReviewerConfig(value: unknown): void {
-  if (!Array.isArray(value)) throw new Error("tool_less_reviewer_config_invalid");
-  const reviewer = value.find((entry) => entry && typeof entry === "object" && (entry as Record<string, unknown>).id === OPENAI_REVIEWER_AGENT_ID) as Record<string, unknown> | undefined;
+  if (!Array.isArray(value)) {
+    throw new Error("tool_less_reviewer_config_invalid");
+  }
+  const reviewer = value.find((entry) =>
+    entry && typeof entry === "object" &&
+    (entry as Record<string, unknown>).id === OPENAI_REVIEWER_AGENT_ID
+  ) as Record<string, unknown> | undefined;
   const tools = reviewer?.tools as Record<string, unknown> | undefined;
-  if (!reviewer || !tools || !Array.isArray(tools.allow) || tools.allow.length !== 0 || !Array.isArray(tools.deny) || !tools.deny.includes("*")) {
+  if (
+    !reviewer || !tools || !Array.isArray(tools.allow) ||
+    tools.allow.length !== 0 || !Array.isArray(tools.deny) ||
+    !tools.deny.includes("*")
+  ) {
     throw new Error("tool_less_reviewer_not_enforced");
   }
 }
 
-export function reviewerSessionKey(correlationId: string, round: number): string {
-  if (!/^qr_[A-Za-z0-9_-]{1,120}$/.test(correlationId) || !Number.isSafeInteger(round) || round < 1 || round > 2) {
+export function reviewerSessionKey(
+  correlationId: string,
+  round: number,
+): string {
+  if (
+    !/^qr_[A-Za-z0-9_-]{1,120}$/.test(correlationId) ||
+    !Number.isSafeInteger(round) || round < 1 || round > 2
+  ) {
     throw new Error("reviewer_session_key_invalid");
   }
   return `agent:${OPENAI_REVIEWER_AGENT_ID}:chainpilot-${correlationId}-${round}`;

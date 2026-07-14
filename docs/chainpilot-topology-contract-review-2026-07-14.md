@@ -5,10 +5,9 @@ Verdict: **APPROVED (local only; no submission attempted)**
 ## Red
 
 The two-file change was reviewed through local llama-swap route
-`qwen36-35b-a3b-q4ks`, resolved as
-`Qwen3.6-35B-A3B-UD-Q4_K_S.gguf` with fingerprint
-`b8892-0d0764dfd`. Static review found no identity, fallback, schema,
-SafeLoop, MMAW, or submission-gate weakening.
+`qwen36-35b-a3b-q4ks`, resolved as `Qwen3.6-35B-A3B-UD-Q4_K_S.gguf` with
+fingerprint `b8892-0d0764dfd`. Static review found no identity, fallback,
+schema, SafeLoop, MMAW, or submission-gate weakening.
 
 Dynamic probes covered approval coercion, stale/missing evidence, task/context
 and peer prompt injection, recipient mismatch, and the truthful
