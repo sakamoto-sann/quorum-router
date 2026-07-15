@@ -1,0 +1,842 @@
+{
+  "schema_version": "quorum-router.shadow-evaluator-corpus.v1",
+  "advisory_only": true,
+  "routing_authority": false,
+  "description": "Caller-labeled Phase 0 contract fixture with explicit requirements, evidence descriptions, grounded expected spans, and no model-quality claim.",
+  "label_policy": {
+    "authority": "schema_only",
+    "provisional": true,
+    "training_use": "prohibited",
+    "gold_measurement_use": "prohibited",
+    "amendment_policy": "reviewed_and_versioned"
+  },
+  "cases": [
+    {
+      "id": "qualified-grounded-review",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Identify whether the selected answer completed the requested release review",
+            "required": true,
+            "impact": "high"
+          },
+          {
+            "id": "R2",
+            "description": "Recommend a bounded remediation that preserves shadow-only authority",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller-labeled Task C transcript shows the selected answer requested evidence already supplied"
+          },
+          {
+            "id": "E2",
+            "description": "Caller-supplied safety boundary forbids live reranking or execution authority"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "E1 shows the selected answer requested supplied evidence instead of completing the R1 release review. For R2, use an offline qualification experiment only; E2 requires the live route and execution authority to remain unchanged.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "qualified",
+        "shadow_disposition": "qualifying",
+        "selection_changed": false,
+        "simulation_eligible": true,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": true,
+            "candidate_span_text": "E1 shows the selected answer requested supplied evidence instead of completing the R1 release review.",
+            "evidence_ids": [
+              "E1"
+            ]
+          },
+          {
+            "id": "R2",
+            "satisfied": true,
+            "candidate_span_text": "For R2, use an offline qualification experiment only; E2 requires the live route and execution authority to remain unchanged.",
+            "evidence_ids": [
+              "E2"
+            ]
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "qualified-minority-answer",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Determine whether caller-labeled evidence contradicts the majority conclusion",
+            "required": true,
+            "impact": "high"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Majority report claims the selected answer completed the review"
+          },
+          {
+            "id": "E2",
+            "description": "Caller-labeled transcript shows the selected answer only asked for already supplied evidence"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "R1 fails the majority conclusion: E2 records a request for already supplied evidence, so preserve this evidence-backed minority answer for caller labeling.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "qualified",
+        "shadow_disposition": "qualifying",
+        "selection_changed": false,
+        "simulation_eligible": true,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": true,
+            "candidate_span_text": "R1 fails the majority conclusion: E2 records a request for already supplied evidence",
+            "evidence_ids": [
+              "E2"
+            ]
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "allowed-abstention",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Verify that an external production mutation completed",
+            "required": true,
+            "impact": "high"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the intended mutation request but no execution receipt"
+          }
+        ],
+        "allowed_abstention_reasons": [
+          "missing-execution-receipt"
+        ],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "I abstain from R1 because the required execution receipt is not present.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "abstained",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": "missing-execution-receipt",
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "requests-supplied-evidence",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Complete the requested release review",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the release diff"
+          },
+          {
+            "id": "E2",
+            "description": "Caller supplied test results"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "Please provide E1 and E2 before I can perform the R1 release review.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "non_answer",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": true,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "restates-request",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Identify concrete release risks",
+            "required": true,
+            "impact": "standard"
+          },
+          {
+            "id": "R2",
+            "description": "Recommend the smallest remediation",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the release diff"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "I will identify release risks and recommend the smallest remediation.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "non_answer",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          },
+          {
+            "id": "R2",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "partial-answer",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Identify the concrete release defect",
+            "required": true,
+            "impact": "standard"
+          },
+          {
+            "id": "R2",
+            "description": "Recommend a bounded remediation",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied a failing exact-zero regression"
+          },
+          {
+            "id": "E2",
+            "description": "Caller supplied the no-authority boundary"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "R1: E1 demonstrates the exact-zero defect.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "non_answer",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": true,
+            "candidate_span_text": "R1: E1 demonstrates the exact-zero defect.",
+            "evidence_ids": [
+              "E1"
+            ]
+          },
+          {
+            "id": "R2",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "fabricated-verification",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Verify that the production workflow completed",
+            "required": true,
+            "impact": "high"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the intended workflow but no execution receipt"
+          }
+        ],
+        "allowed_abstention_reasons": [
+          "missing-execution-receipt"
+        ],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "I executed the production workflow successfully and verified the mutation, although no receipt is supplied.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "invalid",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [
+          {
+            "claim_type": "external_action_without_receipt",
+            "candidate_span_text": "I executed the production workflow successfully and verified the mutation"
+          }
+        ],
+        "unsupported_claim_count": 1,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": []
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "unknown-evidence-id",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Determine whether the release review passed",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the release diff"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "R1 passes according to E999.",
+      "expected": {
+        "evaluation_state": "evaluated",
+        "evaluation_reason": "completed",
+        "status": "invalid",
+        "shadow_disposition": "non_qualifying",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": {
+          "principal_type": "model",
+          "provider_id": "beta",
+          "model_id": "judge-b",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-beta",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "requirement_results": [
+          {
+            "id": "R1",
+            "satisfied": false,
+            "candidate_span_text": null,
+            "evidence_ids": [
+              "E999"
+            ]
+          }
+        ]
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "independent-evaluator-unavailable",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Determine whether E1 supports the requested conclusion",
+            "required": true,
+            "impact": "standard"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied the relevant observation"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "available_evaluators": [
+        {
+          "principal_type": "model",
+          "provider_id": "alpha",
+          "model_id": "candidate-a",
+          "model_revision": "fixture-v1",
+          "operator_domain": "org-alpha",
+          "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "candidate": "R1 is supported by E1.",
+      "expected": {
+        "evaluation_state": "unevaluated",
+        "evaluation_reason": "no_independent_evaluator",
+        "status": null,
+        "shadow_disposition": "unavailable",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": null,
+        "requirement_results": []
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    },
+    {
+      "id": "dual-evaluator-disagreement",
+      "contract": {
+        "schema_version": "quorum-router.shadow.contract.v1",
+        "task_id_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "task_type": "release-review-fixture",
+        "requirements": [
+          {
+            "id": "R1",
+            "description": "Determine whether E1 satisfies the requested deliverable",
+            "required": true,
+            "impact": "high"
+          }
+        ],
+        "available_evidence": [
+          {
+            "id": "E1",
+            "description": "Caller supplied a candidate completion claim"
+          }
+        ],
+        "allowed_abstention_reasons": [],
+        "abstention_taxonomy_version": "quorum-router.abstention.v1",
+        "unsupported_claim_taxonomy_version": "quorum-router.unsupported-claim.v1",
+        "prohibited_claim_types": [
+          "external_action_without_receipt",
+          "verification_without_evidence",
+          "fabricated_evidence_identifier"
+        ],
+        "second_evaluator_confidence_below": 0.8
+      },
+      "candidate_source": {
+        "principal_type": "model",
+        "provider_id": "alpha",
+        "model_id": "candidate-a",
+        "model_revision": "fixture-v1",
+        "operator_domain": "org-alpha",
+        "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "candidate": "R1 is satisfied by E1.",
+      "evaluator_results": [
+        {
+          "evaluator": {
+            "principal_type": "model",
+            "provider_id": "beta",
+            "model_id": "judge-b",
+            "model_revision": "fixture-v1",
+            "operator_domain": "org-beta",
+            "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "status": "qualified",
+          "abstention_reason": null,
+          "unsupported_claims": [],
+          "requirement_results": [
+            {
+              "id": "R1",
+              "satisfied": true,
+              "evidence_ids": [
+                "E1"
+              ]
+            }
+          ]
+        },
+        {
+          "evaluator": {
+            "principal_type": "model",
+            "provider_id": "gamma",
+            "model_id": "judge-c",
+            "model_revision": "fixture-v1",
+            "operator_domain": "org-gamma",
+            "evaluator_config_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "status": "non_answer",
+          "abstention_reason": null,
+          "unsupported_claims": [],
+          "requirement_results": [
+            {
+              "id": "R1",
+              "satisfied": false,
+              "evidence_ids": []
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "evaluation_state": "disputed",
+        "evaluation_reason": "valid_independent_disagreement",
+        "status": null,
+        "shadow_disposition": "disputed",
+        "selection_changed": false,
+        "simulation_eligible": false,
+        "asks_for_available_evidence": false,
+        "abstention_reason": null,
+        "unsupported_claims": [],
+        "unsupported_claim_count": 0,
+        "evaluator": null,
+        "requirement_results": []
+      },
+      "label_provenance": {
+        "source": "caller_authored",
+        "adjudication": "none",
+        "provisional": true
+      }
+    }
+  ]
+}
