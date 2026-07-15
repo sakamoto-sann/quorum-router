@@ -219,6 +219,10 @@ deno task smoke:v0.1
   [docs/decision-reports.md](docs/decision-reports.md)
 - advisory calibration from externally evaluated task outcomes:
   [docs/calibration.md](docs/calibration.md)
+- measurement-only ensemble quality (co-failure, regret, minority, diversity):
+  [docs/ensemble-quality.md](docs/ensemble-quality.md)
+- research basis and evidence limits for ensemble quality:
+  [docs/research-foundations.md](docs/research-foundations.md)
 - verified model catalog, explicit config, and probes:
   [docs/model-catalog.md](docs/model-catalog.md)
 - security notes: [docs/security.md](docs/security.md)

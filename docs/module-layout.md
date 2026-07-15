@@ -25,6 +25,8 @@ barrel that re-exports the public contracts from the split modules, including:
 - experimental AgentRuntime exports through `src/agent-runtime/index.ts`
 - advisory calibration schemas, types, and aggregation through
   `src/calibration/calibration.ts`
+- advisory ensemble-quality schemas and aggregation through
+  `src/ensemble/quality.ts`
 - schemas and exported types
 - runtime helper exports used by the CLI smoke path
 
@@ -55,6 +57,9 @@ src/
   calibration/
     calibration.ts                # pure advisory aggregation by task/source
     calibration_test.ts           # truth-boundary and metric regressions
+  ensemble/
+    quality.ts                    # advisory co-failure, selection, minority, diversity metrics
+    quality_test.ts               # panel, truth-boundary, and metric regressions
   policy/
     provider-registry.ts          # provider/model capability metadata
     direct-routing-policy.ts      # Adaptive Direct candidate selection decision
@@ -136,6 +141,9 @@ The split is intended to be behavior-preserving:
 - caller-attested calibration evidence can be aggregated before direct provider
   invocation and attached to the Decision Report, but remains advisory-only and
   is not consumed by ranking, provider selection, quorum, or execution policy
+- ensemble-quality observations are aggregated only through the standalone
+  advisory API; they neither attach themselves to a route nor alter candidate
+  selection, majority handling, synthesis, or execution
 
 ## Advisory calibration boundary
 
@@ -156,6 +164,20 @@ Report; the report never grants routing or execution authority. Generated
 `route:once` and `best-route` commands provide the same optional attach-only
 trace path. Agent Chat, cost-aware selection, and model-catalog ranking do not
 consume calibration reports.
+
+## Advisory ensemble-quality boundary
+
+[`docs/ensemble-quality.md`](ensemble-quality.md) defines the strict external
+evaluation input and the four initial diagnostics: co-failure matrix, selection
+regret, minority reports, and real diversity scores. The API accepts no raw
+prompts, answers, credentials, or hidden chain-of-thought. It validates one
+fixed panel per aggregation call and returns deterministic, advisory-only
+reports.
+
+[`docs/research-foundations.md`](research-foundations.md) records the public
+research sources and distinguishes their design signals from QuorumRouter's
+independently testable metric definitions. Neither document grants the metrics
+routing authority.
 
 ## Adaptive Direct policy skeleton
 

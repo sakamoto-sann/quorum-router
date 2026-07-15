@@ -27,6 +27,7 @@ export * from "./src/commander/index.ts";
 export * from "./src/agent-chat/index.ts";
 export * from "./src/agent-runtime/index.ts";
 export * from "./src/calibration/calibration.ts";
+export * from "./src/ensemble/quality.ts";
 export * from "./src/router.ts";
 export * from "./src/runtime.ts";
 
