@@ -35,3 +35,41 @@ current signal-stage control approved with no topology objection.
 - `deno task check`: passed.
 - `deno task test`: 280 passed.
 - `git diff --check`: passed.
+
+## Rebase Red/Blue follow-up — 2026-07-15
+
+### Red
+
+The post-rebase review blocked merge on two fail-open boundaries.
+Caller-provided roles and `intentHash` were interpolated as raw prompt text,
+allowing CR/LF prompt-line injection. Model decisions also accepted unknown
+identity fields and unbounded nested arrays, then spread model output after
+trusted provider, model, and role metadata.
+
+### Blue
+
+- Bind each stage to ChainPilot's exact two-role contract and reject every other
+  role pair before a provider call.
+- Accept an optional intent hash only as lowercase
+  `sha256:<64 hexadecimal characters>`.
+- JSON-quote stage, roles, task, intent hash, context, and peer-decision scalar
+  data before prompt interpolation.
+- Enforce an exact five-key decision schema with the same proposal, objection,
+  evidence, and confidence bounds requested from the model. Reject approval with
+  a critical objection.
+- Rebuild each parsed decision field-by-field before appending trusted provider,
+  model, and role identity.
+
+Focused regressions cover CR/LF role and hash injection, malformed hashes,
+model-supplied identity keys, every collection/string bound, contradictory
+approval, confidence bounds, and one valid decision.
+
+### Verification
+
+- `deno test integrations/chainpilot/jsonl_test.ts`: 8 passed.
+- `deno task check`: passed, including `site/**` coverage.
+- `deno task test`: 379 passed.
+- `git diff --check`: passed.
+
+Final verdict: **APPROVED after Blue fixes (local only; no submission
+attempted)**.
