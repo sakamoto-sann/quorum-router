@@ -1,6 +1,6 @@
 {
   "name": "quorum-router-source-installer",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "private": true,
   "description": "Source installer entrypoint for QuorumRouter.",
   "license": "MIT",

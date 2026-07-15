@@ -8446,7 +8446,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     "packages/create-quorum-router/package.json",
   );
   assertEquals(packageJson.name, "create-quorum-router");
-  assertEquals(packageJson.version, "0.1.18");
+  assertEquals(packageJson.version, "0.1.19");
   assertEquals(packageJson.license, "MIT");
   const bin = packageJson.bin as Record<string, unknown>;
   assertEquals(bin["create-quorum-router"], "bin/create-quorum-router.js");
@@ -9128,7 +9128,7 @@ Deno.test("create-quorum-router docs state license and runtime boundaries", asyn
   assertStringIncludes(templateReadme, "No service-role runtime");
   assertStringIncludes(templateReadme, "BYO Supabase audit is disabled");
   assertStringIncludes(templateReadme, "deno task supabase:status");
-  assertStringIncludes(templateReadme, "v0.1.18");
+  assertStringIncludes(templateReadme, "v0.1.19");
   assertStringIncludes(templateReadme, "deno task calibration:demo");
   assertStringIncludes(templateReadme, "advisory-only");
   assertStringIncludes(templateReadme, "deno --version");
@@ -9200,7 +9200,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     stderr: "piped",
   }).output();
   assertEquals(version.code, 0);
-  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.18");
+  assertEquals(new TextDecoder().decode(version.stdout).trim(), "0.1.19");
 
   const tempDir = await Deno.makeTempDir();
   try {
@@ -10263,9 +10263,9 @@ Deno.test("install helper is dry-run safe and avoids credential/runtime setup", 
   );
   assertStringIncludes(
     new TextDecoder().decode(defaultDryRun.stdout),
-    "ref:    v0.1.18",
+    "ref:    v0.1.19",
   );
-  assertStringIncludes(script, "--ref v0.1.18");
+  assertStringIncludes(script, "--ref v0.1.19");
 
   const tempDir = await Deno.makeTempDir();
   try {

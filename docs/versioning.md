@@ -5,9 +5,9 @@ technical artifacts; they are not labels for product incompleteness.
 
 ## Current public artifacts
 
-- GitHub Release line: `v0.1.18`
-- npm package: `create-quorum-router@0.1.18`
-- npm `latest`: `0.1.18`
+- GitHub Release line: `v0.1.19`
+- npm package: `create-quorum-router@0.1.19`
+- npm `latest`: `0.1.19`
 
 Public quickstart:
 

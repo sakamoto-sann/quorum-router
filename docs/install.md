@@ -36,25 +36,27 @@ cd my-quorum-router-demo
 deno task smoke
 ```
 
-npm package: `create-quorum-router@0.1.18`; npm dist-tag: `latest -> 0.1.18`.
-For a fixed package version:
+npm package target: `create-quorum-router@0.1.19`; npm dist-tag target:
+`latest -> 0.1.19`. For a fixed package version after the release is published:
 
 ```bash
-npx --yes create-quorum-router@0.1.18 my-quorum-router-demo
+npx --yes create-quorum-router@0.1.19 my-quorum-router-demo
 cd my-quorum-router-demo
 deno task smoke
 deno task calibration:hierarchy-demo
 ```
 
 The scaffold does not fetch remote code during creation and does not install
-dependencies automatically. `0.1.18` adds measurement-only ensemble quality
-observability without changing routing, quorum, synthesis, or execution.
-`0.1.17` hardened guarded calibration schema validation, `0.1.16` added the
-opt-in child-versus-parent Brier drift guard, and `0.1.15` added the offline
-hierarchy walkthrough. The underlying advisory hierarchical API shipped in
-`0.1.13`, and flat task calibration remains available separately. The generated
-`deno task smoke` path is offline/fixture-only and does not call a provider API
-or `raw.githubusercontent.com`.
+dependencies automatically. `0.1.19` fixes exact-zero ensemble uplift reporting
+and sentence-period handling for GitHub repository context URLs without changing
+routing authority, quorum, synthesis, or execution. `0.1.18` added
+measurement-only ensemble quality observability, `0.1.17` hardened guarded
+calibration schema validation, `0.1.16` added the opt-in child-versus-parent
+Brier drift guard, and `0.1.15` added the offline hierarchy walkthrough. The
+underlying advisory hierarchical API shipped in `0.1.13`, and flat task
+calibration remains available separately. The generated `deno task smoke` path
+is offline/fixture-only and does not call a provider API or
+`raw.githubusercontent.com`.
 
 ## Install helper dry run
 
@@ -125,7 +127,7 @@ Adjust the paths if you installed with a different `--prefix`.
 
 - `missing required tool: git`: install Git and retry.
 - `missing required tool: deno`: install Deno and retry.
-- Clone or checkout errors for `v0.1.18`: verify network access and the ref
+- Clone or checkout errors for `v0.1.19`: verify network access and the ref
   spelling.
 - `quorum-router: command not found`: add `${PREFIX}/bin` to your shell `PATH`.
 - Scaffold `deno task smoke` is offline/fixture-only. If it fails, check local
