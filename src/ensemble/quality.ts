@@ -259,7 +259,7 @@ const SelectionRegretSchema = z.object({
   const expectedConditional = selection.oracle_success_count === 0
     ? null
     : selection.selected_success_count / selection.oracle_success_count;
-  const expectedCaptureRate = oracleUplift === 0
+  const expectedCaptureRate = approximatelyEqual(oracleUplift, 0)
     ? null
     : capturedUplift / oracleUplift;
   if (
@@ -613,21 +613,28 @@ function selectionRegret(
   const count = observations.length;
   const oracleRate = stableMetric(oracleSuccessCount / count);
   const selectedRate = stableMetric(selectedSuccessCount / count);
-  const sourceRates = panelSources.map((source) => ({
+  const sourceResults = panelSources.map((source) => ({
     source,
-    rate:
+    successCount:
       observations.filter((observation) =>
         observation.candidates.find((candidate) =>
           sourceKey(candidate.source) === sourceKey(source)
         )!.correct
-      ).length / count,
+      ).length,
   }));
-  const bestSingleRate = Math.max(...sourceRates.map(({ rate }) => rate));
-  const bestSingleSources = sourceRates
-    .filter(({ rate }) => rate === bestSingleRate)
+  const bestSingleSuccessCount = Math.max(
+    ...sourceResults.map(({ successCount }) => successCount),
+  );
+  const bestSingleRate = bestSingleSuccessCount / count;
+  const bestSingleSources = sourceResults
+    .filter(({ successCount }) => successCount === bestSingleSuccessCount)
     .map(({ source }) => source);
-  const oracleUplift = stableMetric(oracleRate - bestSingleRate);
-  const capturedUplift = stableMetric(selectedRate - bestSingleRate);
+  const oracleUplift = stableMetric(
+    (oracleSuccessCount - bestSingleSuccessCount) / count,
+  );
+  const capturedUplift = stableMetric(
+    (selectedSuccessCount - bestSingleSuccessCount) / count,
+  );
   return {
     observation_count: count,
     oracle_success_count: oracleSuccessCount,

@@ -8596,6 +8596,16 @@ Deno.test("generated route prompt context fetches GitHub repository files safely
   );
   assertEquals(detected?.owner, "sakamoto-sann");
   assertEquals(detected?.repo, "quorum-router");
+  assertEquals(
+    extractGitHubRepo(
+      "Review https://github.com/sakamoto-sann/quorum-router. Then summarize it.",
+    ),
+    {
+      owner: "sakamoto-sann",
+      repo: "quorum-router",
+      url: "https://github.com/sakamoto-sann/quorum-router",
+    },
+  );
 
   const source = "export const meaning = 42;\n";
   const fetchFn = (async (input: string | URL | Request) => {

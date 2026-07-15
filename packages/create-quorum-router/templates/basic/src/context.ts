@@ -65,7 +65,7 @@ export function extractGitHubRepo(prompt: string):
     /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/,
   );
   if (!match) return undefined;
-  const repo = match[2].replace(/\.git$/i, "");
+  const repo = match[2].replace(/\.git$/i, "").replace(/\.+$/u, "");
   if (!repo || repo === "." || repo === "..") return undefined;
   return {
     owner: match[1],

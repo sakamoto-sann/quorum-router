@@ -156,6 +156,33 @@ Deno.test("undefined rate denominators are null rather than zero", () => {
   );
 });
 
+Deno.test("equal two-thirds oracle and best-single rates produce exact zero uplift", () => {
+  const observations = [
+    observation("equal-rate-1", [
+      candidate(A, "a", true, ["e1"]),
+      candidate(B, "b", false, ["e2"]),
+      candidate(C, "c", false, ["e3"]),
+    ], A),
+    observation("equal-rate-2", [
+      candidate(A, "a", true, ["e4"]),
+      candidate(B, "b", true, ["e5"]),
+      candidate(C, "c", true, ["e6"]),
+    ], B),
+    observation("equal-rate-3", [
+      candidate(A, "a", false, ["e7"]),
+      candidate(B, "b", false, ["e8"]),
+      candidate(C, "c", false, ["e9"]),
+    ], C),
+  ];
+  const report = aggregateEnsembleQuality(observations);
+  assertAlmostEquals(report.selection_regret.oracle_success_rate, 2 / 3);
+  assertAlmostEquals(report.selection_regret.best_single_success_rate, 2 / 3);
+  assertEquals(report.selection_regret.oracle_uplift, 0);
+  assertEquals(report.selection_regret.captured_uplift, 0);
+  assertEquals(report.selection_regret.capture_rate, null);
+  EnsembleQualityReportSchema.parse(report);
+});
+
 Deno.test("minority reports preserve correct dissent, overturn, ties, and unresolved IDs", () => {
   const reports = aggregateEnsembleQuality(fixture()).minority_reports;
   assertEquals(reports[0], {
