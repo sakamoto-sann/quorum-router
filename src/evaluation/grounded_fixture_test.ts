@@ -249,9 +249,9 @@ Deno.test("grounded non-answer proposal remains post-selection and advisory only
     const required of [
       "do not change routing behavior",
       "advisory_only: true",
-      "no chain of thought",
+      "hidden reasoning",
       "existing selection is fixed before shadow evaluation",
-      "canonical independence predicate",
+      "syntactic anti-collision check",
       'evaluation_state: "evaluated" | "unevaluated" | "disputed"',
       "Every other disagreement emits a `disputed` envelope",
       "NO_QUALIFIED_ANSWER",
@@ -275,4 +275,6 @@ Deno.test("grounded non-answer proposal remains post-selection and advisory only
   assert(!docs.includes("Add qualification before scalar ranking"));
   assert(!runtimeRouter.includes("grounded_fixture"));
   assert(!compatibilityBarrel.includes("grounded_fixture"));
+  assert(!runtimeRouter.includes("grounded_shadow"));
+  assert(!compatibilityBarrel.includes("grounded_shadow"));
 });

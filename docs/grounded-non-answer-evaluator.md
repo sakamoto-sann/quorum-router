@@ -1,8 +1,9 @@
 # Grounded non-answer shadow evaluator proposal
 
-Status: design proposal for a possible v0.1.20 development lane. This document,
-the labeled fixture corpus, and their contract regression do not implement an
-evaluator and do not change routing behavior.
+Status: Phase 0 contract tooling plus a Phase 1 offline resolution slice. The
+checked-in resolver validates and combines caller-supplied evaluator records; it
+does not invoke providers, enter the production dependency graph, or change
+routing behavior. These tools do not change routing behavior.
 
 ## Decision summary
 
@@ -83,12 +84,15 @@ type ShadowTaskContract = {
 };
 ```
 
-`task_id_hash` binds the SHA-256 digest of canonical JSON containing
+`task_id_hash` binds the SHA-256 digest of canonical UTF-8 JSON containing
 `task_type`, requirements, available evidence, allowed abstention reasons,
-abstention taxonomy version, prohibited claim types, and the second-evaluator
-threshold; the digest field itself is excluded. Phase 0 fixture hashes are
-redacted placeholders and are checked for shape only, so this PR makes no
-integrity claim for them.
+abstention taxonomy version, unsupported-claim taxonomy version, prohibited
+claim types, and the second-evaluator threshold; the digest field itself is
+excluded. The Phase 1 resolver recomputes this digest before accepting evaluator
+records. Canonicalization uses the member order listed above, preserves array
+order, omits whitespace, and applies ECMAScript `JSON.stringify` encoding to the
+validated values. Phase 0 fixture hashes are redacted placeholders and are
+checked for shape only, so the fixture corpus makes no integrity claim for them.
 
 Bounds for a future implementation must be explicit for total requirements,
 evidence identifiers, label lengths, candidate bytes, and evaluator output. The
@@ -103,6 +107,8 @@ A shadow evaluator returns a strict record:
 type ShadowQualification = {
   schema_version: "quorum-router.shadow-qualification.v1";
   advisory_only: true;
+  candidate_sha256: `sha256:${string}`; // exact frozen UTF-16 code units
+  task_id_hash: `sha256:${string}`; // exact frozen task contract identity
   status: "qualified" | "abstained" | "non_answer" | "invalid";
   requirements: Array<{
     id: string;
@@ -130,23 +136,37 @@ type ShadowEvaluationEnvelope = {
     | "no_independent_evaluator"
     | "insufficient_valid_independent_results"
     | "valid_independent_disagreement";
+  evaluation_reasons: Array<
+    | "no_evaluator_result"
+    | "malformed_evaluator_output"
+    | "candidate_binding_mismatch"
+    | "contract_binding_mismatch"
+    | "candidate_identity_collision"
+    | "pairwise_identity_collision"
+    | "insufficient_valid_independent_results"
+  >;
   qualification: ShadowQualification | null;
+  evaluator_results: ShadowQualification[]; // bounded to at most two
   shadow_disposition:
-    | "qualifying"
-    | "non_qualifying"
-    | "unavailable"
-    | "disputed";
+    | "offline_match_qualified"
+    | "offline_match_non_qualified"
+    | "offline_unavailable"
+    | "offline_disputed";
   simulation_result: "QUALIFIED_CANDIDATES_PRESENT" | "NO_QUALIFIED_ANSWER";
+  selection_changed: false;
 };
 ```
 
-Every span must be inside the observable candidate answer. Every evidence ID
-must exist in the task contract. Span offsets are zero-based, half-open
-`[start, end)` indices into the exact, unnormalized ECMAScript UTF-16 string
-value supplied as the candidate: no Unicode, newline, or whitespace
-normalization is permitted between evaluation and validation. Inverted,
-out-of-range, clamped, byte-indexed, or code-point-indexed spans are invalid and
-fail closed. The record stores no chain of thought.
+Every record's `task_id_hash` must equal the frozen contract identity, and its
+`candidate_sha256` must equal the SHA-256 digest of the frozen candidate's exact
+UTF-16 code units encoded little-endian. Every span must be inside that same
+observable candidate answer. Every evidence ID must exist in the task contract.
+Span offsets are zero-based, half-open `[start, end)` indices into the exact,
+unnormalized ECMAScript UTF-16 string value supplied as the candidate: no
+Unicode, newline, or whitespace normalization is permitted between evaluation
+and validation. Inverted, out-of-range, clamped, byte-indexed, or
+code-point-indexed spans are invalid and fail closed. The record stores no chain
+of thought.
 
 ```ts
 type ShadowEvaluatorIdentity = {
@@ -159,11 +179,14 @@ type ShadowEvaluatorIdentity = {
 };
 ```
 
-For this proposal, an evaluator is independent only when both its canonical
-`provider_id` and `operator_domain` differ from the candidate's. Different model
-names, revisions, prompts, or config hashes under the same provider or operator
-do not establish independence. Unknown, missing, aliased, or unverified identity
-data fail closed to `unevaluated`; caller renaming does not create independence.
+For this proposal, an evaluator is identity-distinct only when both its
+canonical `provider_id` and `operator_domain` differ from the candidate's.
+Different model names, revisions, prompts, or config hashes under the same
+provider or operator do not establish identity distinctness. The canonical
+independence predicate is only a syntactic anti-collision check; it does not
+authenticate an evaluator or establish epistemic independence. Unknown, missing,
+aliased, or unverified identity data fail closed to `unevaluated`; caller
+renaming does not create independence.
 
 ## Status semantics
 
@@ -227,8 +250,9 @@ Then canonicalize each result as:
 - an order-insensitive, duplicate-free sorted set of
   `(claim_type, exact_candidate_span)` tuples;
 - an order-insensitive, duplicate-free sorted set of
-  `(requirement_id, satisfied, sorted_unique_evidence_ids)` tuples that covers
-  every contract requirement exactly once.
+  `(requirement_id, satisfied, exact_candidate_span_or_null,
+  sorted_unique_evidence_ids)`
+  tuples that covers every contract requirement exactly once.
 
 The result is `agreed` iff the canonical records are byte-identical JSON;
 otherwise it is `disputed`. Free-text explanations are excluded. Unknown claim
@@ -369,19 +393,28 @@ positive isolation invariant that neither `router.ts` nor the runtime
 compatibility barrel imports the validator; Phase 0 is not on a runtime
 dependency path.
 
-## Proposed future implementation boundary
+## Implemented offline resolution boundary
 
-A later runtime-evaluator implementation PR should add a separate module under
-`src/evaluation/`; the Phase 0 fixture validator in that namespace is offline
-contract tooling and must not be imported into routing. That future runtime
-module should expose only strict schemas, bounded evaluator logic, and an
-explicit disabled-by-default shadow sink. It must not modify the existing score
-function or selection path in its first slice.
+`src/evaluation/grounded_shadow.ts` is a pure Phase 1 resolver. It accepts one
+frozen candidate, its bounded task contract, its canonical source identity, and
+at most two caller-supplied evaluator records. It validates exact schemas, the
+candidate digest, UTF-16 spans, evidence references, taxonomy values, status
+invariants, and the provider-and-operator identity-distinct predicate before
+applying the canonical dispute function. Zero or one valid identity-distinct
+result, malformed output, or a correlated evaluator pair returns `unevaluated`
+with structured reason codes; disagreement returns `disputed`; only two
+compatible valid identity-distinct records return `evaluated`.
+
+The module does not call a model, choose evaluators, sample traffic, write
+telemetry, or import into `router.ts`. The next provider-backed/real-run slice
+must remain a separate Phase 2 PR with a disabled-by-default shadow sink,
+bounded latency/cost controls, a kill switch, and a frozen pre-shadow selection.
+It must not modify the existing score function or selection path.
 
 ## Non-goals
 
 - No phrase blacklist for the observed Task C wording.
-- No runtime evaluator implementation in this proposal PR.
+- No provider-backed evaluator invocation or real-run shadow integration.
 - No production routing, scoring, rank, quorum, or synthesis changes.
 - No automatic external action, repository mutation, or approval authority.
 - No SafeLoop policy or receipt changes.
