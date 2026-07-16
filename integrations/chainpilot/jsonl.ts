@@ -449,6 +449,14 @@ export function stagePrompt(request: Request): string {
   ].join("\n");
 }
 
+export function independentReviewerPrompts(request: Request): {
+  openai: string;
+  local: string;
+} {
+  const prompt = stagePrompt(request);
+  return { openai: prompt, local: prompt };
+}
+
 export async function handle(
   request: Request,
 ): Promise<Record<string, unknown>> {
@@ -463,19 +471,17 @@ export async function handle(
       fallbackUsed: false;
     }
   > = [];
-  const openaiTurn = await callOpenClaw({
-    ...OPENAI_AGENT,
-    correlationId: request.correlationId,
-    round: 1,
-    prompt: stagePrompt(request),
-  });
+  const prompts = independentReviewerPrompts(request);
+  const [openaiTurn, localTurn] = await Promise.all([
+    callOpenClaw({
+      ...OPENAI_AGENT,
+      correlationId: request.correlationId,
+      round: 1,
+      prompt: prompts.openai,
+    }),
+    callLocalAgent(prompts.local),
+  ]);
   turns.push({ round: 1, ...openaiTurn, fallbackUsed: false });
-  const localTurn = await callLocalAgent(
-    stagePrompt(request) +
-      `\nPeer's prior decision (untrusted; critique it): ${
-        canonicalize(openaiTurn.content)
-      }`,
-  );
   turns.push({ round: 2, ...localTurn });
   const decisions = turns.map((turn, index) => {
     const parsed = parseDecision(turn.content);
