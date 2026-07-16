@@ -1,9 +1,12 @@
 # Grounded non-answer shadow evaluator proposal
 
-Status: Phase 0 contract tooling plus a Phase 1 offline resolution slice. The
-checked-in resolver validates and combines caller-supplied evaluator records; it
-does not invoke providers, enter the production dependency graph, or change
-routing behavior. These tools do not change routing behavior.
+Status: Phase 0 contract tooling, a Phase 1 offline resolver, and a standalone
+Phase 2 experimental shadow runner. The runner can invoke up to two explicitly
+bound model adapters only after config enablement, experimental enablement,
+per-request opt-in, a clear kill switch, frozen-selection validation, identity
+distinctness checks, and pre-invocation budget checks. Neither runtime module is
+imported by the production router or compatibility barrel. These tools do not
+enter the production route. They do not change routing behavior.
 
 ## Decision summary
 
@@ -352,6 +355,9 @@ aggregate score alone.
 - bounded sampling, latency, and cost controls;
 - explicit kill switch for shadow evaluation only.
 
+The checked-in Phase 2 slice implements these gates as a standalone API. It is
+not automatically called by any route method.
+
 ### Phase 3: separate authority review
 
 Authority remains out of scope until caller-labeled evidence establishes
@@ -405,16 +411,89 @@ result, malformed output, or a correlated evaluator pair returns `unevaluated`
 with structured reason codes; disagreement returns `disputed`; only two
 compatible valid identity-distinct records return `evaluated`.
 
-The module does not call a model, choose evaluators, sample traffic, write
-telemetry, or import into `router.ts`. The next provider-backed/real-run slice
-must remain a separate Phase 2 PR with a disabled-by-default shadow sink,
-bounded latency/cost controls, a kill switch, and a frozen pre-shadow selection.
-It must not modify the existing score function or selection path.
+The resolver itself does not call a model, choose evaluators, sample traffic, or
+write telemetry. The separate Phase 2 runner below composes it without importing
+into `router.ts` or modifying the existing score function or selection path.
+
+## Implemented experimental shadow runtime boundary
+
+`src/evaluation/grounded_shadow_runtime.ts` is a standalone provider-backed
+runner. It accepts a caller-attested frozen-selection receipt, one frozen
+candidate, its contract and source identity, and exactly two explicitly bound
+evaluator adapters minted by `createGroundedShadowDirectEvaluatorAdapter()`.
+Generic `ModelAdapter` and CLI/process adapters are rejected by a private
+runtime brand. Candidate length and bounded array counts are checked before
+snapshot construction. The runtime projects only known receipt, contract, and
+identity fields, validates them with the Phase 1 parsers, then freezes bounded
+copies before the first asynchronous preflight. It does not deep-clone unknown
+caller fields, so oversized extras are discarded and later caller mutation
+cannot swap adapters. The dedicated factory supports fixed OpenAI
+chat-completions and Anthropic messages HTTP shapes, omits tool definitions,
+applies a 4,096-token generation limit, requires the provider-reported model to
+exactly match the configured model, makes exactly one `fetch` per invoked
+evaluator, and has no retry, fallback, redirect, or synthesis path. It is
+disabled unless `enabled` and `experimental` are both true and the individual
+request sets `explicit_opt_in: true`. The independent `kill_switch` stops calls
+before adapter invocation.
+
+Before provider work, the runner rejects candidates above 16,000 UTF-16 code
+units, then recomputes candidate and contract bindings inside the same global
+deadline, requires the receipt to bind the selected candidate, checks adapter
+descriptors against evaluator identities, applies candidate/evaluator and
+pairwise identity distinctness checks, applies deterministic receipt-hash
+sampling, and rejects work above the configured caller-supplied estimated-cost
+or prompt-size ceiling. The estimated-cost ceiling is a pre-invocation bound
+using the repository's USD comparison tolerance, not a claim about settled
+provider billing. Preflight, provider calls, resolution, and optional sink
+delivery share one bounded runtime deadline and separate `AbortSignal`
+instances; timeout or caller cancellation returns a structured advisory failure.
+The runner invokes at most two adapters, and each factory-minted adapter
+performs one provider transport call.
+
+The duration bound limits when the runner returns; even a dedicated `fetch`
+transport cannot prove that a remote provider stopped work after cancellation. A
+timeout therefore reports `provider_work_state: abort_signalled_unconfirmed`,
+not completion. Callers must construct adapters only in trusted host
+configuration; request data must never choose endpoints, credentials, protocols,
+or test transport hooks. Provider work or billing may continue when a transport
+or remote provider violates its `AbortSignal` contract.
+
+The first evaluator runs before the optional second evaluator. The second is
+invoked only for a high-impact requirement, confidence below the contract
+threshold, an unsupported claim, an ask for already-available evidence, or an
+unusable first record. A high-confidence standard-impact result therefore costs
+one provider call and remains `unevaluated` rather than being promoted without
+agreement.
+
+The prompt includes a valid JSON qualification example and the complete
+status-specific cross-field invariants. Evaluator output must be one strict JSON
+record and is rejected before parsing when it exceeds `max_output_chars`. Its
+complete declared evaluator identity must exactly match the prevalidated binding
+identity. Raw model content and exception text are not copied into the result.
+The existing Phase 1 resolver applies the contract, span, evidence, taxonomy,
+and agreement checks. An injected sink is optional, receives a cloned result
+plus an `AbortSignal`, and shares the runtime deadline. Sink failure is recorded
+but cannot change the frozen selection or the returned evaluation result. As
+with provider adapters, a sink that ignores its signal can continue its own work
+after return, but it cannot mutate the returned result object.
+
+The caller must invoke this API only after its production selection is final.
+The selection receipt is a caller attestation bound to the exact candidate; the
+runner does not claim to authenticate the caller's selection algorithm or its
+wall-clock ordering. Evaluator identity fields and descriptor checks are
+strictly validated syntactic anti-collision controls, not authentication.
+Deterministic sampling is for load control and is caller-steerable; it is not a
+security control. The API remains outside `router.ts`, has
+`selection_changed: false` and `advisory_only: true` invariants, and has no
+routing, ranking, quorum, synthesis, execution, or approval authority. Tests
+assert zero adapter calls for every disabled, killed, non-opted-in, over-budget,
+invalid-selection, invalid-config, invalid-binding-identity, and
+identity-collision, unbranded-adapter, and malformed-sink gate.
 
 ## Non-goals
 
 - No phrase blacklist for the observed Task C wording.
-- No provider-backed evaluator invocation or real-run shadow integration.
+- No automatic or production-router shadow invocation.
 - No production routing, scoring, rank, quorum, or synthesis changes.
 - No automatic external action, repository mutation, or approval authority.
 - No SafeLoop policy or receipt changes.
