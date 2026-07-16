@@ -221,7 +221,8 @@ deno task smoke:v0.1
   [docs/calibration.md](docs/calibration.md)
 - measurement-only ensemble quality (co-failure, regret, minority, diversity):
   [docs/ensemble-quality.md](docs/ensemble-quality.md)
-- grounded non-answer offline shadow tooling and design (no routing authority):
+- grounded non-answer offline tooling and opt-in experimental shadow runner (no
+  routing authority):
   [docs/grounded-non-answer-evaluator.md](docs/grounded-non-answer-evaluator.md)
 - research basis and evidence limits for ensemble quality:
   [docs/research-foundations.md](docs/research-foundations.md)

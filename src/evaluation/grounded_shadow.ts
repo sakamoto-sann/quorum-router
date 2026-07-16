@@ -188,6 +188,12 @@ function parseIdentity(value: unknown, path: string): ShadowEvaluatorIdentity {
   };
 }
 
+export function validateGroundedEvaluatorIdentity(
+  value: unknown,
+): ShadowEvaluatorIdentity {
+  return parseIdentity(value, "evaluator_identity");
+}
+
 export function areGroundedEvaluatorIdentitiesDistinct(
   left: ShadowEvaluatorIdentity,
   right: ShadowEvaluatorIdentity,
@@ -320,6 +326,12 @@ function parseContract(value: unknown): ShadowTaskContract {
     prohibited_claim_types: prohibitedClaimTypes,
     second_evaluator_confidence_below: threshold,
   };
+}
+
+export function validateGroundedTaskContract(
+  value: unknown,
+): ShadowTaskContract {
+  return parseContract(value);
 }
 
 function parseQualification(
@@ -564,7 +576,9 @@ async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   }`;
 }
 
-async function candidateSha256(candidate: string): Promise<string> {
+export async function computeGroundedCandidateSha256(
+  candidate: string,
+): Promise<string> {
   const bytes = new Uint8Array(candidate.length * 2);
   for (let index = 0; index < candidate.length; index++) {
     const codeUnit = candidate.charCodeAt(index);
@@ -574,7 +588,9 @@ async function candidateSha256(candidate: string): Promise<string> {
   return await sha256(bytes);
 }
 
-async function contractSha256(contract: ShadowTaskContract): Promise<string> {
+export async function computeGroundedContractSha256(
+  contract: ShadowTaskContract,
+): Promise<string> {
   const canonical = JSON.stringify({
     task_type: contract.task_type,
     requirements: contract.requirements,
@@ -594,7 +610,7 @@ export async function resolveGroundedShadowEvaluations(
   input: ResolveGroundedShadowInput,
 ): Promise<ShadowEvaluationEnvelope> {
   const contract = parseContract(input.contract);
-  if (await contractSha256(contract) !== contract.task_id_hash) {
+  if (await computeGroundedContractSha256(contract) !== contract.task_id_hash) {
     fail("contract.task_id_hash", "does not match canonical contract JSON");
   }
   if (typeof input.candidate !== "string" || input.candidate.length > 16_000) {
@@ -619,7 +635,9 @@ export async function resolveGroundedShadowEvaluations(
     return unavailable("no_independent_evaluator", ["no_evaluator_result"]);
   }
 
-  const frozenCandidateSha256 = await candidateSha256(input.candidate);
+  const frozenCandidateSha256 = await computeGroundedCandidateSha256(
+    input.candidate,
+  );
   const valid: ShadowQualification[] = [];
   const evaluationReasons: UnevaluatedReason[] = [];
   for (let index = 0; index < input.evaluator_results.length; index++) {
