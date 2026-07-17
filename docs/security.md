@@ -73,9 +73,9 @@ The current security posture does not implement:
 - app-level rate limiting
 - persistent budget database
 - process sandbox/containerization
-- SBOM generation
-- signed releases
-- dependency scanner
+- complete transitive Deno SBOM generation
+- signed releases and artifact attestations
+- dependency license allow/deny enforcement
 - Supabase live runtime adapter
 - Realtime subscriber
 - service-role runtime

@@ -15,7 +15,7 @@
     "setup": "deno run --allow-read --allow-write setup.ts",
     "doctor": "deno run --allow-env --allow-run --allow-read doctor.ts",
     "models": "deno run --allow-env --allow-run=codex,claude,gemini,grok,devin,qwen --allow-read --allow-write model-catalog.ts",
-    "lock": "deno cache --lock=deno.lock router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts",
-    "lock:check": "deno cache --lock=deno.lock --frozen router.ts router_test.ts doctor.ts setup.ts examples/**/*.ts"
+    "lock": "deno cache --lock=deno.lock router.ts router_test.ts doctor.ts model-catalog.ts setup.ts examples/**/*.ts integrations/**/*.ts src/**/*.ts packages/**/*.ts site/**/*.ts",
+    "lock:check": "deno cache --lock=deno.lock --frozen router.ts router_test.ts doctor.ts model-catalog.ts setup.ts examples/**/*.ts integrations/**/*.ts src/**/*.ts packages/**/*.ts site/**/*.ts && deno task --config examples/local-model-dogfood/deno.json lock:check"
   }
 }

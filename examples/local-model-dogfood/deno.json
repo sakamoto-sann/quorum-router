@@ -1,9 +1,10 @@
 {
-  "lock": false,
+  "lock": "deno.lock",
   "imports": {
     "zod": "npm:zod@3.25.76"
   },
   "tasks": {
+    "lock:check": "deno cache --lock=deno.lock --frozen src/cli.ts",
     "intake": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts intake",
     "auth:status": "deno run --allow-env --allow-read --allow-run=grok --allow-write=../../out/dogfood/local-model-dogfood src/cli.ts auth:status",
     "auth:login": "deno run src/cli.ts auth:login",
