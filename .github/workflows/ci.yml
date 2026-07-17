@@ -35,6 +35,12 @@ jobs:
       - name: Enforce immutable GitHub Actions refs
         run: ruby scripts/check-workflow-action-pins.rb
 
+      - name: Test content-minimized benchmark aggregate boundary
+        run: deno task bench:summary:test
+
+      - name: Check content-minimized benchmark aggregate
+        run: deno task bench:summary:check
+
       - name: Type check
         run: deno task check
 
