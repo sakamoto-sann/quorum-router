@@ -13,14 +13,14 @@ export type ModelProviderKey = typeof MODEL_PROVIDER_KEYS[number];
 
 export const VERSIONED_MODEL_HINTS = {
   schemaVersion: "quorum-router.model-hints.v1",
-  catalogVersion: "2026-07-12",
-  updatedAt: "2026-07-12T00:00:00.000Z",
+  catalogVersion: "2026-11-02",
+  updatedAt: "2026-11-02T00:00:00.000Z",
   providers: {
     codex: ["gpt-5.4", "gpt-5.4-mini", "gpt-5.6-sol"],
-    claude: ["claude-sonnet-4", "claude-opus-4.6"],
-    gemini: ["gemini-2.5-pro", "gemini-2.5-flash"],
+    claude: ["claude-sonnet-5-5", "claude-opus-5-5"],
+    gemini: ["gemini-3.1-pro-preview", "gemini-3.8-flash"],
     grok: ["grok-4.5", "grok-composer-2.5-fast"],
-    devin: ["claude-sonnet-4", "claude-opus-4.6", "codex"],
+    devin: ["claude-sonnet-5-5", "claude-opus-5-5", "codex"],
     qwen: ["qwen3-coder-max"],
   } satisfies Record<ModelProviderKey, readonly string[]>,
 } as const;

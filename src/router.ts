@@ -41,7 +41,7 @@ import type {
   DirectRoutingPolicyInput,
 } from "./policy/direct-routing-policy.ts";
 import type { ProviderCapabilityRegistry } from "./policy/provider-registry.ts";
-import { errorMessage, failClosed } from "./errors.ts";
+import { errorMessage, failClosed, ProcessExecutionError } from "./errors.ts";
 import {
   assertImplementedRoutingMode,
   describeRoutingModeDecision,
@@ -56,6 +56,57 @@ import {
   flushTelemetrySink,
   type TelemetryFlushOptions,
 } from "./telemetry/buffered-batch-sink.ts";
+
+/** Receives the router's progress messages. */
+export type RouterLogger = {
+  info(message: string): void;
+};
+
+const consoleRouterLogger: RouterLogger = {
+  info: (message) => console.log(message),
+};
+
+/** Logger that drops all router progress messages. */
+export const silentRouterLogger: RouterLogger = {
+  info: () => {},
+};
+
+function requireIntegerAtLeast(
+  name: string,
+  value: number,
+  minimum: number,
+): number {
+  if (!Number.isInteger(value) || value < minimum) {
+    throw new Error(`${name} must be an integer >= ${minimum}.`);
+  }
+  return value;
+}
+
+/**
+ * Runs `run` with its own abort signal and a hard deadline. The returned
+ * promise rejects at the deadline even if `run` ignores the signal.
+ */
+async function runWithDeadline<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  timeoutError: () => Error,
+): Promise<T> {
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = timeoutError();
+      // Reject before aborting so the deadline error wins the race.
+      reject(error);
+      controller.abort(error);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([run(controller.signal), deadline]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 async function publishTelemetryBestEffort(
   telemetrySink: TelemetrySink | undefined,
@@ -157,7 +208,21 @@ function buildDecisionReport(args: {
 export type QuorumRouterOptions = {
   modelAdapters: ModelAdapter[];
   synthesisAdapter: SynthesisAdapter;
+  /** Time limit for the parallel model stage. Default 120000. */
   timeoutMs?: number;
+  /**
+   * Separate time limit for the synthesis stage, so slow models cannot use
+   * up synthesis time. Defaults to `timeoutMs`.
+   */
+  synthesisTimeoutMs?: number;
+  /**
+   * Once enough models have answered to meet the quorum, wait at most this
+   * long for the rest, then stop them. Unset waits for every model until
+   * `timeoutMs`.
+   */
+  quorumGraceMs?: number;
+  /** Receives progress messages. Defaults to console.log. */
+  logger?: RouterLogger;
   minSuccessfulAdapters?: number;
   telemetrySink?: TelemetrySink;
   routingMode?: unknown;
@@ -207,6 +272,9 @@ export class QuorumRouter {
   private readonly modelAdapters: ModelAdapter[];
   private readonly synthesisAdapter: SynthesisAdapter;
   private readonly timeoutMs: number;
+  private readonly synthesisTimeoutMs: number;
+  private readonly quorumGraceMs?: number;
+  private readonly logger: RouterLogger;
   private readonly minSuccessfulAdapters: number;
   private readonly telemetrySink?: TelemetrySink;
   private readonly routingModeConfig?: unknown;
@@ -238,7 +306,20 @@ export class QuorumRouter {
 
     this.modelAdapters = options.modelAdapters;
     this.synthesisAdapter = options.synthesisAdapter;
-    this.timeoutMs = options.timeoutMs ?? 120_000;
+    this.timeoutMs = requireIntegerAtLeast(
+      "timeoutMs",
+      options.timeoutMs ?? 120_000,
+      1,
+    );
+    this.synthesisTimeoutMs = requireIntegerAtLeast(
+      "synthesisTimeoutMs",
+      options.synthesisTimeoutMs ?? this.timeoutMs,
+      1,
+    );
+    this.quorumGraceMs = options.quorumGraceMs === undefined
+      ? undefined
+      : requireIntegerAtLeast("quorumGraceMs", options.quorumGraceMs, 0);
+    this.logger = options.logger ?? consoleRouterLogger;
     this.minSuccessfulAdapters = requestedMinSuccessfulAdapters;
 
     if (this.minSuccessfulAdapters > options.modelAdapters.length) {
@@ -310,6 +391,84 @@ export class QuorumRouter {
     return this.modelAdapters.filter((adapter) =>
       selectedKeys.has(providerDescriptorSelectionKey(adapter.descriptor))
     );
+  }
+
+  /**
+   * Runs adapters in parallel under the execution time limit. Adapters still
+   * running when the limit (or the quorum grace period) ends are recorded as
+   * failures with code `router_timeout` or `quorum_grace_elapsed`, even if
+   * they ignore the abort signal.
+   */
+  private async executeAdapters(
+    prompt: string,
+    adapters: ModelAdapter[],
+    requiredSuccesses: number,
+  ): Promise<PromiseSettledResult<ModelOutput>[]> {
+    const controller = new AbortController();
+    let rejectStopped!: (reason: unknown) => void;
+    const stopped = new Promise<never>((_resolve, reject) => {
+      rejectStopped = reject;
+    });
+    stopped.catch(() => {});
+    let isStopped = false;
+    const stop = (error: ProcessExecutionError) => {
+      if (isStopped) {
+        return;
+      }
+      isStopped = true;
+      // Reject before aborting so stragglers report the router's reason.
+      rejectStopped(error);
+      controller.abort(error);
+    };
+
+    const timeoutId = setTimeout(
+      () =>
+        stop(
+          new ProcessExecutionError(
+            "router_timeout",
+            `Model execution exceeded the ${this.timeoutMs}ms router timeout.`,
+          ),
+        ),
+      this.timeoutMs,
+    );
+    let graceId: ReturnType<typeof setTimeout> | undefined;
+    let successes = 0;
+    const quorumGraceMs = this.quorumGraceMs;
+
+    try {
+      return await Promise.allSettled(
+        adapters.map(async (adapter) => {
+          const output = await Promise.race([
+            (async () =>
+              validateAdapterOutputIdentity(
+                adapter,
+                await adapter.invoke(prompt, controller.signal),
+              ))(),
+            stopped,
+          ]);
+          successes += 1;
+          if (
+            quorumGraceMs !== undefined && graceId === undefined &&
+            successes >= requiredSuccesses && successes < adapters.length
+          ) {
+            graceId = setTimeout(
+              () =>
+                stop(
+                  new ProcessExecutionError(
+                    "quorum_grace_elapsed",
+                    `Quorum was met; stopped waiting after the ${quorumGraceMs}ms grace period.`,
+                  ),
+                ),
+              quorumGraceMs,
+            );
+          }
+          return output;
+        }),
+      );
+    } finally {
+      clearTimeout(timeoutId);
+      clearTimeout(graceId);
+    }
   }
 
   async routeAgentRuntime(
@@ -469,170 +628,168 @@ export class QuorumRouter {
       }
     }
     const routingMode = this.describeRoutingModeDecisionForRequest(options);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    this.logger.info("Starting parallel model execution...");
+    const directRoutingDecision = this.resolveDirectRoutingDecision(options);
+    const executionAdapters = this.selectAdaptersForDecision(
+      directRoutingDecision,
+    );
+    const effectiveMinSuccessfulAdapters = Math.min(
+      this.minSuccessfulAdapters,
+      executionAdapters.length,
+    );
+    if (effectiveMinSuccessfulAdapters < 1) {
+      const decisionReport = buildDecisionReport({
+        outcome: "no_executable_adapters",
+        stage: "candidate_selection",
+        configuredRequired: this.minSuccessfulAdapters,
+        effectiveRequired: effectiveMinSuccessfulAdapters,
+        attemptedAdapters: 0,
+        successfulOutputs: [],
+        failedAdapters: 0,
+        calibration,
+        hierarchicalCalibration,
+      });
+      failClosed(
+        4401,
+        "consensus_insufficient",
+        "Validated quorum not met: direct routing policy selected no executable adapters.",
+        {
+          routingMode,
+          directRoutingDecision,
+          configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
+          effectiveMinSuccessfulAdapters,
+          decisionReport,
+        },
+      );
+    }
+
+    const settled = await this.executeAdapters(
+      prompt,
+      executionAdapters,
+      effectiveMinSuccessfulAdapters,
+    );
+
+    const telemetry = buildCoFailureTelemetry(executionAdapters, settled);
+    if (telemetry.failedAdapters > 0) {
+      void publishTelemetryBestEffort(this.telemetrySink, telemetry);
+    }
+
+    const successfulOutputs = settled
+      .filter((result): result is PromiseFulfilledResult<ModelOutput> =>
+        result.status === "fulfilled"
+      )
+      .map((result) => result.value);
+
+    if (successfulOutputs.length < effectiveMinSuccessfulAdapters) {
+      const decisionReport = buildDecisionReport({
+        outcome: "insufficient_valid_outputs",
+        stage: "candidate_execution",
+        configuredRequired: this.minSuccessfulAdapters,
+        effectiveRequired: effectiveMinSuccessfulAdapters,
+        attemptedAdapters: executionAdapters.length,
+        successfulOutputs,
+        failedAdapters: telemetry.failedAdapters,
+        failures: decisionFailuresFromTelemetry(telemetry),
+        calibration,
+        hierarchicalCalibration,
+      });
+      failClosed(
+        4401,
+        "consensus_insufficient",
+        `Validated quorum not met: required ${effectiveMinSuccessfulAdapters}, got ${successfulOutputs.length}.`,
+        {
+          routingMode,
+          telemetry,
+          directRoutingDecision,
+          configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
+          effectiveMinSuccessfulAdapters,
+          decisionReport,
+        },
+      );
+    }
+
+    this.logger.info(
+      `Received ${successfulOutputs.length} validated responses. Synthesizing with ${this.synthesisAdapter.descriptor.provider}/${this.synthesisAdapter.descriptor.model}...`,
+    );
 
     try {
-      console.log("Starting parallel model execution...");
-      const directRoutingDecision = this.resolveDirectRoutingDecision(options);
-      const executionAdapters = this.selectAdaptersForDecision(
-        directRoutingDecision,
-      );
-      const effectiveMinSuccessfulAdapters = Math.min(
-        this.minSuccessfulAdapters,
-        executionAdapters.length,
-      );
-      if (effectiveMinSuccessfulAdapters < 1) {
-        const decisionReport = buildDecisionReport({
-          outcome: "no_executable_adapters",
-          stage: "candidate_selection",
-          configuredRequired: this.minSuccessfulAdapters,
-          effectiveRequired: effectiveMinSuccessfulAdapters,
-          attemptedAdapters: 0,
-          successfulOutputs: [],
-          failedAdapters: 0,
-          calibration,
-          hierarchicalCalibration,
-        });
-        failClosed(
-          4401,
-          "consensus_insufficient",
-          "Validated quorum not met: direct routing policy selected no executable adapters.",
-          {
-            routingMode,
-            directRoutingDecision,
-            configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
-            effectiveMinSuccessfulAdapters,
-            decisionReport,
-          },
-        );
-      }
-
-      const settled = await Promise.allSettled(
-        executionAdapters.map(async (adapter) =>
-          validateAdapterOutputIdentity(
-            adapter,
-            await adapter.invoke(prompt, controller.signal),
-          )
+      const final = FinalSynthesisSchema.parse(
+        await runWithDeadline(
+          (signal) =>
+            this.synthesisAdapter.synthesize(
+              prompt,
+              successfulOutputs,
+              signal,
+            ),
+          this.synthesisTimeoutMs,
+          () =>
+            new ProcessExecutionError(
+              "router_timeout",
+              `Synthesis exceeded the ${this.synthesisTimeoutMs}ms synthesis timeout.`,
+            ),
         ),
       );
-
-      const telemetry = buildCoFailureTelemetry(executionAdapters, settled);
-      if (telemetry.failedAdapters > 0) {
-        void publishTelemetryBestEffort(this.telemetrySink, telemetry);
-      }
-
-      const successfulOutputs = settled
-        .filter((result): result is PromiseFulfilledResult<ModelOutput> =>
-          result.status === "fulfilled"
-        )
-        .map((result) => result.value);
-
-      if (successfulOutputs.length < effectiveMinSuccessfulAdapters) {
-        const decisionReport = buildDecisionReport({
-          outcome: "insufficient_valid_outputs",
-          stage: "candidate_execution",
-          configuredRequired: this.minSuccessfulAdapters,
-          effectiveRequired: effectiveMinSuccessfulAdapters,
-          attemptedAdapters: executionAdapters.length,
-          successfulOutputs,
-          failedAdapters: telemetry.failedAdapters,
-          failures: decisionFailuresFromTelemetry(telemetry),
-          calibration,
-          hierarchicalCalibration,
-        });
-        failClosed(
-          4401,
-          "consensus_insufficient",
-          `Validated quorum not met: required ${effectiveMinSuccessfulAdapters}, got ${successfulOutputs.length}.`,
-          {
-            routingMode,
-            telemetry,
-            directRoutingDecision,
-            configuredMinSuccessfulAdapters: this.minSuccessfulAdapters,
-            effectiveMinSuccessfulAdapters,
-            decisionReport,
-          },
-        );
-      }
-
-      console.log(
-        `Received ${successfulOutputs.length} validated responses. Synthesizing with ${this.synthesisAdapter.descriptor.provider}/${this.synthesisAdapter.descriptor.model}...`,
+      const validatedSourceLabels = new Set(
+        successfulOutputs.map((output) => `${output.provider}/${output.model}`),
       );
-
-      try {
-        const final = FinalSynthesisSchema.parse(
-          await this.synthesisAdapter.synthesize(
-            prompt,
-            successfulOutputs,
-            controller.signal,
-          ),
-        );
-        const validatedSourceLabels = new Set(
-          successfulOutputs.map((output) =>
-            `${output.provider}/${output.model}`
-          ),
-        );
-        if (
-          new Set(final.sources).size !== final.sources.length ||
-          final.sources.some((source) => !validatedSourceLabels.has(source))
-        ) {
-          throw new Error(
-            "Synthesis sources must be unique and reference only validated candidate outputs.",
-          );
-        }
-        const decisionReport = buildDecisionReport({
-          outcome: "minimum_valid_outputs_synthesized",
-          stage: "synthesis",
-          configuredRequired: this.minSuccessfulAdapters,
-          effectiveRequired: effectiveMinSuccessfulAdapters,
-          attemptedAdapters: executionAdapters.length,
-          successfulOutputs,
-          failedAdapters: telemetry.failedAdapters,
-          failures: decisionFailuresFromTelemetry(telemetry),
-          calibration,
-          hierarchicalCalibration,
-        });
-        return DecisionReportEnvelopeAnySchema.parse({
-          final,
-          decision_report: decisionReport,
-        });
-      } catch (error) {
-        const decisionReport = buildDecisionReport({
-          outcome: "synthesis_failed",
-          stage: "synthesis",
-          configuredRequired: this.minSuccessfulAdapters,
-          effectiveRequired: effectiveMinSuccessfulAdapters,
-          attemptedAdapters: executionAdapters.length,
-          successfulOutputs,
-          failedAdapters: telemetry.failedAdapters,
-          failures: [
-            ...decisionFailuresFromTelemetry(telemetry),
-            {
-              stage: "synthesis",
-              provider: this.synthesisAdapter.descriptor.provider,
-              model: this.synthesisAdapter.descriptor.model,
-              code: "synthesis_failed",
-            },
-          ],
-          calibration,
-          hierarchicalCalibration,
-        });
-        failClosed(
-          4401,
-          "consensus_validation_failed",
-          "Consensus stage failed validation.",
-          {
-            cause: errorMessage(error),
-            routingMode,
-            telemetry,
-            directRoutingDecision,
-            decisionReport,
-          },
+      if (
+        new Set(final.sources).size !== final.sources.length ||
+        final.sources.some((source) => !validatedSourceLabels.has(source))
+      ) {
+        throw new Error(
+          "Synthesis sources must be unique and reference only validated candidate outputs.",
         );
       }
-    } finally {
-      clearTimeout(timeoutId);
+      const decisionReport = buildDecisionReport({
+        outcome: "minimum_valid_outputs_synthesized",
+        stage: "synthesis",
+        configuredRequired: this.minSuccessfulAdapters,
+        effectiveRequired: effectiveMinSuccessfulAdapters,
+        attemptedAdapters: executionAdapters.length,
+        successfulOutputs,
+        failedAdapters: telemetry.failedAdapters,
+        failures: decisionFailuresFromTelemetry(telemetry),
+        calibration,
+        hierarchicalCalibration,
+      });
+      return DecisionReportEnvelopeAnySchema.parse({
+        final,
+        decision_report: decisionReport,
+      });
+    } catch (error) {
+      const decisionReport = buildDecisionReport({
+        outcome: "synthesis_failed",
+        stage: "synthesis",
+        configuredRequired: this.minSuccessfulAdapters,
+        effectiveRequired: effectiveMinSuccessfulAdapters,
+        attemptedAdapters: executionAdapters.length,
+        successfulOutputs,
+        failedAdapters: telemetry.failedAdapters,
+        failures: [
+          ...decisionFailuresFromTelemetry(telemetry),
+          {
+            stage: "synthesis",
+            provider: this.synthesisAdapter.descriptor.provider,
+            model: this.synthesisAdapter.descriptor.model,
+            code: "synthesis_failed",
+          },
+        ],
+        calibration,
+        hierarchicalCalibration,
+      });
+      failClosed(
+        4401,
+        "consensus_validation_failed",
+        "Consensus stage failed validation.",
+        {
+          cause: errorMessage(error),
+          routingMode,
+          telemetry,
+          directRoutingDecision,
+          decisionReport,
+        },
+      );
     }
   }
 }

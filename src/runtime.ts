@@ -33,7 +33,10 @@ import {
   TELEMETRY_MAX_QUEUE_SIZE,
 } from "./telemetry/buffered-batch-sink.ts";
 import { createOtlpTelemetryHandler } from "./telemetry/buffered-batch-sink.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv, routerEnvPresent } from "./env.ts";
+
+/** Upper bound for env-configured router stage timeouts (10 minutes). */
+const ROUTER_MAX_STAGE_TIMEOUT_MS = 600_000;
 
 const consoleTelemetrySink: TelemetrySink = (telemetry) => {
   console.warn("Co-failure telemetry:");
@@ -183,7 +186,23 @@ export function createDefaultRouter(): QuorumRouter {
     });
 
   return new QuorumRouter({
-    timeoutMs: 120_000,
+    timeoutMs: boundedEnvInteger(
+      "QUORUM_ROUTER_TIMEOUT_MS",
+      120_000,
+      ROUTER_MAX_STAGE_TIMEOUT_MS,
+    ),
+    synthesisTimeoutMs: boundedEnvInteger(
+      "QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS",
+      120_000,
+      ROUTER_MAX_STAGE_TIMEOUT_MS,
+    ),
+    quorumGraceMs: routerEnvPresent("QUORUM_ROUTER_QUORUM_GRACE_MS")
+      ? boundedEnvInteger(
+        "QUORUM_ROUTER_QUORUM_GRACE_MS",
+        15_000,
+        ROUTER_MAX_STAGE_TIMEOUT_MS,
+      )
+      : undefined,
     minSuccessfulAdapters: Math.min(2, modelAdapters.length),
     telemetrySink,
     modelAdapters,

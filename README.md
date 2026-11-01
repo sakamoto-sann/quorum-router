@@ -128,6 +128,25 @@ authorization boundary; it is not a substitute for inter-model conversation.
 
 Agent Chat and Commander contracts do not change default direct routing.
 
+## Timeouts and logging
+
+Direct routing has two stages, each with its own time limit, so slow models
+cannot use up the time left for synthesis.
+
+| Option               | Env var (default router)             | Default     | Meaning                                                             |
+| -------------------- | ------------------------------------ | ----------- | ------------------------------------------------------------------- |
+| `timeoutMs`          | `QUORUM_ROUTER_TIMEOUT_MS`           | 120000      | Limit for the parallel model stage                                  |
+| `synthesisTimeoutMs` | `QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS` | `timeoutMs` | Separate limit for the synthesis stage                              |
+| `quorumGraceMs`      | `QUORUM_ROUTER_QUORUM_GRACE_MS`      | unset       | Once quorum is met, wait at most this long for the remaining models |
+
+Models still running when a limit ends are stopped and reported in the decision
+report as `router_timeout` or `quorum_grace_elapsed`, even if their adapter
+ignores the abort signal. Env values are capped at 600000.
+
+Progress messages go to `console.log` by default. Pass
+`logger: silentRouterLogger` (or your own `{ info(message) {} }`) to route or
+silence them.
+
 ## Advisory calibration by task type
 
 Use `aggregateTaskCalibration()` to summarize caller-attested evaluation results

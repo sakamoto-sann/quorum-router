@@ -238,7 +238,7 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
   },
   {
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -254,7 +254,7 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
   },
   {
     provider: "Anthropic",
-    model: "claude-3-5-haiku-latest",
+    model: "claude-haiku-5-5",
     authMode: "apiKey",
     transport: "directHttp",
     client: "AnthropicMessagesAPI",

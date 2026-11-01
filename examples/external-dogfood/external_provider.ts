@@ -356,7 +356,7 @@ export async function loadExternalProviderConfig(
       "OpenAI-compatible provider",
     firstEnv("QUORUM_ROUTER_PROVIDER_MODEL", "QUORUM_ROUTER_OPENAI_MODEL") ??
       stringField(providerConfig, "model") ?? stringField(merged, "model") ??
-      "gpt-4o-mini",
+      "gpt-5.4-mini",
     firstEnv(
       "QUORUM_ROUTER_PROVIDER_BASE_URL",
       "QUORUM_ROUTER_OPENAI_BASE_URL",
