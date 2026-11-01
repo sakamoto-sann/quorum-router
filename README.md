@@ -146,12 +146,16 @@ Models still running when a limit ends are stopped and reported in the decision
 report as `router_timeout` or `quorum_grace_elapsed`, even if their adapter
 ignores the abort signal. A synthesis timeout is reported as `router_timeout` on
 the synthesis stage. `QUORUM_ROUTER_QUORUM_GRACE_MS=0` stops waiting as soon as
-quorum is met. Env values are capped at 600000.
+quorum is met; a value that is not a non-negative number falls back to 15000.
+Env values are capped at 600000.
 
 Progress messages go to `console.log` by default. To route or silence them, pass
 a logger to the constructor:
 
 ```ts
+import { QuorumRouter, silentRouterLogger } from "./router.ts";
+
+// modelAdapters and synthesisAdapter are your own adapters.
 const router = new QuorumRouter({
   modelAdapters,
   synthesisAdapter,

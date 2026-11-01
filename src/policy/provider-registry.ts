@@ -273,7 +273,8 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     tags: ["direct-http", "api-key"],
   },
   // Previous defaults stay registered so existing configs that name them
-  // explicitly still validate. "standard" keeps the new defaults preferred.
+  // explicitly still validate. The commander selector ranks
+  // "legacy-default" entries below current models on ties.
   {
     provider: "OpenAI",
     model: "gpt-4o-mini",

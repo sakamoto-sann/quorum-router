@@ -3817,6 +3817,30 @@ Deno.test("highest_capability_score is deterministic and stable", () => {
   assertEquals(second.descriptor, openaiDirect);
 });
 
+Deno.test("highest_capability_score prefers current models over legacy defaults", () => {
+  const legacy: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+  };
+  const current: ProviderDescriptor = { ...legacy, model: "gpt-5.4-mini" };
+  for (const candidates of [[legacy, current], [current, legacy]]) {
+    const result = selectCommander({
+      commander: {
+        enabled: true,
+        mode: "direct_synthesis",
+        selectionStrategy: "highest_capability_score",
+        local: false,
+      },
+      synthesisCandidates: candidates,
+      providerRegistry: createDefaultProviderCapabilityRegistry(),
+    });
+    assertEquals(result.descriptor, current);
+  }
+});
+
 Deno.test("agent_chat future commander selection remains future-only", () => {
   const result = selectCommander({
     commander: {

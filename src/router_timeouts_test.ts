@@ -246,27 +246,38 @@ const TIMEOUT_ENV_NAMES = [
   "QUORUM_ROUTER_QUORUM_GRACE_MS",
 ] as const;
 
+// readRouterEnv also falls back to the deprecated FUSION_ROUTER_* names.
+const ALL_TIMEOUT_ENV_NAMES = TIMEOUT_ENV_NAMES.flatMap((name) => [
+  name,
+  name.replace(/^QUORUM_ROUTER_/, "FUSION_ROUTER_"),
+]);
+
 function withTimeoutEnv<T>(
   values: Partial<Record<typeof TIMEOUT_ENV_NAMES[number], string>>,
   fn: () => T,
 ): T {
-  const saved = TIMEOUT_ENV_NAMES.map((name) => [name, Deno.env.get(name)]);
+  const saved = ALL_TIMEOUT_ENV_NAMES.map((name) =>
+    [name, Deno.env.get(name)] as const
+  );
   try {
-    for (const name of TIMEOUT_ENV_NAMES) {
-      const value = values[name];
-      if (value === undefined) Deno.env.delete(name);
-      else Deno.env.set(name, value);
+    for (const name of ALL_TIMEOUT_ENV_NAMES) {
+      Deno.env.delete(name);
+    }
+    for (const [name, value] of Object.entries(values)) {
+      if (value !== undefined) Deno.env.set(name, value);
     }
     return fn();
   } finally {
     for (const [name, value] of saved) {
-      if (value === undefined) Deno.env.delete(name!);
-      else Deno.env.set(name!, value);
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
     }
   }
 }
 
 Deno.test("env synthesis timeout falls back to the model timeout", () => {
+  // Legacy names set by the caller must not leak into the cleared env.
+  Deno.env.set("FUSION_ROUTER_TIMEOUT_MS", "7777");
   assertEquals(
     withTimeoutEnv({}, readRouterTimeoutEnv),
     { timeoutMs: 120_000, synthesisTimeoutMs: 120_000 },
@@ -282,6 +293,8 @@ Deno.test("env synthesis timeout falls back to the model timeout", () => {
     }, readRouterTimeoutEnv),
     { timeoutMs: 5_000, synthesisTimeoutMs: 9_000 },
   );
+  assertEquals(Deno.env.get("FUSION_ROUTER_TIMEOUT_MS"), "7777");
+  Deno.env.delete("FUSION_ROUTER_TIMEOUT_MS");
 });
 
 Deno.test("env quorum grace accepts zero and caps large values", () => {
