@@ -135,6 +135,7 @@ type ScoredCommanderCandidate = {
   descriptor: ProviderDescriptor;
   score: number;
   cost: number;
+  legacy: number;
   key: string;
 };
 
@@ -155,11 +156,14 @@ function highestCapabilityCandidate(
         (capability.supportsStructuredJson ? 10 : 0) +
         (capability.enabled ? 1 : 0),
       cost: capability.estimatedCostUsd ?? Number.POSITIVE_INFINITY,
+      // Previous defaults lose ties against current models.
+      legacy: capability.tags?.includes("legacy-default") ? 1 : 0,
       key: providerDescriptorKey(descriptor),
     });
   }
   scored.sort((a, b) =>
-    b.score - a.score || a.cost - b.cost || a.key.localeCompare(b.key)
+    b.score - a.score || a.cost - b.cost || a.legacy - b.legacy ||
+    a.key.localeCompare(b.key)
   );
   return scored[0]?.descriptor;
 }

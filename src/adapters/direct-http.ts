@@ -494,7 +494,7 @@ export type OpenAIDirectAdapterOptions = {
 export function createOpenAIDirectAdapter(
   options: OpenAIDirectAdapterOptions = {},
 ): ModelAdapter {
-  const model = options.model ?? "gpt-4o-mini";
+  const model = options.model ?? "gpt-5.4-mini";
   const endpoint = options.endpoint ??
     "https://api.openai.com/v1/chat/completions";
 
@@ -550,7 +550,7 @@ export type AnthropicDirectAdapterOptions = {
 export function createAnthropicDirectAdapter(
   options: AnthropicDirectAdapterOptions = {},
 ): ModelAdapter {
-  const model = options.model ?? "claude-3-5-haiku-latest";
+  const model = options.model ?? "claude-haiku-5-5";
   const endpoint = options.endpoint ?? "https://api.anthropic.com/v1/messages";
 
   return createDirectHttpAdapter({
@@ -585,7 +585,7 @@ export function createAnthropicDirectAdapter(
         },
         body: JSON.stringify({
           model,
-          max_tokens: options.maxTokens ?? 1024,
+          max_tokens: options.maxTokens ?? 4096,
           messages: [{
             role: "user",
             content: [{
@@ -613,7 +613,7 @@ export class OpenAIDirectSynthesisAdapter implements SynthesisAdapter {
   private readonly adapter: ModelAdapter;
 
   constructor(options: OpenAIDirectSynthesisAdapterOptions = {}) {
-    const model = options.model ?? "gpt-4o-mini";
+    const model = options.model ?? "gpt-5.4-mini";
     this.descriptor = ProviderDescriptorSchema.parse({
       provider: "OpenAI",
       model,

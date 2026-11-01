@@ -1,7 +1,7 @@
 {
   "lock": false,
   "imports": {
-    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
+    "zod": "npm:zod@3.25.76"
   },
   "tasks": {
     "check": "deno check main.ts src/*.ts",

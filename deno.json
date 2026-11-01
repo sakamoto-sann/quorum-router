@@ -1,9 +1,10 @@
 {
   "lock": "deno.lock",
+  "nodeModulesDir": "none",
   "imports": {
-    "@std/assert": "https://deno.land/std@0.224.0/assert/mod.ts",
-    "@std/testing/time": "https://deno.land/std@0.224.0/testing/time.ts",
-    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts"
+    "@std/assert": "jsr:@std/assert@^1",
+    "@std/testing": "jsr:@std/testing@^1",
+    "zod": "npm:zod@3.25.76"
   },
   "tasks": {
     "check": "deno check router.ts router_test.ts doctor.ts model-catalog.ts setup.ts examples/**/*.ts integrations/**/*.ts src/**/*.ts packages/**/*.ts site/**/*.ts",

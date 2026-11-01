@@ -238,7 +238,7 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
   },
   {
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -251,6 +251,45 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     reliabilityTier: "preferred",
     enabled: true,
     tags: ["direct-http", "api-key", "structured"],
+  },
+  {
+    provider: "Anthropic",
+    model: "claude-haiku-5-5",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "AnthropicMessagesAPI",
+    supportsSynthesis: false,
+    supportsStructuredJson: false,
+    supportsStreaming: false,
+    promptCaching: {
+      supported: true,
+      providerManaged: true,
+      ttlSeconds: [300],
+    },
+    estimatedCostUsd: 0.03,
+    latencyTier: "low",
+    reliabilityTier: "preferred",
+    enabled: true,
+    tags: ["direct-http", "api-key"],
+  },
+  // Previous defaults stay registered so existing configs that name them
+  // explicitly still validate. The commander selector ranks
+  // "legacy-default" entries below current models on ties.
+  {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+    supportsSynthesis: true,
+    supportsStructuredJson: true,
+    supportsStreaming: false,
+    promptCaching: { supported: true, providerManaged: true },
+    estimatedCostUsd: 0.02,
+    latencyTier: "low",
+    reliabilityTier: "standard",
+    enabled: true,
+    tags: ["direct-http", "api-key", "structured", "legacy-default"],
   },
   {
     provider: "Anthropic",
@@ -268,9 +307,9 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     },
     estimatedCostUsd: 0.03,
     latencyTier: "low",
-    reliabilityTier: "preferred",
+    reliabilityTier: "standard",
     enabled: true,
-    tags: ["direct-http", "api-key"],
+    tags: ["direct-http", "api-key", "legacy-default"],
   },
 ];
 

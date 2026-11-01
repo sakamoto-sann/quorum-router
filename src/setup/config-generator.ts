@@ -52,7 +52,7 @@ export const SETUP_PROFILE_INPUTS: Record<SetupProfileName, SetupWizardInput> =
       providers: [
         {
           provider: "OpenAI",
-          model: "gpt-4o-mini",
+          model: "gpt-5.4-mini",
           authMode: "apiKey",
           transport: "directHttp",
           client: "OpenAIChatCompletions",
@@ -72,7 +72,7 @@ export const SETUP_PROFILE_INPUTS: Record<SetupProfileName, SetupWizardInput> =
       providers: [
         {
           provider: "Anthropic",
-          model: "claude-3-5-haiku-latest",
+          model: "claude-haiku-5-5",
           authMode: "apiKey",
           transport: "directHttp",
           client: "AnthropicMessagesAPI",
@@ -144,7 +144,7 @@ export const SETUP_PROFILE_INPUTS: Record<SetupProfileName, SetupWizardInput> =
       providers: [
         {
           provider: "OpenAI",
-          model: "gpt-4o-mini",
+          model: "gpt-5.4-mini",
           authMode: "apiKey",
           transport: "directHttp",
           client: "OpenAIChatCompletions",

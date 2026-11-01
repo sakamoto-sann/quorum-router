@@ -2567,7 +2567,7 @@ Deno.test("provider registry validates known providers", () => {
 
   const openAiDirect = registry.require({
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -2581,12 +2581,26 @@ Deno.test("provider registry validates known providers", () => {
   });
   const anthropicDirect = registry.require({
     provider: "Anthropic",
-    model: "claude-3-5-haiku-latest",
+    model: "claude-haiku-5-5",
     authMode: "apiKey",
     transport: "directHttp",
     client: "AnthropicMessagesAPI",
   });
   assertEquals(anthropicDirect.promptCaching?.ttlSeconds, [300]);
+
+  // Previous defaults stay registered for existing explicit configs.
+  for (
+    const descriptor of [
+      createOpenAIDirectAdapter({ model: "gpt-4o-mini" }).descriptor,
+      createOpenAIDirectSynthesisAdapter({ model: "gpt-4o-mini" }).descriptor,
+      createAnthropicDirectAdapter({ model: "claude-3-5-haiku-latest" })
+        .descriptor,
+    ]
+  ) {
+    const legacy = registry.require(descriptor);
+    assertEquals(legacy.reliabilityTier, "standard");
+    assert(legacy.tags?.includes("legacy-default"));
+  }
 });
 
 Deno.test("provider registry protects lookup state and separates auth modes", () => {
@@ -3395,7 +3409,7 @@ Deno.test("direct-http-openai profile emits only placeholders, not raw secrets",
 
   assertEquals(config.providers[0], {
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -3731,7 +3745,7 @@ Deno.test("setup validation fails closed for invalid commander combinations", ()
 Deno.test("first_eligible_synthesis selects deterministic synthesis-capable candidate", () => {
   const anthropic: ProviderDescriptor = {
     provider: "Anthropic",
-    model: "claude-3-5-haiku-latest",
+    model: "claude-haiku-5-5",
     authMode: "apiKey",
     transport: "directHttp",
     client: "AnthropicMessagesAPI",
@@ -3745,7 +3759,7 @@ Deno.test("first_eligible_synthesis selects deterministic synthesis-capable cand
   };
   const openaiDirect: ProviderDescriptor = {
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -3776,7 +3790,7 @@ Deno.test("highest_capability_score is deterministic and stable", () => {
   };
   const openaiDirect: ProviderDescriptor = {
     provider: "OpenAI",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     authMode: "apiKey",
     transport: "directHttp",
     client: "OpenAIChatCompletions",
@@ -3801,6 +3815,30 @@ Deno.test("highest_capability_score is deterministic and stable", () => {
   assertEquals(first.selected, true);
   assertEquals(first.descriptor, openaiDirect);
   assertEquals(second.descriptor, openaiDirect);
+});
+
+Deno.test("highest_capability_score prefers current models over legacy defaults", () => {
+  const legacy: ProviderDescriptor = {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+  };
+  const current: ProviderDescriptor = { ...legacy, model: "gpt-5.4-mini" };
+  for (const candidates of [[legacy, current], [current, legacy]]) {
+    const result = selectCommander({
+      commander: {
+        enabled: true,
+        mode: "direct_synthesis",
+        selectionStrategy: "highest_capability_score",
+        local: false,
+      },
+      synthesisCandidates: candidates,
+      providerRegistry: createDefaultProviderCapabilityRegistry(),
+    });
+    assertEquals(result.descriptor, current);
+  }
 });
 
 Deno.test("agent_chat future commander selection remains future-only", () => {
@@ -4536,7 +4574,7 @@ Deno.test("invalid provider/auth/transport setup combo fails closed", () => {
         providers: [
           {
             provider: "OpenAI",
-            model: "gpt-4o-mini",
+            model: "gpt-5.4-mini",
             authMode: "oauth",
             transport: "directHttp",
             client: "OpenAIChatCompletions",
@@ -7420,7 +7458,7 @@ Deno.test("OpenAI direct HTTP adapter sends bearer token and parses chat content
   const output = await adapter.invoke("hello", new AbortController().signal);
 
   assertEquals(capturedAuthorization, "Bearer openai-test-key");
-  assertEquals(capturedBody?.model, "gpt-4o-mini");
+  assertEquals(capturedBody?.model, "gpt-5.4-mini");
   assertEquals(output.provider, "OpenAI");
   assertEquals(output.model, "gpt-fixture");
   assertEquals(output.content, "openai says hi");
@@ -7474,7 +7512,8 @@ Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", 
 
   assertEquals(capturedApiKey, "anthropic-test-key");
   assertEquals(capturedVersion, "2023-06-01");
-  assertEquals(capturedBody?.model, "claude-3-5-haiku-latest");
+  assertEquals(capturedBody?.model, "claude-haiku-5-5");
+  assertEquals(capturedBody?.max_tokens, 4096);
   assertEquals(output.provider, "Anthropic");
   assertEquals(output.model, "claude-fixture");
   assertEquals(output.content, "anthropic\nsays hi");
@@ -7730,7 +7769,7 @@ Deno.test("OpenAI direct HTTP synthesis parses JSON content", async () => {
                 content: JSON.stringify({
                   synthesis: "direct synthesis ok",
                   reasoning: "mocked OpenAI direct HTTP synthesis",
-                  consensusModel: "OpenAI/gpt-4o-mini",
+                  consensusModel: "OpenAI/gpt-5.4-mini",
                   sources: ["OpenAI/gpt-fixture"],
                 }),
               },
@@ -8462,7 +8501,7 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
   );
   const imports = templateDenoJson.imports as Record<string, unknown>;
   assertEquals(templateDenoJson.lock, false);
-  assertEquals(imports.zod, "https://deno.land/x/zod@v3.23.8/mod.ts");
+  assertEquals(imports.zod, "npm:zod@3.25.76");
   const templateTasks = templateDenoJson.tasks as Record<string, unknown>;
   assertStringIncludes(String(templateTasks.check), "main.ts src/*.ts");
   for (
@@ -9278,7 +9317,7 @@ Deno.test("create-quorum-router CLI is static safe and functional", async () => 
     >;
     assertEquals(
       generatedImports.zod,
-      "https://deno.land/x/zod@v3.23.8/mod.ts",
+      "npm:zod@3.25.76",
     );
 
     const check = await new Deno.Command("deno", {
