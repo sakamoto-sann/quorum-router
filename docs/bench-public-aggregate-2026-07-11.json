@@ -1,0 +1,49 @@
+{
+  "aggregate_summary": {
+    "agent-chat": {
+      "mean_cached_input_tokens": 31829,
+      "mean_calls": 4.0,
+      "mean_input_tokens": 74398,
+      "mean_output_tokens": 1321,
+      "mean_rubric_pct": 83.3,
+      "win_rate_pct": 61.1
+    },
+    "best-route": {
+      "mean_cached_input_tokens": 32469,
+      "mean_calls": 4.0,
+      "mean_input_tokens": 71462,
+      "mean_output_tokens": 1492,
+      "mean_rubric_pct": 77.8,
+      "win_rate_pct": 27.8
+    },
+    "single-model": {
+      "mean_cached_input_tokens": 11648,
+      "mean_calls": 1.0,
+      "mean_input_tokens": 16659,
+      "mean_output_tokens": 314,
+      "mean_rubric_pct": 72.2,
+      "win_rate_pct": 11.1
+    }
+  },
+  "publication_boundary": {
+    "eligible_as_calibration_ground_truth": false,
+    "organization_identifiers_included": false,
+    "original_task_names_included": false,
+    "per_case_rows_included": false,
+    "raw_answers_included": false,
+    "raw_prompts_included": false,
+    "score_interpretation": "predeclared deterministic rubric proxy",
+    "semantic_ground_truth": false
+  },
+  "sample_size": 3,
+  "schema_version": "quorum-router-public-bench-aggregate-v1",
+  "source": {
+    "run_date": "2026-07-11",
+    "sha256": "b8f6856a2e93062fc95ee8ca77fef88035a582123d32966cfdb46657cba2d255"
+  },
+  "strategies": [
+    "single-model",
+    "best-route",
+    "agent-chat"
+  ]
+}

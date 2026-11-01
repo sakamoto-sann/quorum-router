@@ -38,6 +38,38 @@ model-dogfood environment; it does **not** establish cross-provider superiority.
 The sample is small (`n=3`), so the results are directional and should be rerun
 on an organization's own task set before procurement.
 
+## Content-minimized operational aggregate
+
+The checked-in raw artifact contains model answers because it is the audit
+source for the published scores. For downstream review that does not need raw or
+case-level content, the repository also publishes
+[`bench-public-aggregate-2026-07-11.json`](bench-public-aggregate-2026-07-11.json).
+It is deterministically recalculated from the same checked-in run and retains
+only per-strategy aggregate proxy scores, call counts, token usage, sample size,
+run date, and the source artifact SHA-256. It omits task names, prompts,
+answers, and per-case rows, preventing case-specific score/token fingerprints
+from appearing in the minimized artifact.
+
+Rebuild or verify it with:
+
+```bash
+python3 scripts/summarize-model-strategy-bench.py \
+  docs/bench-results-2026-07-11.json \
+  docs/bench-public-aggregate-2026-07-11.json
+
+deno task bench:summary:check
+```
+
+This is a **content-minimized aggregate, not an anonymity guarantee**: the raw
+audit artifact and benchmark task descriptions remain public elsewhere in this
+repository. It is also not ground-truth calibration data. The rubric score is a
+deterministic proxy and cannot truthfully populate `correct` or
+evaluator-attested outcome fields. Publishing real calibration observations
+requires independent adjudication, explicit consent, canonical non-identifying
+task labels, bounded timestamps, and a separate privacy review. Until such data
+exists, the repository records `eligible_as_calibration_ground_truth: false`
+instead of manufacturing examples that look operational.
+
 ## Cost interpretation
 
 ChatGPT OAuth does not expose a reliable per-call dollar charge. The table uses

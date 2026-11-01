@@ -1,9 +1,31 @@
 # QuorumRouter
 
-MIT-licensed Deno control plane for fail-closed best-answer routing and
-SafeLoop-authorized multi-role agent execution.
+[日本語](README.ja.md) ·
+[Website](https://sakamoto-sann.github.io/quorum-router/)
 
-**Website:** https://sakamoto-sann.github.io/quorum-router/
+QuorumRouter is the evolution of **Fusion Router**: an MIT-licensed Deno control
+plane for independent model comparison, fail-closed best-answer routing, and
+bounded multi-role collaboration. It adds explicit routing policy, decision
+evidence, advisory calibration, and opt-in Agent Chat without allowing model
+deliberation to become execution authority.
+
+SafeLoop is the separate mutation boundary. QuorumRouter can produce a
+structured proposal and verify a digest-bound receipt; SafeLoop owns policy,
+approval, execution, and receipt production. If SafeLoop is absent or rejects a
+request, QuorumRouter has no fallback mutation authority. See
+[the evolution and responsibility map](docs/evolution.md).
+
+## Evolution and authority
+
+```text
+Fusion Router (independent candidates → Judge → Editor)
+  → QuorumRouter (fail-closed routing, evidence, calibration, Agent Chat)
+  → SafeLoop boundary (policy, approval, execution, verified receipt)
+```
+
+Best Route/direct remains the default production path. Agent Chat, grounded
+shadow evaluation, and SafeLoop-backed execution are separately gated and do not
+silently change routing authority.
 
 ## Quickstart
 
@@ -213,8 +235,14 @@ deno task smoke:v0.1
 - SafeLoop AgentRuntime setup: [docs/agent-runtime.md](docs/agent-runtime.md)
 - provider-native Prompt Caching:
   [docs/prompt-caching.md](docs/prompt-caching.md)
-- benchmark methodology and current pilot results:
+- benchmark methodology, real-run evidence, and content-minimized aggregate:
   [docs/bench.md](docs/bench.md)
+- project evolution and the QuorumRouter/SafeLoop responsibility split:
+  [docs/evolution.md](docs/evolution.md)
+- contribution workflow and review contract: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Japanese guide: [README.ja.md](README.ja.md)
+- supply-chain controls and staged SBOM/dependency-review path:
+  [docs/supply-chain.md](docs/supply-chain.md)
 - decision outcomes and disagreement evidence:
   [docs/decision-reports.md](docs/decision-reports.md)
 - advisory calibration from externally evaluated task outcomes:
