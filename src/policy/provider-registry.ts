@@ -272,6 +272,44 @@ export const DEFAULT_PROVIDER_CAPABILITIES: ProviderCapability[] = [
     enabled: true,
     tags: ["direct-http", "api-key"],
   },
+  // Previous defaults stay registered so existing configs that name them
+  // explicitly still validate. "standard" keeps the new defaults preferred.
+  {
+    provider: "OpenAI",
+    model: "gpt-4o-mini",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "OpenAIChatCompletions",
+    supportsSynthesis: true,
+    supportsStructuredJson: true,
+    supportsStreaming: false,
+    promptCaching: { supported: true, providerManaged: true },
+    estimatedCostUsd: 0.02,
+    latencyTier: "low",
+    reliabilityTier: "standard",
+    enabled: true,
+    tags: ["direct-http", "api-key", "structured", "legacy-default"],
+  },
+  {
+    provider: "Anthropic",
+    model: "claude-3-5-haiku-latest",
+    authMode: "apiKey",
+    transport: "directHttp",
+    client: "AnthropicMessagesAPI",
+    supportsSynthesis: false,
+    supportsStructuredJson: false,
+    supportsStreaming: false,
+    promptCaching: {
+      supported: true,
+      providerManaged: true,
+      ttlSeconds: [300],
+    },
+    estimatedCostUsd: 0.03,
+    latencyTier: "low",
+    reliabilityTier: "standard",
+    enabled: true,
+    tags: ["direct-http", "api-key", "legacy-default"],
+  },
 ];
 
 export function createDefaultProviderCapabilityRegistry(): ProviderCapabilityRegistry {

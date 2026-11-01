@@ -2587,6 +2587,20 @@ Deno.test("provider registry validates known providers", () => {
     client: "AnthropicMessagesAPI",
   });
   assertEquals(anthropicDirect.promptCaching?.ttlSeconds, [300]);
+
+  // Previous defaults stay registered for existing explicit configs.
+  for (
+    const descriptor of [
+      createOpenAIDirectAdapter({ model: "gpt-4o-mini" }).descriptor,
+      createOpenAIDirectSynthesisAdapter({ model: "gpt-4o-mini" }).descriptor,
+      createAnthropicDirectAdapter({ model: "claude-3-5-haiku-latest" })
+        .descriptor,
+    ]
+  ) {
+    const legacy = registry.require(descriptor);
+    assertEquals(legacy.reliabilityTier, "standard");
+    assert(legacy.tags?.includes("legacy-default"));
+  }
 });
 
 Deno.test("provider registry protects lookup state and separates auth modes", () => {
