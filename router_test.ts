@@ -7475,6 +7475,7 @@ Deno.test("Anthropic direct HTTP adapter sends API key and parses text blocks", 
   assertEquals(capturedApiKey, "anthropic-test-key");
   assertEquals(capturedVersion, "2023-06-01");
   assertEquals(capturedBody?.model, "claude-haiku-5-5");
+  assertEquals(capturedBody?.max_tokens, 4096);
   assertEquals(output.provider, "Anthropic");
   assertEquals(output.model, "claude-fixture");
   assertEquals(output.content, "anthropic\nsays hi");

@@ -41,7 +41,12 @@ import type {
   DirectRoutingPolicyInput,
 } from "./policy/direct-routing-policy.ts";
 import type { ProviderCapabilityRegistry } from "./policy/provider-registry.ts";
-import { errorMessage, failClosed, ProcessExecutionError } from "./errors.ts";
+import {
+  errorCode,
+  errorMessage,
+  failClosed,
+  ProcessExecutionError,
+} from "./errors.ts";
 import {
   assertImplementedRoutingMode,
   describeRoutingModeDecision,
@@ -772,7 +777,9 @@ export class QuorumRouter {
             stage: "synthesis",
             provider: this.synthesisAdapter.descriptor.provider,
             model: this.synthesisAdapter.descriptor.model,
-            code: "synthesis_failed",
+            code: errorCode(error) === "router_timeout"
+              ? "router_timeout"
+              : "synthesis_failed",
           },
         ],
         calibration,

@@ -43,6 +43,36 @@ const consoleTelemetrySink: TelemetrySink = (telemetry) => {
   console.warn(JSON.stringify(telemetry, null, 2));
 };
 
+/**
+ * Reads the default router's stage timeouts from the environment.
+ * The synthesis limit falls back to the model-stage limit, matching the
+ * QuorumRouter constructor. The quorum grace period accepts 0.
+ */
+export function readRouterTimeoutEnv(): {
+  timeoutMs: number;
+  synthesisTimeoutMs: number;
+  quorumGraceMs?: number;
+} {
+  const timeoutMs = boundedEnvInteger(
+    "QUORUM_ROUTER_TIMEOUT_MS",
+    120_000,
+    ROUTER_MAX_STAGE_TIMEOUT_MS,
+  );
+  const synthesisTimeoutMs = boundedEnvInteger(
+    "QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS",
+    timeoutMs,
+    ROUTER_MAX_STAGE_TIMEOUT_MS,
+  );
+  if (!routerEnvPresent("QUORUM_ROUTER_QUORUM_GRACE_MS")) {
+    return { timeoutMs, synthesisTimeoutMs };
+  }
+  const grace = Number(readRouterEnv("QUORUM_ROUTER_QUORUM_GRACE_MS"));
+  const quorumGraceMs = Number.isFinite(grace) && grace >= 0
+    ? Math.min(Math.floor(grace), ROUTER_MAX_STAGE_TIMEOUT_MS)
+    : 15_000;
+  return { timeoutMs, synthesisTimeoutMs, quorumGraceMs };
+}
+
 export function maybeCreateEnvTelemetrySink(): TelemetrySink | undefined {
   const endpoint = Deno.env.get("OTEL_EXPORTER_OTLP_ENDPOINT");
   if (!endpoint) {
@@ -186,23 +216,7 @@ export function createDefaultRouter(): QuorumRouter {
     });
 
   return new QuorumRouter({
-    timeoutMs: boundedEnvInteger(
-      "QUORUM_ROUTER_TIMEOUT_MS",
-      120_000,
-      ROUTER_MAX_STAGE_TIMEOUT_MS,
-    ),
-    synthesisTimeoutMs: boundedEnvInteger(
-      "QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS",
-      120_000,
-      ROUTER_MAX_STAGE_TIMEOUT_MS,
-    ),
-    quorumGraceMs: routerEnvPresent("QUORUM_ROUTER_QUORUM_GRACE_MS")
-      ? boundedEnvInteger(
-        "QUORUM_ROUTER_QUORUM_GRACE_MS",
-        15_000,
-        ROUTER_MAX_STAGE_TIMEOUT_MS,
-      )
-      : undefined,
+    ...readRouterTimeoutEnv(),
     minSuccessfulAdapters: Math.min(2, modelAdapters.length),
     telemetrySink,
     modelAdapters,

@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { QuorumRouter, silentRouterLogger } from "./router.ts";
 import { RouterError } from "./errors.ts";
+import { readRouterTimeoutEnv } from "./runtime.ts";
 import type { ModelAdapter, SynthesisAdapter } from "./contracts.ts";
 import type { DecisionReportAny } from "./schemas.ts";
 
@@ -121,6 +122,12 @@ Deno.test("synthesis timeout fails closed with router_timeout", async () => {
       "20ms synthesis timeout",
     ),
   );
+  assertEquals(decisionReportOf(error).failures, [{
+    stage: "synthesis",
+    provider: "Fixture",
+    model: "synth",
+    code: "router_timeout",
+  }]);
 });
 
 Deno.test("adapters that ignore abort cannot hang past timeoutMs", async () => {
@@ -231,4 +238,70 @@ Deno.test("timeout options are validated", () => {
     "quorumGraceMs must be an integer >= 0.",
   );
   new QuorumRouter({ ...base, quorumGraceMs: 0 });
+});
+
+const TIMEOUT_ENV_NAMES = [
+  "QUORUM_ROUTER_TIMEOUT_MS",
+  "QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS",
+  "QUORUM_ROUTER_QUORUM_GRACE_MS",
+] as const;
+
+function withTimeoutEnv<T>(
+  values: Partial<Record<typeof TIMEOUT_ENV_NAMES[number], string>>,
+  fn: () => T,
+): T {
+  const saved = TIMEOUT_ENV_NAMES.map((name) => [name, Deno.env.get(name)]);
+  try {
+    for (const name of TIMEOUT_ENV_NAMES) {
+      const value = values[name];
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    }
+    return fn();
+  } finally {
+    for (const [name, value] of saved) {
+      if (value === undefined) Deno.env.delete(name!);
+      else Deno.env.set(name!, value);
+    }
+  }
+}
+
+Deno.test("env synthesis timeout falls back to the model timeout", () => {
+  assertEquals(
+    withTimeoutEnv({}, readRouterTimeoutEnv),
+    { timeoutMs: 120_000, synthesisTimeoutMs: 120_000 },
+  );
+  assertEquals(
+    withTimeoutEnv({ QUORUM_ROUTER_TIMEOUT_MS: "5000" }, readRouterTimeoutEnv),
+    { timeoutMs: 5_000, synthesisTimeoutMs: 5_000 },
+  );
+  assertEquals(
+    withTimeoutEnv({
+      QUORUM_ROUTER_TIMEOUT_MS: "5000",
+      QUORUM_ROUTER_SYNTHESIS_TIMEOUT_MS: "9000",
+    }, readRouterTimeoutEnv),
+    { timeoutMs: 5_000, synthesisTimeoutMs: 9_000 },
+  );
+});
+
+Deno.test("env quorum grace accepts zero and caps large values", () => {
+  assertEquals(
+    withTimeoutEnv({ QUORUM_ROUTER_QUORUM_GRACE_MS: "0" }, readRouterTimeoutEnv)
+      .quorumGraceMs,
+    0,
+  );
+  assertEquals(
+    withTimeoutEnv(
+      { QUORUM_ROUTER_QUORUM_GRACE_MS: "99999999" },
+      readRouterTimeoutEnv,
+    ).quorumGraceMs,
+    600_000,
+  );
+  assertEquals(
+    withTimeoutEnv(
+      { QUORUM_ROUTER_QUORUM_GRACE_MS: "not-a-number" },
+      readRouterTimeoutEnv,
+    ).quorumGraceMs,
+    15_000,
+  );
 });
