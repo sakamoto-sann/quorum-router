@@ -1,7 +1,7 @@
 import {
   discoverInventoryWithModelListing,
   invokableEntries,
-} from "./auth_discovery.ts";
+} from "../../../packages/create-quorum-router/templates/basic/src/auth_session.ts";
 import { runAgentChat } from "./agent_chat_runner.ts";
 import { invokeSelected } from "./best_route_runner.ts";
 import { runHermesStructuredFusion } from "./fusion_runner.ts";

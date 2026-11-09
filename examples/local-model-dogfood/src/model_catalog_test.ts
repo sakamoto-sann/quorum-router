@@ -262,7 +262,7 @@ Deno.test("model probe success E2E binds the executable path and exact sentinel"
   const wrapper = `${bin}/codex`;
   await Deno.writeTextFile(
     wrapper,
-    `#!/bin/sh\nout=''\nmodel=''\nprompt=''\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n    --model) shift; model="$1" ;;\n    --output-last-message) shift; out="$1" ;;\n    *) prompt="$1" ;;\n  esac\n  shift\ndone\n[ "$model" = "test-model" ] || exit 31\n[ "$prompt" = "Reply with exactly QUORUM_MODEL_PROBE_OK and no other text." ] || exit 32\n[ -n "$out" ] || exit 33\nprintf 'QUORUM_MODEL_PROBE_OK' > "$out"\n`,
+    `#!/bin/sh\nout=''\nmodel=''\nprompt=''\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n    --model) shift; model="$1" ;;\n    --output-last-message) shift; out="$1" ;;\n    -) IFS= read -r prompt || true ;;\n  esac\n  shift\ndone\n[ "$model" = "test-model" ] || exit 31\n[ "$prompt" = "Reply with exactly QUORUM_MODEL_PROBE_OK and no other text." ] || exit 32\n[ -n "$out" ] || exit 33\nprintf 'QUORUM_MODEL_PROBE_OK' > "$out"\n`,
     { mode: 0o700 },
   );
   try {

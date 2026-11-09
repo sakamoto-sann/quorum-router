@@ -1,4 +1,4 @@
-import { discoverInventoryWithModelListing } from "./examples/local-model-dogfood/src/auth_discovery.ts";
+import { discoverInventoryWithModelListing } from "./packages/create-quorum-router/templates/basic/src/auth_session.ts";
 import {
   addExplicitModel,
   defaultModelConfigPath,

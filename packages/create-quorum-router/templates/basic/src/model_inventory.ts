@@ -2,10 +2,13 @@ import type { ModelInventory } from "./schema.ts";
 import { discoverInventoryWithModelListing } from "./auth_session.ts";
 import { OUT_DIR } from "./trace.ts";
 
-export async function writeInventory(inventory: ModelInventory): Promise<void> {
-  await Deno.mkdir(OUT_DIR, { recursive: true });
+export async function writeInventory(
+  inventory: ModelInventory,
+  outDir: string = OUT_DIR,
+): Promise<void> {
+  await Deno.mkdir(outDir, { recursive: true });
   await Deno.writeTextFile(
-    `${OUT_DIR}/model-inventory.json`,
+    `${outDir}/model-inventory.json`,
     `${JSON.stringify(inventory, null, 2)}\n`,
     { mode: 0o600 },
   );
@@ -31,15 +34,17 @@ export async function writeInventory(inventory: ModelInventory): Promise<void> {
     "",
   ];
   await Deno.writeTextFile(
-    `${OUT_DIR}/model-inventory.md`,
+    `${outDir}/model-inventory.md`,
     `${lines.join("\n")}\n`,
     { mode: 0o600 },
   );
 }
 
-export async function inventoryCommand(): Promise<ModelInventory> {
+export async function inventoryCommand(
+  outDir: string = OUT_DIR,
+): Promise<ModelInventory> {
   const inventory = await discoverInventoryWithModelListing();
-  await writeInventory(inventory);
+  await writeInventory(inventory, outDir);
   return inventory;
 }
 
