@@ -1,61 +1,22 @@
+// Inventory and result shapes come from the scaffold template, so the dogfood
+// runner and generated projects cannot drift apart. The runner keeps its own
+// narrower auth modes, trace format, and opt-in gates below.
+import type {
+  ScoreRow,
+} from "../../../packages/create-quorum-router/templates/basic/src/schema.ts";
+
+export type {
+  InventorySource,
+  ModelInventory,
+  ModelInventoryEntry,
+  ProviderResult,
+  ScoreRow,
+} from "../../../packages/create-quorum-router/templates/basic/src/schema.ts";
+
+/** The dogfood runner does not support the scaffold's "session" auth mode. */
 export type AuthMode = "auto" | "wrapper" | "oauth" | "env";
-export type InventorySource =
-  | "wrapper"
-  | "oauth_session"
-  | "local_cli"
-  | "env_fallback"
-  | "static_config";
 
-export type ModelInventoryEntry = {
-  provider: string;
-  auth_mode: AuthMode | "session" | "oauth" | "env";
-  model: string;
-  model_id: string;
-  source: InventorySource;
-  available: boolean;
-  blocked_reason?: string;
-  can_list_models: boolean;
-  listed_models?: string[];
-  list_blocked_reason?: string;
-  can_invoke: boolean;
-  notes: string[];
-  command?: string;
-  args_template?: string[];
-  invocation_model?: string;
-};
-
-export type ModelInventory = {
-  generated_at: string;
-  auth_mode: AuthMode;
-  entries: ModelInventoryEntry[];
-  available_count: number;
-  blocked_count: number;
-  env_fallback_configured: boolean;
-  env_fallback_used: boolean;
-};
-
-export type ProviderResult = {
-  provider: string;
-  model: string;
-  response_received: boolean;
-  schema_valid: boolean;
-  response_summary: string;
-  raw_content: string;
-  error?: string;
-};
-
-export type ScoreRow = {
-  provider: string;
-  model: string;
-  schema_valid: boolean;
-  response_received: boolean;
-  clarity: number;
-  completeness: number;
-  risk: number;
-  instruction_fit: number;
-  final_score: number;
-};
-
+/** Runner trace; the scaffold trace adds provider-selection fields it never writes. */
 export type DogfoodTrace = {
   run_id: string;
   timestamp: string;

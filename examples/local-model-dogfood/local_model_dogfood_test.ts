@@ -9,7 +9,10 @@ import { discoverInventory, parseGrokModelList } from "./src/auth_discovery.ts";
 import { selectInvokableCandidates } from "./src/best_route_runner.ts";
 import { chatCompletionsUrl } from "./src/env_fallback_client.ts";
 import { parseAuthMode } from "./src/schema.ts";
-import { redact, redactionOk } from "./src/redact.ts";
+import {
+  redact,
+  redactionOk,
+} from "../../packages/create-quorum-router/templates/basic/src/redact.ts";
 import { buildTrace, writeTrace } from "./src/trace.ts";
 import { buildWrapperArgs } from "./src/wrapper_client.ts";
 import { LOCAL_PROVIDER_SPECS } from "./src/provider_registry.ts";

@@ -1,3 +1,5 @@
+// Copied from the QuorumRouter library (src/calibration/calibration.ts) by `deno task scaffold:sync`.
+// Edit the library source, not this copy.
 import { z } from "zod";
 
 export const MAX_CALIBRATION_OBSERVATIONS = 10_000;

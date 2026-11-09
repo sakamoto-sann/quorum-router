@@ -81,6 +81,22 @@ Before push, scan the exact outgoing commit range with the repository's
 secret-scanning workflow. Do not suppress avoidable findings with broad
 allowlists.
 
+## Scaffold copies
+
+The `create-quorum-router` template must stay self-contained, so it ships copies
+of a few library modules (listed in
+`packages/create-quorum-router/scaffold_sync.ts`). `src/` is the single source
+of truth for those modules:
+
+- edit the library module under `src/`, never the template copy;
+- run `deno task scaffold:sync` and commit the regenerated copies;
+- `deno task scaffold:check` and `deno task test` fail when a copy drifts.
+
+`examples/local-model-dogfood` imports shared modules directly instead of
+copying them: router env helpers from `src/env.ts`, and redaction plus
+inventory/result types from the template. Keep runner-specific behavior (auth
+modes, trace format, wrapper isolation) in the example.
+
 ## Safety invariants
 
 Changes must preserve these defaults unless a separately reviewed authority

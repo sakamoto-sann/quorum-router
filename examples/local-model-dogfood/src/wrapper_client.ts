@@ -1,5 +1,8 @@
 import type { ModelInventoryEntry, ProviderResult } from "./schema.ts";
-import { redact, summarize } from "./redact.ts";
+import {
+  redact,
+  summarize,
+} from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
 
 export function buildWrapperArgs(
   entry: ModelInventoryEntry,

@@ -1,6 +1,9 @@
-import { redact, summarize } from "./redact.ts";
+import {
+  redact,
+  summarize,
+} from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
 import type { ProviderResult } from "./schema.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 
 function requiredEnv(name: string): string {
   const value = Deno.env.get(name)?.trim();

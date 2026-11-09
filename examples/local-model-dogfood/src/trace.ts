@@ -4,7 +4,10 @@ import type {
   ProviderResult,
   ScoreRow,
 } from "./schema.ts";
-import { redactionOk, summarize } from "./redact.ts";
+import {
+  redactionOk,
+  summarize,
+} from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
 
 export const OUT_DIR = "../../out/dogfood/local-model-dogfood";
 

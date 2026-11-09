@@ -11,7 +11,7 @@ import {
   type ProviderResult,
 } from "./schema.ts";
 import { score } from "./trace.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 
 type BridgeRequest = {
   operation: "health" | "route_once" | "best_route" | "agent_chat";
