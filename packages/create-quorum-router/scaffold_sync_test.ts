@@ -6,6 +6,13 @@ import {
   syncScaffold,
 } from "./scaffold_sync.ts";
 
+/** File URL for a native directory path; the URL setter escapes special characters. */
+function directoryUrl(path: string): URL {
+  const url = new URL("file:///");
+  url.pathname = `${path.replaceAll("\\", "/")}/`;
+  return url;
+}
+
 Deno.test("template copies of library modules match src/", async () => {
   // On failure run `deno task scaffold:sync` and commit the result.
   assertEquals(await findScaffoldDrift(), []);
@@ -14,7 +21,7 @@ Deno.test("template copies of library modules match src/", async () => {
 Deno.test("scaffold sync rewrites drifted and missing copies only", async () => {
   const root = await Deno.makeTempDir();
   try {
-    const rootUrl = new URL(`file://${root}/`);
+    const rootUrl = directoryUrl(root);
     await Deno.mkdir(`${root}/src`);
     await Deno.mkdir(`${root}/out`);
     await Deno.writeTextFile(`${root}/src/a.ts`, "export const a = 1;\n");
