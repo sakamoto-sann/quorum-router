@@ -1,7 +1,7 @@
 import {
   discoverInventoryWithModelListing,
   invokableEntries,
-} from "./auth_discovery.ts";
+} from "../../../packages/create-quorum-router/templates/basic/src/auth_session.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
 import { readRouterEnv } from "../../../src/env.ts";
 import { selectInvokableCandidates } from "./best_route_runner.ts";

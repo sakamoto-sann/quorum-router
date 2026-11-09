@@ -2,12 +2,15 @@ import {
   discoverInventory,
   discoverInventoryWithModelListing,
   invokableEntries,
-} from "./auth_discovery.ts";
+} from "../../../packages/create-quorum-router/templates/basic/src/auth_session.ts";
 import { runAgentChat } from "./agent_chat_runner.ts";
 import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
-import { inventoryCommand, writeInventory } from "./model_inventory.ts";
+import {
+  inventoryCommand,
+  writeInventory,
+} from "../../../packages/create-quorum-router/templates/basic/src/model_inventory.ts";
 import { parseAuthMode } from "./schema.ts";
-import { buildTrace, writeTrace } from "./trace.ts";
+import { buildTrace, OUT_DIR, writeTrace } from "./trace.ts";
 import { summarize } from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
 import { readRouterEnv } from "../../../src/env.ts";
 
@@ -51,7 +54,7 @@ function printInventorySummary(
 async function main(): Promise<void> {
   const command = Deno.args[0] ?? "help";
   if (command === "inventory" || command === "models:list") {
-    const inventory = await inventoryCommand();
+    const inventory = await inventoryCommand(OUT_DIR);
     console.log("Generation endpoint called: false");
     printInventorySummary(inventory);
     console.log(
@@ -61,7 +64,7 @@ async function main(): Promise<void> {
   }
   if (command === "intake") {
     const inventory = await discoverInventoryWithModelListing();
-    await writeInventory(inventory);
+    await writeInventory(inventory, OUT_DIR);
     console.log("QuorumRouter intake");
     console.log("Step 1 — Detect local providers");
     printInventorySummary(inventory);
@@ -82,7 +85,7 @@ async function main(): Promise<void> {
   }
   if (command === "auth:status") {
     const inventory = await discoverInventoryWithModelListing();
-    await writeInventory(inventory);
+    await writeInventory(inventory, OUT_DIR);
     printInventorySummary(inventory);
     if (invokableEntries(inventory).length === 0) {
       console.log(
@@ -112,7 +115,7 @@ async function main(): Promise<void> {
   if (command === "health") {
     const authMode = parseAuthMode(readRouterEnv("QUORUM_ROUTER_AUTH_MODE"));
     const inventory = discoverInventory(authMode);
-    await writeInventory(inventory);
+    await writeInventory(inventory, OUT_DIR);
     const trace = await buildTrace({
       command: "health",
       mode: "health",

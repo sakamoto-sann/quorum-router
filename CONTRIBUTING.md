@@ -93,9 +93,10 @@ of truth for those modules:
 - `deno task scaffold:check` and `deno task test` fail when a copy drifts.
 
 `examples/local-model-dogfood` imports shared modules directly instead of
-copying them: router env helpers from `src/env.ts`, and redaction plus
-inventory/result types from the template. Keep runner-specific behavior (auth
-modes, trace format, wrapper isolation) in the example.
+copying them: router env helpers from `src/env.ts`, and the provider registry,
+inventory discovery, wrapper client, redaction, and inventory/result types from
+the template. Only runner-specific behavior stays in the example: its auth
+modes, trace format, output directory, opt-in gates, and the Hermes bridge.
 
 ## Safety invariants
 

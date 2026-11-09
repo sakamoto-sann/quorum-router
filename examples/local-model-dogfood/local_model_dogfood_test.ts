@@ -5,7 +5,10 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { discoverInventory, parseGrokModelList } from "./src/auth_discovery.ts";
+import {
+  discoverInventory,
+  parseGrokModelList,
+} from "../../packages/create-quorum-router/templates/basic/src/auth_session.ts";
 import { selectInvokableCandidates } from "./src/best_route_runner.ts";
 import { chatCompletionsUrl } from "./src/env_fallback_client.ts";
 import { parseAuthMode } from "./src/schema.ts";
@@ -14,8 +17,12 @@ import {
   redactionOk,
 } from "../../packages/create-quorum-router/templates/basic/src/redact.ts";
 import { buildTrace, writeTrace } from "./src/trace.ts";
-import { buildWrapperArgs } from "./src/wrapper_client.ts";
-import { LOCAL_PROVIDER_SPECS } from "./src/provider_registry.ts";
+import {
+  buildWrapperArgs,
+  callWrapper,
+  WRAPPER_OUT_DIR,
+} from "./src/wrapper_client.ts";
+import { LOCAL_PROVIDER_SPECS } from "../../packages/create-quorum-router/templates/basic/src/provider_registry.ts";
 
 Deno.test("provider registry excludes Qwen until a non-secret session path exists", () => {
   assertEquals(
@@ -55,7 +62,8 @@ function fixtureCandidates() {
     can_invoke: true,
     notes: [],
     command: "codex",
-    args_template: ["exec", "__PROMPT__"],
+    args_template: ["exec", "-"],
+    prompt_transport: "stdin" as const,
   }, {
     provider: "xAI",
     auth_mode: "oauth" as const,
@@ -68,7 +76,8 @@ function fixtureCandidates() {
     can_invoke: true,
     notes: [],
     command: "grok",
-    args_template: ["-p", "__PROMPT__"],
+    args_template: ["--prompt-file", "__PROMPT_FILE__"],
+    prompt_transport: "file" as const,
   }, {
     provider: "OpenAI-compatible env fallback",
     auth_mode: "env" as const,
@@ -215,10 +224,13 @@ Deno.test("local model dogfood selection honors Grok listed model aliases", () =
       assertEquals(selected.model, model);
       assertEquals(selected.invocation_model, model);
       assertEquals(
-        buildWrapperArgs(selected, "hello", "out.txt")[0],
+        buildWrapperArgs(selected, "out.txt", "prompt.txt")[0],
         "--model",
       );
-      assertEquals(buildWrapperArgs(selected, "hello", "out.txt")[1], model);
+      assertEquals(
+        buildWrapperArgs(selected, "out.txt", "prompt.txt")[1],
+        model,
+      );
     });
   }
 });
@@ -229,7 +241,6 @@ Deno.test("wrapper model override applies to non-Grok CLIs", () => {
   )!;
   const args = buildWrapperArgs(
     { ...entry, invocation_model: "gpt-5.4-mini" },
-    "hello",
     "out.txt",
   );
   assertEquals(args.slice(0, 3), ["--model", "gpt-5.4-mini", "exec"]);
@@ -300,12 +311,13 @@ Deno.test("local model dogfood selects requested Grok listed model", () => {
       can_invoke: true,
       notes: [],
       command: "grok",
-      args_template: ["-p", "__PROMPT__"],
+      args_template: ["--prompt-file", "__PROMPT_FILE__"],
+      prompt_transport: "file",
     }]);
     assertEquals(selected.model, "grok-build");
     assertEquals(selected.invocation_model, "grok-build");
     assertEquals(
-      buildWrapperArgs(selected, "hello", "out.txt").slice(0, 2),
+      buildWrapperArgs(selected, "out.txt", "prompt.txt").slice(0, 2),
       ["--model", "grok-build"],
     );
   } finally {
@@ -347,17 +359,54 @@ Deno.test("local model dogfood fails safely for unknown requested model", () => 
   }
 });
 
-Deno.test("local model dogfood wrapper client is non-shell, isolated, and retries empty SIGPIPE once", async () => {
-  const source = await Deno.readTextFile(
-    "examples/local-model-dogfood/src/wrapper_client.ts",
+Deno.test("dogfood wrapper sends the prompt on stdin from an isolated process", async () => {
+  if (Deno.build.os === "windows") return;
+  const dir = await Deno.makeTempDir();
+  const cli = `${dir}/fake-cli`;
+  const marker = `${dir}/attempted`;
+  // The first run fails with an empty SIGPIPE; the wrapper must retry once.
+  await Deno.writeTextFile(
+    cli,
+    `#!/bin/sh\nif [ ! -e "${marker}" ]; then : > "${marker}"; exit 141; fi\nprintf 'argv=%s|parent=%s|stdin=' "$*" "\${DOGFOOD_PARENT_ONLY_VALUE:-unset}"\ncat\n`,
+    { mode: 0o700 },
   );
-  assertStringIncludes(source, "new Deno.Command(entry.command");
-  assertStringIncludes(source, 'stdin: "null"');
-  assertStringIncludes(source, 'cwd: Deno.env.get("TMPDIR") || "/tmp"');
-  assertStringIncludes(source, "output.code === 141");
-  assertStringIncludes(source, "output.stdout.length === 0");
-  assertStringIncludes(source, "output.stderr.length === 0");
-  assertStringIncludes(source, 'child.kill("SIGKILL")');
+  const tempFiles = async () => {
+    const names: string[] = [];
+    try {
+      for await (const entry of Deno.readDir(WRAPPER_OUT_DIR)) {
+        if (entry.name.startsWith("quorum-router-")) names.push(entry.name);
+      }
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    return names.sort();
+  };
+  const before = await tempFiles();
+  Deno.env.set("DOGFOOD_PARENT_ONLY_VALUE", "leaked");
+  try {
+    const result = await callWrapper({
+      provider: "Fixture",
+      auth_mode: "session",
+      model: "fake-cli",
+      model_id: "fixture/fake-cli",
+      source: "local_cli",
+      available: true,
+      can_list_models: false,
+      can_invoke: true,
+      notes: [],
+      command: cli,
+      args_template: ["-p"],
+      prompt_transport: "stdin",
+    }, "private prompt text");
+    assertEquals(
+      result.raw_content,
+      "argv=-p|parent=unset|stdin=private prompt text",
+    );
+    assertEquals(await tempFiles(), before);
+  } finally {
+    Deno.env.delete("DOGFOOD_PARENT_ONLY_VALUE");
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 Deno.test("agent chat tells autonomous wrappers to remain text-only", async () => {

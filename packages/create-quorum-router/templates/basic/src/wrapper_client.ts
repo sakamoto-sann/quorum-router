@@ -18,30 +18,29 @@ export function buildWrapperArgs(
   if (args.includes("__PROMPT__") || args.includes("__PROMPT_FILE__")) {
     throw new Error("QuorumRouter blocked: unresolved prompt placeholder");
   }
-  if (entry.command === "grok" && entry.invocation_model) {
-    if (entry.invocation_model === "grok-build") {
-      const withoutPlanMode: string[] = [];
-      for (let index = 0; index < args.length; index += 1) {
-        if (args[index] === "--permission-mode" && args[index + 1] === "plan") {
-          index += 1;
-          continue;
-        }
-        withoutPlanMode.push(args[index]);
+  if (!entry.invocation_model) return args;
+  if (entry.command === "grok" && entry.invocation_model === "grok-build") {
+    const withoutPlanMode: string[] = [];
+    for (let index = 0; index < args.length; index += 1) {
+      if (args[index] === "--permission-mode" && args[index + 1] === "plan") {
+        index += 1;
+        continue;
       }
-      return [
-        "--model",
-        entry.invocation_model,
-        ...withoutPlanMode,
-        "--permission-mode",
-        "bypassPermissions",
-        "--deny",
-        "*",
-        "--no-subagents",
-      ];
+      withoutPlanMode.push(args[index]);
     }
-    return ["--model", entry.invocation_model, ...args];
+    return [
+      "--model",
+      entry.invocation_model,
+      ...withoutPlanMode,
+      "--permission-mode",
+      "bypassPermissions",
+      "--deny",
+      "*",
+      "--no-subagents",
+    ];
   }
-  return args;
+  // Every supported CLI accepts a leading --model override.
+  return ["--model", entry.invocation_model, ...args];
 }
 
 async function outputWithTimeout(
@@ -160,18 +159,25 @@ export function extractUsableWrapperContent(args: {
   );
 }
 
+export type CallWrapperOptions = {
+  /** Directory for private temp prompt/output files. Defaults to `out`. */
+  outDir?: string;
+};
+
 export async function callWrapper(
   entry: ModelInventoryEntry,
   prompt: string,
+  options: CallWrapperOptions = {},
 ): Promise<ProviderResult> {
+  const outDir = options.outDir ?? "out";
   if (!entry.command) {
     throw new Error(
       `QuorumRouter blocked: ${entry.provider} has no command`,
     );
   }
-  await Deno.mkdir("out", { recursive: true, mode: 0o700 });
+  await Deno.mkdir(outDir, { recursive: true, mode: 0o700 });
   const outPath = await Deno.makeTempFile({
-    dir: "out",
+    dir: outDir,
     prefix: "quorum-router-output-",
     suffix: ".txt",
   });
@@ -179,7 +185,7 @@ export async function callWrapper(
   const absoluteOutPath = await Deno.realPath(outPath);
   const promptPath = entry.prompt_transport === "file"
     ? await Deno.makeTempFile({
-      dir: "out",
+      dir: outDir,
       prefix: "quorum-router-prompt-",
       suffix: ".txt",
     })
