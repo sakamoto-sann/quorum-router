@@ -191,6 +191,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
+import { generatedCopy } from "./packages/create-quorum-router/scaffold_sync.ts";
 
 type PublicExportTypeSmoke = [
   SmokeAgentBusConfig,
@@ -8562,7 +8563,10 @@ Deno.test("create-quorum-router package files and metadata are release-safe", as
     await Deno.readTextFile(
       "packages/create-quorum-router/templates/basic/src/calibration.ts",
     ),
-    await Deno.readTextFile("src/calibration/calibration.ts"),
+    generatedCopy(
+      "src/calibration/calibration.ts",
+      await Deno.readTextFile("src/calibration/calibration.ts"),
+    ),
   );
   assert(!("external:check" in templateTasks));
   assert(!("external:once" in templateTasks));

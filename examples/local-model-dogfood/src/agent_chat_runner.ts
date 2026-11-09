@@ -3,9 +3,12 @@ import {
   invokableEntries,
 } from "./auth_discovery.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 import { selectInvokableCandidates } from "./best_route_runner.ts";
-import { redact, summarize } from "./redact.ts";
+import {
+  redact,
+  summarize,
+} from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
 import {
   assertAgentChatOptIn,
   assertOptIn,

@@ -3,8 +3,11 @@ import {
   LOCAL_PROVIDER_SPECS,
   type ProviderSpec,
 } from "./provider_registry.ts";
-import { redact, summarize } from "./redact.ts";
-import { readRouterEnv } from "./env.ts";
+import {
+  redact,
+  summarize,
+} from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 import {
   type AuthMode,
   type ModelInventory,

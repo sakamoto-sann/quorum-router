@@ -8,8 +8,8 @@ import { invokeSelected, runBestRoute } from "./best_route_runner.ts";
 import { inventoryCommand, writeInventory } from "./model_inventory.ts";
 import { parseAuthMode } from "./schema.ts";
 import { buildTrace, writeTrace } from "./trace.ts";
-import { summarize } from "./redact.ts";
-import { readRouterEnv } from "./env.ts";
+import { summarize } from "../../../packages/create-quorum-router/templates/basic/src/redact.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 
 function argValue(name: string, fallback: string): string {
   const index = Deno.args.indexOf(name);

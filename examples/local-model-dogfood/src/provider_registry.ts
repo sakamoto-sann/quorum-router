@@ -1,5 +1,5 @@
 import type { ModelInventoryEntry } from "./schema.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 
 export type ProviderSpec = {
   provider: string;

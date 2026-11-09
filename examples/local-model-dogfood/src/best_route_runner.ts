@@ -3,7 +3,7 @@ import {
   invokableEntries,
 } from "./auth_discovery.ts";
 import { callEnvFallback } from "./env_fallback_client.ts";
-import { readRouterEnv } from "./env.ts";
+import { readRouterEnv } from "../../../src/env.ts";
 import {
   assertOptIn,
   type ModelInventoryEntry,
