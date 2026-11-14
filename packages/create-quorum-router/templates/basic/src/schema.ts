@@ -78,6 +78,15 @@ export type InventorySource =
   | "env_fallback"
   | "static_config";
 
+/** How a provider CLI is kept from loading the user's own MCP servers and config. */
+export type McpIsolation =
+  /** Flags in args_template already disable the user's MCP servers. */
+  | { kind: "args" }
+  /** Files written into a private working directory override the user's MCP settings. */
+  | { kind: "workspace_settings"; files: Record<string, string> }
+  /** No known way; the CLI runs only when named in QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS. */
+  | { kind: "none" };
+
 export type ModelInventoryEntry = {
   provider: string;
   auth_mode: AuthMode | "session" | "oauth" | "env";
@@ -94,6 +103,8 @@ export type ModelInventoryEntry = {
   command?: string;
   args_template?: string[];
   prompt_transport?: "stdin" | "file";
+  /** Missing means "none": the CLI is blocked unless explicitly allowed. */
+  mcp_isolation?: McpIsolation;
   invocation_model?: string;
 };
 

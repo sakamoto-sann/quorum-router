@@ -98,6 +98,13 @@ inventory discovery, wrapper client, redaction, and inventory/result types from
 the template. Only runner-specific behavior stays in the example: its auth
 modes, trace format, output directory, opt-in gates, and the Hermes bridge.
 
+## Tests never start real provider CLIs
+
+Tests use fake CLIs only. Subprocesses spawned by tests get `PATH` from
+`hermeticPath()` in `router_test.ts` (fake-CLI dirs, deno, `/usr/bin`, `/bin`),
+and a test fails if any `*_test.ts` reads the real `PATH`. To be sure locally,
+run the suite with a `PATH` that has no provider CLIs on it.
+
 ## Safety invariants
 
 Changes must preserve these defaults unless a separately reviewed authority

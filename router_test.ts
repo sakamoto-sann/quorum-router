@@ -193,6 +193,50 @@ import {
 import { FakeTime } from "@std/testing/time";
 import { generatedCopy } from "./packages/create-quorum-router/scaffold_sync.ts";
 
+/**
+ * PATH for test subprocesses. It holds only the given fake-CLI dirs, deno, and
+ * system tools, so a test can never reach the user's real provider CLIs.
+ */
+function hermeticPath(...fakeDirs: string[]): string {
+  const denoDir = Deno.execPath().replace(/[/\\][^/\\]+$/, "");
+  return [...fakeDirs, denoDir, "/usr/bin", "/bin"].join(":");
+}
+
+Deno.test("test subprocesses never inherit the real PATH", async () => {
+  const offenders: string[] = [];
+  for (
+    const root of [".", "examples", "integrations", "packages", "src", "site"]
+  ) {
+    for await (const file of walkTestFiles(root, root === ".")) {
+      const lines = (await Deno.readTextFile(file)).split("\n");
+      lines.forEach((line, index) => {
+        if (/Deno\.env\.get\(\s*["']PATH["']\s*\)/.test(line)) {
+          offenders.push(`${file}:${index + 1}`);
+        }
+      });
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "use hermeticPath() so tests cannot run real provider CLIs",
+  );
+});
+
+async function* walkTestFiles(
+  dir: string,
+  shallow: boolean,
+): AsyncGenerator<string> {
+  for await (const entry of Deno.readDir(dir)) {
+    const path = `${dir}/${entry.name}`;
+    if (entry.isDirectory && !shallow && entry.name !== "node_modules") {
+      yield* walkTestFiles(path, false);
+    } else if (entry.isFile && entry.name.endsWith("_test.ts")) {
+      yield path;
+    }
+  }
+}
+
 type PublicExportTypeSmoke = [
   SmokeAgentBusConfig,
   SmokeAgentBusDirective,
@@ -4613,7 +4657,7 @@ Deno.test("setup CLI --help advertises canonical setup entrypoint", async () => 
       "--help",
     ],
     clearEnv: true,
-    env: { PATH: Deno.env.get("PATH") ?? "" },
+    env: { PATH: hermeticPath() },
   }).output();
   const text = new TextDecoder().decode(output.stdout) +
     new TextDecoder().decode(output.stderr);
@@ -4636,7 +4680,7 @@ Deno.test("setup CLI dry-run does not write files", async () => {
     ],
     cwd: dir,
     clearEnv: true,
-    env: { PATH: Deno.env.get("PATH") ?? "" },
+    env: { PATH: hermeticPath() },
   }).output();
   const text = new TextDecoder().decode(output.stdout) +
     new TextDecoder().decode(output.stderr);
@@ -4661,7 +4705,7 @@ Deno.test("v0.1 offline examples and smoke run without network permissions", asy
     const output = await new Deno.Command(Deno.execPath(), {
       args,
       clearEnv: true,
-      env: { PATH: Deno.env.get("PATH") ?? "" },
+      env: { PATH: hermeticPath() },
     }).output();
     const text = new TextDecoder().decode(output.stdout) +
       new TextDecoder().decode(output.stderr);
@@ -4734,7 +4778,7 @@ Deno.test("setup CLI --write writes config only to requested path", async () => 
     ],
     cwd: dir,
     clearEnv: true,
-    env: { PATH: Deno.env.get("PATH") ?? "" },
+    env: { PATH: hermeticPath() },
   }).output();
   const text = new TextDecoder().decode(output.stdout) +
     new TextDecoder().decode(output.stderr);
@@ -6814,7 +6858,7 @@ Deno.test("router runtime sink implementation has no Supabase service-role env d
 function isolatedDoctorEnv(
   env: Record<string, string> = {},
 ): Record<string, string> {
-  return { PATH: Deno.env.get("PATH") ?? "", ...env };
+  return { PATH: hermeticPath(), ...env };
 }
 
 function doctorArgs(path = "doctor.ts"): string[] {
@@ -7972,7 +8016,7 @@ Deno.test("generated Supabase status is offline, value-safe, and returns selecti
   const cli = `${templateDir}/src/cli.ts`;
   const baseEnv = {
     HOME: Deno.env.get("HOME") ?? tempDir,
-    PATH: Deno.env.get("PATH") ?? "",
+    PATH: hermeticPath(),
     TMPDIR: tempDir,
   };
   const runStatus = (env: Record<string, string>) =>
@@ -9706,9 +9750,10 @@ Deno.test("generated route:once honors forced Grok provider/model and rejects no
     await Deno.chmod(fakeCodex, 0o700);
 
     const baseEnv = {
-      PATH: `${fakeBin}:${Deno.env.get("PATH") ?? ""}`,
+      PATH: hermeticPath(fakeBin),
       HOME: tempDir,
       TMPDIR: tempDir,
+      QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS: "grok",
       RUN_EXTERNAL_MODEL_DOGFOOD: "1",
       QUORUM_ROUTER_AUTH_MODE: "wrapper",
     };
@@ -10177,6 +10222,7 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
       args: ["task", "route:once", "--prompt", "hello"],
       cwd: `${tempDir}/demo`,
       env: {
+        PATH: hermeticPath(),
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
         QUORUM_ROUTER_AUTH_MODE: "env",
         QUORUM_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
@@ -10207,6 +10253,7 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
       args: ["task", "best-route", "--prompt", "matrix prompt"],
       cwd: `${tempDir}/demo`,
       env: {
+        PATH: hermeticPath(),
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
         QUORUM_ROUTER_AUTH_MODE: "env",
         QUORUM_ROUTER_PROVIDER_BASE_URL: `http://127.0.0.1:${port}/v1`,
@@ -10255,8 +10302,9 @@ Deno.test("generated scaffold writes redacted trace with explicit env fallback m
       args: ["task", "route:once", "--prompt", "wrapper hello"],
       cwd: `${tempDir}/demo`,
       env: {
-        PATH: `${fakeBin}:${Deno.env.get("PATH") ?? ""}`,
+        PATH: hermeticPath(fakeBin),
         HOME: tempDir,
+        QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS: "grok",
         RUN_EXTERNAL_MODEL_DOGFOOD: "1",
         QUORUM_ROUTER_AUTH_MODE: "session",
         QUORUM_ROUTER_WRAPPER_PROVIDER_LABEL: "xAI",

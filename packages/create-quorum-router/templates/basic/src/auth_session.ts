@@ -1,6 +1,7 @@
 import {
   envFallbackEntry,
   LOCAL_PROVIDER_SPECS,
+  mcpIsolationBlockReason,
   providerSelectionMatches,
   type ProviderSelectionRequest,
   type ProviderSpec,
@@ -70,6 +71,7 @@ export function discoverInventory(
   for (const spec of LOCAL_PROVIDER_SPECS) {
     if (!includeForMode(spec.auth_mode, mode)) continue;
     const exists = spec.command ? commandExists(spec.command) : false;
+    const isolationBlock = exists ? mcpIsolationBlockReason(spec) : undefined;
     entries.push({
       provider: spec.provider,
       auth_mode: spec.auth_mode,
@@ -78,17 +80,18 @@ export function discoverInventory(
       source: spec.source,
       available: exists,
       blocked_reason: exists
-        ? undefined
+        ? isolationBlock
         : `missing local command: ${spec.command}`,
       can_list_models: false,
       list_blocked_reason: spec.list_blocked_reason ??
         (spec.list_models_args
           ? "model listing not run in sync inventory path"
           : "no safe non-interactive model list command configured"),
-      can_invoke: exists,
+      can_invoke: exists && !isolationBlock,
       command: spec.command,
       args_template: spec.args_template,
       prompt_transport: spec.prompt_transport,
+      mcp_isolation: spec.mcp_isolation,
       notes: exists
         ? [
           ...spec.notes,
@@ -196,7 +199,7 @@ async function enrichModelListing(
   entry: ModelInventoryEntry,
 ): Promise<ModelInventoryEntry> {
   const spec = specForEntry(entry);
-  if (!entry.available || !entry.command || !spec?.list_models_args) {
+  if (!entry.can_invoke || !entry.command || !spec?.list_models_args) {
     return entry;
   }
   try {

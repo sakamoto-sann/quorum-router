@@ -1,4 +1,4 @@
-import type { ModelInventoryEntry } from "./schema.ts";
+import type { McpIsolation, ModelInventoryEntry } from "./schema.ts";
 import { readRouterEnv } from "./env.ts";
 
 export type ProviderSpec = {
@@ -10,6 +10,7 @@ export type ProviderSpec = {
   command?: string;
   args_template?: string[];
   prompt_transport?: "stdin" | "file";
+  mcp_isolation: McpIsolation;
   list_models_args?: string[];
   list_blocked_reason?: string;
   notes: string[];
@@ -137,6 +138,8 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     command: "codex",
     args_template: [
       "exec",
+      // `-c mcp_servers={}` silently keeps every server (openai/codex#16045).
+      "--ignore-user-config",
       "--sandbox",
       "read-only",
       "--skip-git-repo-check",
@@ -147,6 +150,7 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
       "-",
     ],
     prompt_transport: "stdin",
+    mcp_isolation: { kind: "args" },
     list_blocked_reason:
       "codex models is tty/stdin dependent in this environment; model catalog listing is unavailable from non-interactive Deno.",
     notes: [
@@ -160,8 +164,9 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     auth_mode: "oauth",
     source: "oauth_session",
     command: "claude",
-    args_template: ["-p"],
+    args_template: ["--strict-mcp-config", "-p"],
     prompt_transport: "stdin",
+    mcp_isolation: { kind: "args" },
     list_blocked_reason:
       "Claude Code model listing is blocked by organization policy / disabled subscription access in this environment.",
     notes: [
@@ -177,6 +182,12 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     command: "gemini",
     args_template: ["-p", ""],
     prompt_transport: "stdin",
+    // Workspace settings override user settings key by key, so this empties
+    // the user's mcpServers for the private working directory.
+    mcp_isolation: {
+      kind: "workspace_settings",
+      files: { ".gemini/settings.json": '{ "mcpServers": {} }\n' },
+    },
     list_blocked_reason:
       "Gemini CLI list/invoke paths require a trusted directory in non-interactive runs unless the user opts into the trust setting.",
     notes: [
@@ -200,6 +211,7 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
       "--disable-web-search",
     ],
     prompt_transport: "file",
+    mcp_isolation: { kind: "none" },
     list_models_args: ["models"],
     notes: [
       "Uses existing Grok CLI session; `grok models` is safe list-only discovery.",
@@ -214,6 +226,7 @@ export const LOCAL_PROVIDER_SPECS: ProviderSpec[] = [
     command: "devin",
     args_template: ["-p", "--prompt-file", "__PROMPT_FILE__"],
     prompt_transport: "file",
+    mcp_isolation: { kind: "none" },
     list_blocked_reason:
       "Devin CLI does not expose a models subcommand in this environment.",
     notes: ["Uses existing Devin CLI session."],
@@ -243,4 +256,23 @@ export function envFallbackEntry(configured: boolean): ModelInventoryEntry {
       "Env fallback is explicit-only and is not the preferred public dogfood path.",
     ],
   };
+}
+
+/**
+ * Why a CLI entry must not run: it has no way to keep the user's own MCP
+ * servers and config out of the call, and the user has not named it in
+ * QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS. Undefined when it may run.
+ */
+export function mcpIsolationBlockReason(
+  entry: Pick<ModelInventoryEntry, "provider" | "command" | "mcp_isolation">,
+): string | undefined {
+  if (!entry.command) return undefined;
+  if (entry.mcp_isolation && entry.mcp_isolation.kind !== "none") {
+    return undefined;
+  }
+  const name = entry.command.split("/").pop() ?? entry.command;
+  const allowed = (readRouterEnv("QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS") ?? "")
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  if (allowed.includes(name)) return undefined;
+  return `${entry.provider} CLI '${name}' would load its own MCP servers and config; set QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS=${name} to allow it`;
 }
