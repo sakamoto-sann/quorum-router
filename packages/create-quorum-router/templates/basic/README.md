@@ -26,6 +26,9 @@ are permitted under the MIT License.
 - No live Supabase Agent Bus runtime writes.
 - Best Route/direct is the production-ready best-answer routing path.
 - `agent-chat` is read-only explicit opt-in only.
+- Provider CLIs start without your own MCP servers and CLI config (see
+  [MCP isolation](#mcp-isolation)). A CLI with no way to do that stays blocked
+  until you name it in `QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS`.
 
 ## First launch
 
@@ -180,12 +183,14 @@ falls back to OpenAI/Codex or private env fallback unless
 
 ```bash
 QUORUM_ROUTER_AUTH_MODE=wrapper \
+QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS=grok \
 QUORUM_ROUTER_PROVIDER_LABEL=grok-cli \
 QUORUM_ROUTER_PROVIDER_MODEL=grok-build \
 RUN_EXTERNAL_MODEL_DOGFOOD=1 \
   deno task route:once --prompt "Review this README for risky claims."
 
 QUORUM_ROUTER_AUTH_MODE=wrapper \
+QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS=grok \
 QUORUM_ROUTER_PROVIDER_LABEL=grok-cli \
 QUORUM_ROUTER_PROVIDER_MODEL=grok-composer-2.5-fast \
 RUN_EXTERNAL_MODEL_DOGFOOD=1 \
@@ -196,6 +201,28 @@ Supported provider aliases include `grok-cli`, `grok`, `xai`, `xAI`, `OpenAI`,
 `codex-cli`, `claude-code`, `gemini-cli`, and `devin-cli`. Wrapper invocations
 use argv arrays, closed stdin, timeout guards, and sanitized stdout/stderr; CLI
 banners or auth/runtime errors are not accepted as valid model answers.
+
+### MCP isolation
+
+A provider CLI normally loads your own MCP servers and CLI config, which can
+start browser, trading, or device tools for a one-line model call. The scaffold
+starts each CLI without them:
+
+| CLI             | How MCP servers are kept out                                                                |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `claude`        | `--strict-mcp-config` with no MCP config                                                    |
+| `codex`         | `exec --ignore-user-config` (skips `~/.codex/config.toml`)                                  |
+| `gemini`        | runs in a private working directory whose `.gemini/settings.json` sets `mcpServers` to `{}` |
+| `grok`, `devin` | no known way; blocked by default                                                            |
+
+To run a CLI from the last row anyway, name it explicitly, for example
+`QUORUM_ROUTER_ALLOW_UNISOLATED_CLIS=grok` (comma-separated for several). That
+CLI then starts with your own MCP servers and config. `deno task models:list`
+and `health` show the reason for each blocked CLI.
+
+The `codex` row skips the whole user config, not only MCP servers. The `gemini`
+row relies on workspace settings replacing user settings key by key, which was
+checked against Gemini CLI 0.1.4; check newer releases before relying on it.
 
 ## Auth and inventory
 

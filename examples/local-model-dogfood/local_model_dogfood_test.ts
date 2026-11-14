@@ -397,6 +397,7 @@ Deno.test("dogfood wrapper sends the prompt on stdin from an isolated process", 
       command: cli,
       args_template: ["-p"],
       prompt_transport: "stdin",
+      mcp_isolation: { kind: "args" },
     }, "private prompt text");
     assertEquals(
       result.raw_content,

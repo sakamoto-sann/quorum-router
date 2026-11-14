@@ -1,5 +1,6 @@
 import type { ModelInventoryEntry, ProviderResult } from "./schema.ts";
 import { redact, summarize } from "./redact.ts";
+import { mcpIsolationBlockReason } from "./provider_registry.ts";
 
 export function buildWrapperArgs(
   entry: ModelInventoryEntry,
@@ -175,6 +176,10 @@ export async function callWrapper(
       `QuorumRouter blocked: ${entry.provider} has no command`,
     );
   }
+  const isolationBlock = mcpIsolationBlockReason(entry);
+  if (isolationBlock) {
+    throw new Error(`QuorumRouter blocked: ${isolationBlock}`);
+  }
   await Deno.mkdir(outDir, { recursive: true, mode: 0o700 });
   const outPath = await Deno.makeTempFile({
     dir: outDir,
@@ -197,7 +202,25 @@ export async function callWrapper(
   const absolutePromptPath = promptPath
     ? await Deno.realPath(promptPath)
     : undefined;
+  const isolation = entry.mcp_isolation;
+  const workspace = isolation?.kind === "workspace_settings"
+    ? await Deno.makeTempDir({ dir: outDir, prefix: "quorum-router-cwd-" })
+    : undefined;
   try {
+    if (workspace && isolation?.kind === "workspace_settings") {
+      for (const [relative, content] of Object.entries(isolation.files)) {
+        const parent = relative.split("/").slice(0, -1).join("/");
+        if (parent) {
+          await Deno.mkdir(`${workspace}/${parent}`, { recursive: true });
+        }
+        await Deno.writeTextFile(`${workspace}/${relative}`, content, {
+          mode: 0o600,
+        });
+      }
+    }
+    const cwd = workspace
+      ? await Deno.realPath(workspace)
+      : Deno.env.get("TMPDIR") || "/tmp";
     const runWrapper = async () => {
       const child = new Deno.Command(entry.command!, {
         args: buildWrapperArgs(
@@ -205,7 +228,7 @@ export async function callWrapper(
           absoluteOutPath,
           absolutePromptPath,
         ),
-        cwd: Deno.env.get("TMPDIR") || "/tmp",
+        cwd,
         clearEnv: true,
         env: safeWrapperEnv(),
         stdin: entry.prompt_transport === "stdin" ? "piped" : "null",
@@ -259,5 +282,8 @@ export async function callWrapper(
   } finally {
     await Deno.remove(outPath).catch(() => undefined);
     if (promptPath) await Deno.remove(promptPath).catch(() => undefined);
+    if (workspace) {
+      await Deno.remove(workspace, { recursive: true }).catch(() => undefined);
+    }
   }
 }
