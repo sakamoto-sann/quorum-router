@@ -1,7 +1,3 @@
-export function browserLoginSupported(): boolean {
-  return false;
-}
-
 export function printLoginGuidance(): never {
   console.error(
     "OAuth/session login is not configured for this generated scaffold yet.",
